@@ -1,0 +1,271 @@
+@import "tailwindcss";
+
+/* =========================================================
+   VERVE DESIGN SYSTEM — v1.1
+   
+   Color correction applied after self-critique:
+   Initial design used near-black + phosphor green — exactly
+   the pattern listed as HIGH risk in our own blocklist (color-002).
+   
+   Signature Element: "Editorial Calibration" — annotation amber
+   on warm charcoal. Derived from the act of design criticism:
+   the color of a red pen, a markup, a margin note. Not terminal
+   aesthetics. Not neon. A tool that corrects defaults should not
+   look like a default.
+   
+   Phosphor green (#39FF14) is RETAINED but scoped to data-only
+   contexts: severity badges, pass/fail indicators, live signals.
+   It is NOT the brand accent.
+   ========================================================= */
+
+@layer base {
+  :root {
+    /* -- Primary surface: warm near-black (slight brown undertone) -- */
+    --bg-void: #0F0D0B;
+    --bg-surface: #141210;
+    --bg-raised: #1C1915;
+    --bg-overlay: #242018;
+
+    /* -- Brand accent: editorial amber — annotation, precision, marking -- */
+    /* Derived from: ink annotation tools, calibration marks, editorial judgment */
+    /* Not: neon, cyber, terminal green, "AI aesthetic" */
+    --brand: #D49020;               /* primary brand — amber */
+    --brand-hover: #E8A832;         /* lighter on interaction */
+    --brand-dim: rgba(212,144,32,0.12); /* surface tint */
+
+    /* -- Data-only colors (functional, NOT brand) -- */
+    --data-pass: #39FF14;           /* phosphor — used ONLY for pass/live indicators */
+    --data-fail: #C05540;           /* brick — used ONLY for high-severity flags */
+    --data-warn: #D49020;           /* same amber — medium severity */
+    --data-muted: #6E6A60;          /* warm static — low severity */
+
+    /* -- Legacy alias (for any component still using --signal-green) -- */
+    --signal-green: #39FF14;        /* data-only alias — do not use as brand */
+    --signal-amber: #D49020;        /* same as --brand */
+    --signal-static: #6E6A60;
+    --signal-dim: #2A2218;
+
+    /* -- Text: warm cream, not cold white -- */
+    --text-primary: #F0ECD6;
+    --text-secondary: #9E9A88;
+    --text-muted: #5A5648;
+    --text-inverse: #0F0D0B;
+
+    /* -- Structural -- */
+    --border-subtle: rgba(255,255,255,0.05);
+    --border-active: rgba(212, 144, 32, 0.35);
+    --border-brand: #D49020;
+
+    /* -- Typography -- */
+    /* 
+      Display: "Space Grotesk" — technical, precise, slightly geometric
+      without being cold. The rounded terminals on 'a', 'g', 'r' 
+      prevent it from reading as pure engineering.
+      Body: "IBM Plex Mono" — monospace deliberately chosen because
+      the product talks about code and generation. The body text IS
+      the medium of the product.
+    */
+    --font-display: 'Space Grotesk', system-ui, sans-serif;
+    --font-body: 'IBM Plex Mono', 'Fira Code', monospace;
+
+    /* -- Spacing rhythm -- */
+    --space-unit: 8px;
+    --section-gap: 120px;
+    --content-max: 1080px;
+    --grid-gap: 1px; /* signal noise grid lines */
+
+    /* -- Transitions -- */
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-base: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 600ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--bg-void);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Editorial grid: structural background — amber-tinted, not green */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(212, 144, 32, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(212, 144, 32, 0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Subtle vignette — frames the content like a printed page */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(
+      ellipse at center,
+      transparent 60%,
+      rgba(0, 0, 0, 0.3) 100%
+    );
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    body::before, body::after {
+      display: none;
+    }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  code, pre {
+    font-family: var(--font-body);
+  }
+
+  ::selection {
+    background: var(--brand);
+    color: var(--text-inverse);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+}
+
+/* =========================================================
+   UTILITY CLASSES
+   ========================================================= */
+
+@layer utilities {
+  .container {
+    max-width: var(--content-max);
+    margin-inline: auto;
+    padding-inline: 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .signal-text {
+    color: var(--brand);  /* brand amber — not green */
+  }
+
+  .amber-text {
+    color: var(--brand);
+  }
+
+  /* Data-only green — use ONLY inside severity badges/indicators */
+  .data-pass {
+    color: var(--data-pass);
+  }
+
+  .muted-text {
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  /* Cursor blink — amber, not green */
+  @keyframes cursor-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  .cursor-blink::after {
+    content: '█';
+    color: var(--brand);
+    animation: cursor-blink 1s step-end infinite;
+    margin-left: 2px;
+  }
+
+  /* Brand pulse — amber glow for interactive elements */
+  @keyframes brand-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(212, 144, 32, 0.45); }
+    70% { box-shadow: 0 0 0 8px rgba(212, 144, 32, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(212, 144, 32, 0); }
+  }
+
+  /* Data pulse — green ONLY for live data/pass state indicators */
+  @keyframes data-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(57, 255, 20, 0.4); }
+    70% { box-shadow: 0 0 0 8px rgba(57, 255, 20, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(57, 255, 20, 0); }
+  }
+
+  .signal-pulse {
+    animation: brand-pulse 2s ease-out infinite;
+  }
+
+  /* Noise flicker — used on "before" state (generic AI output) */
+  @keyframes noise-flicker {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.85; }
+    25%, 75% { opacity: 0.92; }
+  }
+
+  .noise-state {
+    animation: noise-flicker 3s ease-in-out infinite;
+    filter: blur(0.2px) sepia(0.2);
+  }
+
+  /* Annotation sweep — amber tint, not green */
+  @keyframes scan-sweep {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  .scan-line-sweep {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .scan-line-sweep::after {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    width: 60px;
+    background: linear-gradient(90deg, transparent, rgba(212, 144, 32, 0.06), transparent);
+    animation: scan-sweep 3s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cursor-blink::after { animation: none; }
+    .signal-pulse { animation: none; }
+    .noise-state { animation: none; filter: none; }
+    .scan-line-sweep::after { display: none; }
+  }
+}

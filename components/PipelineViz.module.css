@@ -1,0 +1,112 @@
+.pipeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 48px;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 0 24px;
+}
+
+.stepLeft {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stepId {
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(212, 144, 32, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand);
+  letter-spacing: 0.04em;
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+  background: var(--brand-dim);
+  flex-shrink: 0;
+}
+
+.connector {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-block: 4px;
+}
+
+.connectorLine {
+  width: 1px;
+  flex: 1;
+  background: var(--border-subtle);
+  background-image: linear-gradient(to bottom, var(--border-active) 0%, var(--border-subtle) 100%);
+}
+
+.connectorArrow {
+  font-size: 12px;
+  color: var(--brand);
+  opacity: 0.5;
+  line-height: 1;
+}
+
+.stepContent {
+  padding-bottom: 32px;
+  padding-top: 8px;
+}
+
+.step:last-child .stepContent {
+  padding-bottom: 0;
+}
+
+.stepHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.stepName {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.stepModule {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-raised);
+  padding: 2px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
+  font-family: var(--font-body);
+}
+
+.stepDesc {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+  max-width: 600px;
+}
+
+@media (max-width: 480px) {
+  .step {
+    grid-template-columns: 48px 1fr;
+    gap: 0 16px;
+  }
+
+  .stepId {
+    width: 32px;
+    height: 32px;
+    font-size: 11px;
+  }
+}

@@ -1,0 +1,218 @@
+{
+  "version": "1.1.0",
+  "last_updated": "2026-08-03",
+  "description": "Community-maintained list of known AI-generated design tells. Each entry represents a pattern that has become statistically dominant in LLM-generated UIs, reducing distinctiveness.",
+  "cliches": [
+    {
+      "id": "color-001",
+      "category": "color",
+      "pattern": "Cream/off-white background with warm serif typography",
+      "description": "Using #F4F1EA or similar warm off-white as primary background, typically paired with a serif font and terracotta or brick accent near #D97757",
+      "example_values": ["#F4F1EA", "#EDE8DC", "#F0EBE1", "#D97757", "#C26B4A"],
+      "severity": "high",
+      "date_observed": "2025-01-01",
+      "tags": ["background", "serif-pairing", "terracotta"]
+    },
+    {
+      "id": "color-002",
+      "category": "color",
+      "pattern": "Near-black + single acid accent",
+      "description": "Dark near-black (#0A0A0A to #1A1A2E) backgrounds with a single high-chroma accent — electric green, neon cyan, or vivid violet — as the only chromatic element",
+      "example_values": ["#0A0A0A", "#00FF88", "#7C3AED", "#06B6D4", "#10B981"],
+      "severity": "high",
+      "date_observed": "2025-01-01",
+      "tags": ["dark-mode", "neon", "minimal-palette"]
+    },
+    {
+      "id": "color-003",
+      "category": "color",
+      "pattern": "Safe blue-to-purple hero gradient",
+      "description": "Hero section gradient running from a mid-blue to a purple, often #6366F1 to #8B5CF6 or #3B82F6 to #7C3AED",
+      "example_values": ["#6366F1", "#8B5CF6", "#3B82F6", "#7C3AED", "#4F46E5"],
+      "severity": "high",
+      "date_observed": "2025-01-01",
+      "tags": ["gradient", "hero", "purple-blue"]
+    },
+    {
+      "id": "color-004",
+      "category": "color",
+      "pattern": "Slate gray as secondary background",
+      "description": "Using Tailwind's slate-100 through slate-200 (#F1F5F9, #E2E8F0) as card or section backgrounds, producing a cold, corporate feel",
+      "example_values": ["#F1F5F9", "#E2E8F0", "#CBD5E1", "#94A3B8"],
+      "severity": "medium",
+      "date_observed": "2025-01-01",
+      "tags": ["secondary-bg", "cards", "slate"]
+    },
+    {
+      "id": "color-005",
+      "category": "color",
+      "pattern": "Generic brand-blue primary",
+      "description": "Using stock blue (#3B82F6, #2563EB, #1D4ED8) as the primary brand color with no justification from the product's actual subject matter",
+      "example_values": ["#3B82F6", "#2563EB", "#1D4ED8", "#1E40AF"],
+      "severity": "medium",
+      "date_observed": "2025-01-01",
+      "tags": ["brand-color", "corporate-blue"]
+    },
+    {
+      "id": "type-001",
+      "category": "typography",
+      "pattern": "Inter as default sans-serif",
+      "description": "Using Inter as the sole or primary typeface with no justification — it's the statistical default of AI-generated UI code",
+      "example_values": ["font-family: 'Inter'", "import { Inter } from 'next/font/google'"],
+      "severity": "high",
+      "date_observed": "2025-01-01",
+      "tags": ["sans-serif", "inter", "default-font"]
+    },
+    {
+      "id": "type-002",
+      "category": "typography",
+      "pattern": "Generic hero heading weight jump",
+      "description": "A 6xl/7xl bold hero heading in Inter or Roboto immediately followed by a lighter, smaller subtitle — the exact typographic structure of every SaaS landing page",
+      "example_values": ["text-6xl font-bold", "text-7xl font-extrabold", "H1 + p.text-xl.text-muted"],
+      "severity": "high",
+      "date_observed": "2025-01-01",
+      "tags": ["hero", "heading-scale", "weight-jump"]
+    },
+    {
+      "id": "type-003",
+      "category": "typography",
+      "pattern": "Roboto/Poppins as safe body font",
+      "description": "Defaulting to Roboto or Poppins as a 'neutral' body font — these are the most over-represented fonts in AI-generated code",
+      "example_values": ["font-family: 'Roboto'", "font-family: 'Poppins'"],
+      "severity": "medium",
+      "date_observed": "2025-01-01",
+      "tags": ["body-font", "roboto", "poppins"]
+    },
+    {
+      "id": "layout-001",
+      "category": "layout",
+      "pattern": "4-feature-card grid in hero section",
+      "description": "Immediately below the hero, a 2x2 or 1x4 grid of identical feature cards with icon, bold title, and 1-2 sentence description. Ubiquitous. Indistinguishable.",
+      "example_values": ["grid-cols-4 gap-6", "grid-cols-2 md:grid-cols-4", "FeatureCard × 4"],
+      "severity": "high",
+      "date_observed": "2025-01-01",
+      "tags": ["feature-grid", "cards", "hero-below"]
+    },
+    {
+      "id": "layout-002",
+      "category": "layout",
+      "pattern": "Centered hero with CTA button pair",
+      "description": "Full-width centered hero with H1, subtitle paragraph, and exactly two buttons (Primary CTA + secondary 'Learn More') stacked or side-by-side",
+      "example_values": ["flex gap-4 justify-center", "<button>Get Started</button><button>Learn more</button>"],
+      "severity": "high",
+      "date_observed": "2025-01-01",
+      "tags": ["hero", "cta", "centered-layout"]
+    },
+    {
+      "id": "layout-003",
+      "category": "layout",
+      "pattern": "Sticky navbar with logo-left, links-center, CTA-right",
+      "description": "The canonical SaaS navbar: logo on the far left, centered nav links, primary CTA button on the far right, always sticky",
+      "example_values": ["flex justify-between items-center", "sticky top-0 z-50"],
+      "severity": "medium",
+      "date_observed": "2025-01-01",
+      "tags": ["navbar", "sticky", "three-column"]
+    },
+    {
+      "id": "layout-004",
+      "category": "layout",
+      "pattern": "Alternating text-left, image-right sections",
+      "description": "Repeating content sections that alternate between text-on-left/image-on-right and text-on-right/image-on-left, with no visual variation in rhythm or density",
+      "example_values": ["grid-cols-2 gap-12", "flex-row-reverse even:flex-row"],
+      "severity": "medium",
+      "date_observed": "2025-01-01",
+      "tags": ["alternating-sections", "two-column", "repetitive"]
+    },
+    {
+      "id": "layout-005",
+      "category": "layout",
+      "pattern": "Soft-shadow card container",
+      "description": "White cards with rounded corners (rounded-lg/xl) and a faint box-shadow (shadow-sm, shadow-md) as the primary container for content — safe, bland, omnipresent",
+      "example_values": ["rounded-xl shadow-sm bg-white", "rounded-lg shadow-md p-6"],
+      "severity": "high",
+      "date_observed": "2025-01-01",
+      "tags": ["cards", "rounded-corners", "soft-shadow"]
+    },
+    {
+      "id": "motion-001",
+      "category": "motion",
+      "pattern": "Fade-in-up on scroll for every element",
+      "description": "Applying the same translateY + opacity animation to every section as it enters the viewport — no variation in timing, direction, or intent",
+      "example_values": ["opacity-0 translate-y-4 animate-fade-in-up", "whileInView={{ opacity: 1, y: 0 }}"],
+      "severity": "medium",
+      "date_observed": "2025-01-01",
+      "tags": ["scroll-animation", "fade-in", "generic-motion"]
+    },
+    {
+      "id": "motion-002",
+      "category": "motion",
+      "pattern": "Button scale-up on hover",
+      "description": "scale(1.05) on every interactive element as the sole hover treatment — the most predictable and uninformative micro-interaction",
+      "example_values": ["hover:scale-105", "whileHover={{ scale: 1.05 }}"],
+      "severity": "low",
+      "date_observed": "2025-01-01",
+      "tags": ["hover", "scale", "micro-interaction"]
+    },
+    {
+      "id": "copy-001",
+      "category": "copy",
+      "pattern": "Power-verb hero headline",
+      "description": "Hero H1 starting with a single imperative verb: 'Build', 'Create', 'Design', 'Ship', 'Transform' followed by a vague object",
+      "example_values": ["Build faster.", "Create without limits.", "Design the future.", "Ship smarter."],
+      "severity": "high",
+      "date_observed": "2025-01-01",
+      "tags": ["headline", "copy", "imperative-verb"]
+    },
+    {
+      "id": "copy-002",
+      "category": "copy",
+      "pattern": "Generic feature benefit copy",
+      "description": "Feature card descriptions using the structure 'Our [feature] helps you [vague benefit] so you can [vaguer outcome]'",
+      "example_values": ["Streamline your workflow", "Boost your productivity", "Supercharge your team"],
+      "severity": "medium",
+      "date_observed": "2025-01-01",
+      "tags": ["feature-copy", "generic-benefit", "filler"]
+    },
+    {
+      "id": "copy-003",
+      "category": "copy",
+      "pattern": "Three-word tagline with em-dash",
+      "description": "Taglines formatted as 'Adjective. Adjective. Noun.' or 'Verb — Noun — Adjective' with no specific connection to the product",
+      "example_values": ["Fast. Flexible. Powerful.", "Build — Ship — Scale.", "Simple. Beautiful. Yours."],
+      "severity": "medium",
+      "date_observed": "2025-01-01",
+      "tags": ["tagline", "three-word", "em-dash"]
+    },
+    {
+      "id": "layout-006",
+      "category": "layout",
+      "pattern": "Testimonial carousel with star ratings",
+      "description": "A section of 3-column testimonial cards each showing a star rating, quote, and avatar — indistinguishable across products",
+      "example_values": ["★★★★★", "grid-cols-3 testimonial-cards", "avatar + quote + name"],
+      "severity": "medium",
+      "date_observed": "2025-01-01",
+      "tags": ["testimonials", "stars", "social-proof"]
+    },
+    {
+      "id": "color-007",
+      "category": "color",
+      "pattern": "Terminal phosphor green on near-black (dev tools default)",
+      "description": "Using #39FF14, #00FF41, or similar phosphor/matrix green as the BRAND accent on a near-black background. Common in AI tools, dev tools, and CLIs. The 'hacker aesthetic' is now a statistical default — it signals 'AI-generated developer tool' as reliably as cream-and-serif signals 'AI content startup'. Color-002 blocks the near-black+acid pattern; this entry specifically targets the green variant used as a brand identity, not a data indicator.",
+      "example_values": ["#39FF14", "#00FF41", "#0FFF50", "#39FF14 as brand primary", "phosphor-green logo mark", "green CTA button on dark bg"],
+      "severity": "high",
+      "date_observed": "2026-08-03",
+      "tags": ["dev-tools", "terminal", "hacker-aesthetic", "neon-green", "AI-tell"],
+      "correction_note": "Verve v1.0 shipped with this pattern. Corrected in v1.1 after self-critique identified the violation. The phosphor green (#39FF14) is now scoped to data-only contexts (severity badges, pass indicators). Brand accent is editorial amber (#D49020), derived from annotation/markup tools — authentic to the product's subject matter."
+    },
+    {
+      "id": "copy-004",
+      "category": "copy",
+      "pattern": "'No signup required' as a trust signal in workspace headings",
+      "description": "Placing 'No signup required' or 'No account needed' as a subtitle in the workspace or demo section — overused to the point of becoming invisible. Users assume it, not trust it.",
+      "example_values": ["Generate or critique. No signup required.", "Try it free — no account needed.", "No credit card. No signup."],
+      "severity": "low",
+      "date_observed": "2026-08-03",
+      "tags": ["trust-signal", "workspace", "copy"]
+    }
+  ]
+}
