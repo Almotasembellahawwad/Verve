@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { runPipeline } from "@/lib/engine/pipeline";
 import { z } from "zod";
 
+export const maxDuration = 120;
+
 const RequestSchema = z.object({
   brief: z.string().min(10).max(5000),
   existingCode: z.string().max(20000).optional(),
   framework: z.enum(["nextjs", "react", "html"]).optional().default("nextjs"),
-  apiKey: z.string().optional(), // User-provided API key
+  apiKey: z.string().optional(),
+  provider: z.enum(["anthropic", "openai", "gemini"]).optional().default("anthropic"),
+  model: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -21,23 +25,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // If user provides their own API key, inject it into the environment for this request
-    if (parsed.data.apiKey) {
-      process.env.ANTHROPIC_API_KEY = parsed.data.apiKey;
-    }
+    const { apiKey, provider = "anthropic" } = parsed.data;
 
-    // Check that we have an API key (either from env or user-provided)
-    if (!process.env.ANTHROPIC_API_KEY) {
+    // Require user API key
+    if (!apiKey) {
       return NextResponse.json(
-        {
-          error: "No API key configured. Please provide your Anthropic API key in the settings panel.",
-          code: "NO_API_KEY",
-        },
+        { error: "No API key provided. Please add your API key in the provider selector.", code: "NO_API_KEY" },
         { status: 401 }
       );
     }
 
-    const result = await runPipeline(parsed.data);
+    const result = await runPipeline({
+      ...parsed.data,
+      provider,
+      apiKey,
+    });
 
     return NextResponse.json({
       plan: result.designPlan,

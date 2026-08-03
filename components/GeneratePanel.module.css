@@ -4,6 +4,71 @@
   gap: 32px;
 }
 
+/* ── Provider selector row ───────────────────────────────── */
+.providerRow {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding: 18px 20px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-subtle);
+}
+
+.providerGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.providerTabs {
+  display: flex;
+  gap: 1px;
+  background: var(--border-subtle);
+}
+
+.providerTab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: var(--bg-surface);
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: background var(--transition-fast), color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.providerTab:hover:not(:disabled) {
+  background: var(--bg-raised);
+  color: var(--text-primary);
+}
+
+.providerTab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.providerTabActive {
+  background: var(--brand-dim) !important;
+  color: var(--brand) !important;
+  position: relative;
+}
+
+.providerTabActive::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  background: var(--brand);
+}
+
 /* Input */
 .inputSection {
   display: flex;

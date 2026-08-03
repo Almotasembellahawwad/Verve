@@ -2,8 +2,17 @@
 
 import { useState, useEffect, useRef } from "react";
 import styles from "./GeneratePanel.module.css";
+import { PROVIDER_MODELS, DEFAULT_MODEL, PROVIDER_KEY_LABELS } from "@/lib/llm-adapter/types";
+import type { Provider } from "@/lib/llm-adapter/types";
 
-const STORAGE_KEY = "verve_anthropic_api_key";
+const ANTHROPIC_KEY = "verve_anthropic_api_key";
+const getStorageKey = (p: Provider) => `verve_${p}_api_key`;
+
+const PROVIDERS: { id: Provider; label: string; icon: string }[] = [
+  { id: "anthropic", label: "Claude",  icon: "◆" },
+  { id: "openai",    label: "GPT",     icon: "◎" },
+  { id: "gemini",    label: "Gemini",  icon: "✦" },
+];
 
 // ─── Pipeline telemetry stages ────────────────────────────────────────────────
 // Heuristic timing based on real Claude API call durations.
@@ -110,20 +119,24 @@ export default function GeneratePanel() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PipelineResult | null>(null);
   const [activeView, setActiveView] = useState<"plan" | "code" | "report">("plan");
+  const [provider, setProvider] = useState<Provider>("anthropic");
+  const [model, setModel] = useState<string>(DEFAULT_MODEL.anthropic);
   const [apiKey, setApiKey] = useState("");
   const [missingKey, setMissingKey] = useState(false);
   const [stageStates, setStageStates] = useState<StageState[]>([]);
   const telemetryTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) setApiKey(stored);
-  }, []);
+    const stored = localStorage.getItem(getStorageKey(provider))
+      ?? localStorage.getItem(ANTHROPIC_KEY)
+      ?? "";
+    setApiKey(stored);
+  }, [provider]);
 
   useEffect(() => {
     const onStorageChange = () => {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      setApiKey(stored ?? "");
+      const stored = localStorage.getItem(getStorageKey(provider)) ?? "";
+      setApiKey(stored);
       if (stored) setMissingKey(false);
     };
     window.addEventListener("storage", onStorageChange);
@@ -132,7 +145,15 @@ export default function GeneratePanel() {
       window.removeEventListener("storage", onStorageChange);
       window.removeEventListener("verve:api-key-saved", onStorageChange);
     };
-  }, []);
+  }, [provider]);
+
+  const handleProviderChange = (p: Provider) => {
+    setProvider(p);
+    setModel(DEFAULT_MODEL[p]);
+    const stored = localStorage.getItem(getStorageKey(p)) ?? "";
+    setApiKey(stored);
+    setMissingKey(false);
+  };
 
   const openApiKeyModal = () => {
     window.dispatchEvent(new CustomEvent("verve:open-api-key-modal"));
@@ -185,7 +206,7 @@ export default function GeneratePanel() {
       return;
     }
 
-    const currentKey = localStorage.getItem(STORAGE_KEY) ?? apiKey;
+    const currentKey = localStorage.getItem(getStorageKey(provider)) ?? apiKey;
     if (!currentKey) {
       setMissingKey(true);
       setError(null);
@@ -207,6 +228,8 @@ export default function GeneratePanel() {
           existingCode: existingCode || undefined,
           framework,
           apiKey: currentKey,
+          provider,
+          model,
         }),
       });
 
@@ -244,6 +267,72 @@ export default function GeneratePanel() {
 
   return (
     <div className={styles.panel}>
+      {/* ── Provider Row ──────────────────────────────────────────────────────── */}
+      <div className={styles.providerRow}>
+        <div className={styles.providerGroup}>
+          <span className={styles.label}>AI provider</span>
+          <div className={styles.providerTabs} role="group" aria-label="Select AI provider">
+            {PROVIDERS.map((p) => (
+              <button
+                key={p.id}
+                className={`${styles.providerTab} ${provider === p.id ? styles.providerTabActive : ""}`}
+                onClick={() => handleProviderChange(p.id)}
+                type="button"
+                disabled={loading}
+              >
+                <span aria-hidden="true">{p.icon}</span>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className={styles.inputGroup} style={{ flex: 1, minWidth: 220 }}>
+          <label htmlFor="model-select" className={styles.label}>Model</label>
+          <select
+            id="model-select"
+            className={styles.select}
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            disabled={loading}
+          >
+            {PROVIDER_MODELS[provider].map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label} — {m.description}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className={styles.inputGroup}>
+          <span className={styles.label}>{PROVIDER_KEY_LABELS[provider].label}</span>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              type="password"
+              className={styles.textarea}
+              style={{ padding: "8px 12px", resize: "none", fontSize: 12, fontFamily: "var(--font-body)" }}
+              value={apiKey}
+              onChange={(e) => {
+                setApiKey(e.target.value);
+                localStorage.setItem(getStorageKey(provider), e.target.value);
+                if (provider === "anthropic") localStorage.setItem(ANTHROPIC_KEY, e.target.value);
+              }}
+              placeholder={PROVIDER_KEY_LABELS[provider].placeholder}
+              disabled={loading}
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <a
+              href={PROVIDER_KEY_LABELS[provider].docsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.hint}
+              style={{ color: "var(--brand)", whiteSpace: "nowrap", fontSize: 11 }}
+            >
+              Get key ↗
+            </a>
+          </div>
+        </div>
+      </div>
+
       {/* ── Input ─────────────────────────────────────────────────────────── */}
       <div className={styles.inputSection}>
         <div className={styles.inputGroup}>

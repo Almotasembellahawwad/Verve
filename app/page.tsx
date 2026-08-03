@@ -4,13 +4,14 @@ import { useState } from "react";
 import styles from "./page.module.css";
 import GeneratePanel from "@/components/GeneratePanel";
 import CritiquePanel from "@/components/CritiquePanel";
+import ComparePanel from "@/components/ComparePanel";
 import { BeforeAfterHero } from "@/components/BeforeAfterHero";
 import { PipelineViz } from "@/components/PipelineViz";
 import { ClicheList } from "@/components/ClicheList";
 import { SignalNav } from "@/components/SignalNav";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"generate" | "critique">("generate");
+  const [activeTab, setActiveTab] = useState<"generate" | "critique" | "compare">("generate");
 
   return (
     <main className={styles.main}>
@@ -40,7 +41,7 @@ export default function Home() {
             Try it free
           </a>
           <a
-            href="https://github.com/verve-project/verve"
+            href="https://github.com/mohasbks/Verve"
             className={styles.ctaSecondary}
             target="_blank"
             rel="noopener noreferrer"
@@ -101,10 +102,23 @@ export default function Home() {
               <ScanIcon />
               Critique
             </button>
+            <button
+              role="tab"
+              aria-selected={activeTab === "compare"}
+              className={`${styles.tab} ${activeTab === "compare" ? styles.tabActive : ""}`}
+              onClick={() => setActiveTab("compare")}
+              id="tab-compare"
+            >
+              <CompareIcon />
+              Compare
+              <span className={styles.tabBadge}>new</span>
+            </button>
           </div>
 
           <div role="tabpanel" aria-labelledby={`tab-${activeTab}`}>
-            {activeTab === "generate" ? <GeneratePanel /> : <CritiquePanel />}
+            {activeTab === "generate" && <GeneratePanel />}
+            {activeTab === "critique" && <CritiquePanel />}
+            {activeTab === "compare"  && <ComparePanel />}
           </div>
         </div>
       </section>
@@ -231,6 +245,15 @@ function ScanIcon() {
       <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
       <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
       <line x1="7" y1="12" x2="17" y2="12" />
+    </svg>
+  );
+}
+
+function CompareIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <rect x="3" y="3" width="8" height="18" rx="1" />
+      <rect x="13" y="3" width="8" height="18" rx="1" />
     </svg>
   );
 }

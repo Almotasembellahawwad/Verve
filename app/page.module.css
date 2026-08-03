@@ -236,6 +236,22 @@
   border-bottom-color: var(--brand);
 }
 
+.tabBadge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand);
+  background: var(--brand-dim);
+  border: 1px solid rgba(212, 144, 32, 0.3);
+  padding: 1px 5px;
+  border-radius: 2px;
+  line-height: 1.4;
+}
+
 /* ---- CLICHÉ SECTION ---- */
 .clicheSection {
   padding-block: var(--section-gap);
