@@ -258,4 +258,4 @@ MIT. Fork it, extend it, build on it.
 
 ---
 
-*Built by [mohasbks](https://github.com/mohasbks) · Open to freelance work in product design and frontend development.*
+*Built by [AlmotasembellahAwwad](https://github.com/mohasbks) · Open to freelance work in product design and frontend development.*
