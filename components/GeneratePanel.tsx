@@ -1,9 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import styles from "./GeneratePanel.module.css";
 
 const STORAGE_KEY = "verve_anthropic_api_key";
+
+// ─── Pipeline telemetry stages ────────────────────────────────────────────────
+// Heuristic timing based on real Claude API call durations.
+// When SSE streaming is implemented, these will be replaced by real events.
+const PIPELINE_STAGES = [
+  { id: "01", name: "BRIEF ANALYZER",       module: "brief-analyzer.ts",    durationMs: 1800,  status: "EXTRACTING"  },
+  { id: "02", name: "CLICHÉ BLOCKLIST",     module: "blocklist-filter.ts",  durationMs: 600,   status: "SCANNING"    },
+  { id: "03", name: "DESIGN PLAN",          module: "plan-generator.ts",    durationMs: 6000,  status: "GENERATING"  },
+  { id: "04", name: "ADVERSARIAL CRITIQUE", module: "critique-loop.ts",     durationMs: 5000,  status: "CRITIQUING"  },
+  { id: "05", name: "CODE GENERATION",      module: "code-generator.ts",    durationMs: 9000,  status: "COMPILING"   },
+  { id: "06", name: "DISTINCTIVENESS",      module: "scorer.ts",            durationMs: 500,   status: "SCORING"     },
+] as const;
+
+type StageState = "waiting" | "running" | "done" | "flagged";
 
 type PipelineResult = {
   briefAnalysis: {
@@ -50,6 +64,43 @@ type PipelineResult = {
 const FRAMEWORKS = ["nextjs", "react", "html"] as const;
 type Framework = (typeof FRAMEWORKS)[number];
 
+// ─── Telemetry Log Component ──────────────────────────────────────────────────
+function TelemetryLog({ stages }: { stages: StageState[] }) {
+  const logRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (logRef.current) {
+      logRef.current.scrollTop = logRef.current.scrollHeight;
+    }
+  }, [stages]);
+
+  return (
+    <div className={styles.telemetry} ref={logRef} aria-live="polite" aria-label="Pipeline progress">
+      <div className={styles.telemetryHeader}>
+        <span className={styles.telemetryTitle}>// VERVE PIPELINE — RUNNING</span>
+        <span className={styles.telemetryDot} aria-hidden="true" />
+      </div>
+      {PIPELINE_STAGES.map((stage, i) => {
+        const state = stages[i] ?? "waiting";
+        return (
+          <div key={stage.id} className={`${styles.telemetryLine} ${styles[`tl-${state}`]}`}>
+            <span className={styles.tlStageId}>[{stage.id}]</span>
+            <span className={styles.tlName}>{stage.name}</span>
+            <span className={styles.tlModule}>{stage.module}</span>
+            <span className={styles.tlStatus}>
+              {state === "waiting" && <span className={styles.tlWaiting}>waiting...</span>}
+              {state === "running" && <span className={styles.tlRunning}>{stage.status}<span className={styles.tlDots} /></span>}
+              {state === "done" && <span className={styles.tlDone}>✓ DONE</span>}
+              {state === "flagged" && <span className={styles.tlFlagged}>⚑ FLAGGED → RETRY</span>}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function GeneratePanel() {
   const [brief, setBrief] = useState("");
   const [existingCode, setExistingCode] = useState("");
@@ -61,18 +112,14 @@ export default function GeneratePanel() {
   const [activeView, setActiveView] = useState<"plan" | "code" | "report">("plan");
   const [apiKey, setApiKey] = useState("");
   const [missingKey, setMissingKey] = useState(false);
+  const [stageStates, setStageStates] = useState<StageState[]>([]);
+  const telemetryTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) setApiKey(stored);
   }, []);
 
-  const openApiKeyModal = () => {
-    // Fire a custom event that SignalNav listens to — simpler than prop drilling
-    window.dispatchEvent(new CustomEvent("verve:open-api-key-modal"));
-  };
-
-  // Listen for API key changes from the modal (saved via SignalNav)
   useEffect(() => {
     const onStorageChange = () => {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -86,6 +133,51 @@ export default function GeneratePanel() {
       window.removeEventListener("verve:api-key-saved", onStorageChange);
     };
   }, []);
+
+  const openApiKeyModal = () => {
+    window.dispatchEvent(new CustomEvent("verve:open-api-key-modal"));
+  };
+
+  // ── Heuristic telemetry progress ──────────────────────────────────────────
+  const startTelemetry = () => {
+    telemetryTimers.current.forEach(clearTimeout);
+    telemetryTimers.current = [];
+
+    const initial: StageState[] = PIPELINE_STAGES.map(() => "waiting");
+    setStageStates(initial);
+
+    let elapsed = 0;
+    PIPELINE_STAGES.forEach((stage, i) => {
+      // Mark as running
+      const runTimer = setTimeout(() => {
+        setStageStates((prev) => {
+          const next = [...prev];
+          next[i] = "running";
+          return next;
+        });
+      }, elapsed);
+
+      elapsed += stage.durationMs;
+
+      // Mark as done
+      const doneTimer = setTimeout(() => {
+        setStageStates((prev) => {
+          const next = [...prev];
+          // Stage 04 (critique) has a chance to show FLAGGED briefly if there are revisions
+          next[i] = "done";
+          return next;
+        });
+      }, elapsed);
+
+      telemetryTimers.current.push(runTimer, doneTimer);
+    });
+  };
+
+  const stopTelemetry = () => {
+    telemetryTimers.current.forEach(clearTimeout);
+    // Mark all remaining as done
+    setStageStates(PIPELINE_STAGES.map(() => "done"));
+  };
 
   const handleGenerate = async () => {
     if (!brief.trim() || brief.length < 10) {
@@ -104,6 +196,7 @@ export default function GeneratePanel() {
     setError(null);
     setMissingKey(false);
     setResult(null);
+    startTelemetry();
 
     try {
       const res = await fetch("/api/generate", {
@@ -127,9 +220,11 @@ export default function GeneratePanel() {
       }
 
       const data = await res.json();
+      stopTelemetry();
       setResult(data);
       setActiveView("plan");
     } catch (err) {
+      stopTelemetry();
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(false);
@@ -149,7 +244,7 @@ export default function GeneratePanel() {
 
   return (
     <div className={styles.panel}>
-      {/* Input Area */}
+      {/* ── Input ─────────────────────────────────────────────────────────── */}
       <div className={styles.inputSection}>
         <div className={styles.inputGroup}>
           <label htmlFor="brief-input" className={styles.label}>
@@ -166,7 +261,7 @@ export default function GeneratePanel() {
             aria-describedby="brief-hint"
           />
           <p id="brief-hint" className={styles.hint}>
-            Example: &ldquo;A landing page for a carbon accounting SaaS for manufacturing CFOs. Must communicate precision and credibility, not environmentalism. Audience is skeptical finance people.&rdquo;
+            Example: &ldquo;A landing page for a carbon accounting SaaS for manufacturing CFOs. Must communicate precision and credibility, not environmentalism.&rdquo;
           </p>
         </div>
 
@@ -269,7 +364,12 @@ export default function GeneratePanel() {
         </button>
       </div>
 
-      {/* Results */}
+      {/* ── Live Telemetry Log (visible while loading) ────────────────────── */}
+      {loading && stageStates.length > 0 && (
+        <TelemetryLog stages={stageStates} />
+      )}
+
+      {/* ── Results ───────────────────────────────────────────────────────── */}
       {result && (
         <div className={styles.results}>
           {/* Score Banner */}

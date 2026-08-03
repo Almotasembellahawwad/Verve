@@ -100,44 +100,69 @@
   gap: 1px;
   background: var(--border-subtle);
   border: 1px solid var(--border-subtle);
+  /* Smooth transition for the microscope effect */
+  transition: opacity var(--transition-base);
 }
 
-/* Depth layering: every other card row uses --bg-card-depth */
-/* This creates visual depth without adding color noise */
+/* Microscope Lens — dim all when any is focused */
+.gridDimmed {}
+
 .card {
   background: var(--bg-surface);
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  transition: background var(--transition-fast);
   position: relative;
+  /* Snap transition for visual weight — 50ms is mechanical, not soft */
+  transition:
+    background 50ms ease,
+    opacity 200ms ease,
+    transform 200ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* Alternating warm-slate depth on hover for non-flat feel */
+/* Alternating depth on even cards */
 .card:nth-child(even) {
   background: var(--bg-card-depth);
 }
 
-.card:hover {
-  background: var(--bg-card-accent);
+/* ── Microscope Lens states ───────────────────────────────── */
+
+/* FOCUSED: card expands slightly, contrast maximized */
+.cardFocused {
+  background: var(--bg-raised) !important;
+  /* Mechanical snap border — 2px amber, applied instantly */
+  outline: 2px solid rgba(212, 144, 32, 0.4);
+  outline-offset: -2px;
+  z-index: 2;
+  /* Subtle scale — just enough to signal focus without layout shift */
+  transform: scale(1.012);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(212, 144, 32, 0.15);
 }
 
-/* Left accent rule on hover — editorial annotation mark */
+/* DIMMED: surrounding cards fade out */
+.cardDimmed {
+  opacity: 0.32;
+  /* No transform — they just fade, don't move */
+}
+
+/* Editorial left-accent on focus */
 .card::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 20px;
-  bottom: 20px;
+  top: 16px;
+  bottom: 16px;
   width: 2px;
   background: transparent;
-  transition: background var(--transition-fast);
+  /* SNAP — 50ms, no smooth easing. Mechanical closure. */
+  transition: background 50ms step-end;
 }
 
-.card:hover::before {
-  background: rgba(212, 144, 32, 0.25);
+.cardFocused::before {
+  background: var(--brand);
 }
+
 
 /* ── Card header ─────────────────────────────────────────── */
 .cardHeader {

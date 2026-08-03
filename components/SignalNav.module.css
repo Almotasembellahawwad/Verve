@@ -198,3 +198,105 @@
 @media (max-width: 480px) {
   .readmeBtn { display: none; }
 }
+
+/* ── Hamburger button — mobile only ──────────────────────── */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  width: 28px;
+  height: 28px;
+}
+
+.hamburgerLine {
+  display: block;
+  height: 1.5px;
+  background: var(--text-muted);
+  border-radius: 1px;
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), opacity 150ms ease;
+  transform-origin: center;
+}
+
+/* X state */
+.hambTop  { transform: translateY(5.5px) rotate(45deg); background: var(--brand); }
+.hambMid  { opacity: 0; transform: scaleX(0); }
+.hambBot  { transform: translateY(-5.5px) rotate(-45deg); background: var(--brand); }
+
+@media (max-width: 768px) {
+  .hamburger {
+    display: flex;
+  }
+}
+
+/* ── Mobile drawer ───────────────────────────────────────── */
+.mobileMenu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: rgba(10, 9, 8, 0.97);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0 16px;
+  /* Slide down */
+  animation: mobile-in 200ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  z-index: 50;
+}
+
+@keyframes mobile-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.mobileLink {
+  display: block;
+  padding: 12px 24px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  transition: color var(--transition-fast), background var(--transition-fast);
+  letter-spacing: 0.01em;
+}
+
+.mobileLink:hover {
+  color: var(--text-primary);
+  background: rgba(212, 144, 32, 0.04);
+}
+
+.mobileLinkBtn {
+  display: block;
+  padding: 12px 24px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-body);
+  width: 100%;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.mobileLinkBtn:hover {
+  color: var(--brand);
+  background: rgba(212, 144, 32, 0.04);
+}
+
+.mobileDivider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 8px 24px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobileMenu { animation: none; }
+  .hamburgerLine { transition: none; }
+}
+

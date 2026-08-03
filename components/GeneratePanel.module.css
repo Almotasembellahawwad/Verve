@@ -699,3 +699,178 @@
     justify-content: center;
   }
 }
+
+/* =========================================================
+   TELEMETRY LOG — Live pipeline progress terminal
+   ========================================================= */
+
+.telemetry {
+  background: #0A0908;
+  border: 1px solid rgba(212, 144, 32, 0.2);
+  padding: 16px 20px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  max-height: 260px;
+  overflow-y: auto;
+  position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 144, 32, 0.2) transparent;
+  /* Scanline sweep effect — amber, subtle */
+  overflow: hidden;
+}
+
+/* Animated scanline sweep */
+.telemetry::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  width: 80px;
+  background: linear-gradient(90deg, transparent, rgba(212, 144, 32, 0.04), transparent);
+  animation: tl-sweep 2.5s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes tl-sweep {
+  0%   { transform: translateX(-100px); }
+  100% { transform: translateX(calc(100% + 100px)); }
+}
+
+.telemetryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(212, 144, 32, 0.12);
+}
+
+.telemetryTitle {
+  font-size: 10px;
+  color: var(--brand);
+  letter-spacing: 0.1em;
+  opacity: 0.8;
+}
+
+.telemetryDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--data-pass);
+  animation: tl-dot-pulse 1s ease-in-out infinite;
+}
+
+@keyframes tl-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+/* Stage line */
+.telemetryLine {
+  display: grid;
+  grid-template-columns: 32px 180px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  transition: background var(--transition-fast);
+}
+
+.telemetryLine:last-child {
+  border-bottom: none;
+}
+
+/* Stage ID */
+.tlStageId {
+  color: var(--text-muted);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+/* Stage name */
+.tlName {
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.3s ease;
+}
+
+/* Module filename */
+.tlModule {
+  color: rgba(110, 100, 89, 0.5);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.3s ease;
+}
+
+/* Status column */
+.tlStatus {
+  text-align: right;
+  white-space: nowrap;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.tlWaiting {
+  color: rgba(110, 100, 89, 0.4);
+}
+
+.tlRunning {
+  color: var(--brand);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.tlDone {
+  color: var(--data-pass);
+}
+
+.tlFlagged {
+  color: var(--data-fail);
+}
+
+/* Animated dots after running status */
+.tlDots::after {
+  content: '...';
+  animation: tl-dots 1.2s steps(4, end) infinite;
+  display: inline-block;
+  width: 1.5em;
+  text-align: left;
+}
+
+@keyframes tl-dots {
+  0%  { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+}
+
+/* Active line styles */
+.tl-running .tlName   { color: var(--brand); }
+.tl-running .tlModule { color: rgba(212, 144, 32, 0.45); }
+.tl-running           { background: rgba(212, 144, 32, 0.03); }
+
+.tl-done .tlName   { color: var(--text-secondary); }
+.tl-done .tlModule { color: var(--text-muted); }
+
+.tl-flagged .tlName { color: var(--data-fail); }
+
+@media (max-width: 640px) {
+  .telemetryLine {
+    grid-template-columns: 28px 1fr auto;
+  }
+  .tlModule { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .telemetry::after    { display: none; }
+  .telemetryDot        { animation: none; }
+  .tlDots::after       { animation: none; content: '...'; }
+}
+

@@ -20,12 +20,18 @@ export const metadata: Metadata = {
   title: "Verve — Every AI website looks the same. Yours won't.",
   description:
     "Verve is an open-source design taste layer that forces non-generic, context-specific UI design instead of the median AI aesthetic. Six-step pipeline: brief analysis, cliché blocking, plan generation, adversarial critique, code output, distinctiveness scoring.",
-  keywords: ["AI design", "UI generation", "design system", "LLM", "anti-cliché", "Verve"],
-  authors: [{ name: "Verve Project" }],
+  keywords: ["AI design", "UI generation", "design system", "LLM UI", "anti-cliché", "Verve", "design taste", "Claude API", "Next.js design tool"],
+  authors: [{ name: "mohasbks", url: "https://github.com/mohasbks" }],
   openGraph: {
     title: "Verve — Every AI website looks the same. Yours won't.",
-    description: "An open-source design taste layer for AI-generated UIs.",
+    description: "An open-source design taste layer that forces bold, non-generic UI output from any LLM.",
     type: "website",
+    url: "https://github.com/mohasbks/Verve",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Verve — Every AI website looks the same. Yours won't.",
+    description: "Open-source 6-step pipeline that forces distinctive AI-generated UI design.",
   },
   robots: "index, follow",
 };

@@ -4,9 +4,17 @@ import { useState, useEffect } from "react";
 import styles from "./SignalNav.module.css";
 import { ApiKeyModal, useApiKey } from "./ApiKeyModal";
 
+const NAV_LINKS = [
+  { href: "#how-it-works", label: "How it works" },
+  { href: "#workspace",    label: "Try it" },
+  { href: "#blocklist",    label: "Blocklist" },
+  { href: "/docs",         label: "Docs" },
+] as const;
+
 export function SignalNav() {
   const [scrolled, setScrolled] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const { apiKey, saveApiKey } = useApiKey();
 
   useEffect(() => {
@@ -14,6 +22,16 @@ export function SignalNav() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Close mobile menu on route change / scroll
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileOpen]);
 
   useEffect(() => {
     const openModal = () => setModalOpen(true);
@@ -44,10 +62,18 @@ export function SignalNav() {
             Verve
           </a>
 
-          <div className={styles.links}>
-            <a href="#how-it-works" className={styles.link}>How it works</a>
-            <a href="#workspace" className={styles.link}>Try it</a>
-            <a href="#blocklist" className={styles.link}>Blocklist</a>
+          {/* Desktop links */}
+          <div className={styles.links} aria-label="Site sections">
+            {NAV_LINKS.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className={styles.link}
+                onClick={() => setMobileOpen(false)}
+              >
+                {link.label}
+              </a>
+            ))}
           </div>
 
           <div className={styles.actions}>
@@ -82,7 +108,7 @@ export function SignalNav() {
             </button>
 
             <a
-              href="https://github.com/verve-project/verve"
+              href="https://github.com/mohasbks/Verve"
               target="_blank"
               rel="noopener noreferrer"
               className={styles.githubLink}
@@ -91,8 +117,53 @@ export function SignalNav() {
               <GitHubIcon />
               GitHub
             </a>
+
+            {/* Hamburger — mobile only */}
+            <button
+              className={styles.hamburger}
+              onClick={() => setMobileOpen((v) => !v)}
+              aria-label={mobileOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileOpen}
+              id="nav-hamburger"
+            >
+              <span className={`${styles.hamburgerLine} ${mobileOpen ? styles.hambTop : ""}`} />
+              <span className={`${styles.hamburgerLine} ${mobileOpen ? styles.hambMid : ""}`} />
+              <span className={`${styles.hamburgerLine} ${mobileOpen ? styles.hambBot : ""}`} />
+            </button>
           </div>
         </div>
+
+        {/* Mobile drawer */}
+        {mobileOpen && (
+          <div className={styles.mobileMenu} role="dialog" aria-modal="true" aria-label="Navigation menu">
+            {NAV_LINKS.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className={styles.mobileLink}
+                onClick={() => setMobileOpen(false)}
+              >
+                {link.label}
+              </a>
+            ))}
+            <div className={styles.mobileDivider} />
+            <a
+              href="https://github.com/mohasbks/Verve"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.mobileLink}
+              onClick={() => setMobileOpen(false)}
+            >
+              GitHub ↗
+            </a>
+            <button
+              onClick={() => { setModalOpen(true); setMobileOpen(false); }}
+              className={styles.mobileLinkBtn}
+            >
+              {hasKey ? "Change API key" : "Set API key"}
+            </button>
+          </div>
+        )}
       </nav>
 
       <ApiKeyModal

@@ -356,3 +356,100 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- STATS SECTION ---- */
+.statsSection {
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-card-depth);
+  position: relative;
+  z-index: 1;
+  /* Amber scanline — faint depth indicator */
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 200px,
+    rgba(212,144,32,0.015) 200px,
+    rgba(212,144,32,0.015) 201px
+  );
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  divide-color: var(--border-subtle);
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 32px 32px;
+  border-right: 1px solid var(--border-subtle);
+  transition: background var(--transition-fast);
+}
+
+.statItem:last-child {
+  border-right: none;
+}
+
+.statItem:hover {
+  background: rgba(212, 144, 32, 0.03);
+}
+
+.statNum {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: 700;
+  color: var(--brand);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.statLabel {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.statMeta {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .statItem {
+    padding: 24px 20px;
+  }
+  .statItem:nth-child(2) {
+    border-right: none;
+  }
+  .statItem:nth-child(3) {
+    border-top: 1px solid var(--border-subtle);
+    border-right: 1px solid var(--border-subtle);
+  }
+  .statItem:nth-child(4) {
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+
+@media (max-width: 480px) {
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+  .statItem {
+    border-right: none !important;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .statItem:first-child {
+    border-top: none;
+  }
+}
+

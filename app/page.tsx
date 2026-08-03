@@ -129,6 +129,34 @@ export default function Home() {
         </div>
       </section>
 
+      {/* STATS SECTION */}
+      <section className={styles.statsSection} aria-label="Project statistics">
+        <div className="container">
+          <div className={styles.statsGrid}>
+            <div className={styles.statItem}>
+              <span className={styles.statNum}>20</span>
+              <span className={styles.statLabel}>clichés blocked</span>
+              <span className={styles.statMeta}>color · type · layout · motion · copy</span>
+            </div>
+            <div className={styles.statItem}>
+              <span className={styles.statNum}>30</span>
+              <span className={styles.statLabel}>reference designs</span>
+              <span className={styles.statMeta}>grounding the plan generator</span>
+            </div>
+            <div className={styles.statItem}>
+              <span className={styles.statNum}>6</span>
+              <span className={styles.statLabel}>pipeline steps</span>
+              <span className={styles.statMeta}>brief → code in one call</span>
+            </div>
+            <div className={styles.statItem}>
+              <span className={styles.statNum}>MIT</span>
+              <span className={styles.statLabel}>license</span>
+              <span className={styles.statMeta}>fork it, extend it, ship it</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* FOOTER */}
       <footer className={styles.footer}>
         <div className="container">
@@ -147,19 +175,22 @@ export default function Home() {
                 <span className={styles.footerNavLabel}>Project</span>
                 <a href="#how-it-works">How it works</a>
                 <a href="#blocklist">Cliché blocklist</a>
-                <a href="https://github.com/verve-project/verve/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener noreferrer">Architecture</a>
+                <a href="https://github.com/mohasbks/Verve/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener noreferrer">Architecture</a>
+                <a href="https://github.com/mohasbks/Verve" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
               </div>
               <div className={styles.footerNavCol}>
                 <span className={styles.footerNavLabel}>Contribute</span>
-                <a href="https://github.com/verve-project/verve/blob/main/docs/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">Add a cliché</a>
-                <a href="https://github.com/verve-project/verve/blob/main/docs/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">Add a reference</a>
-                <a href="https://github.com/verve-project/verve/issues" target="_blank" rel="noopener noreferrer">Open an issue</a>
+                <a href="https://github.com/mohasbks/Verve/blob/main/docs/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">Add a cliché</a>
+                <a href="https://github.com/mohasbks/Verve/blob/main/docs/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">Add a reference</a>
+                <a href="https://github.com/mohasbks/Verve/issues" target="_blank" rel="noopener noreferrer">Open an issue</a>
+                <a href="https://github.com/mohasbks/Verve/blob/main/docs/ROADMAP.md" target="_blank" rel="noopener noreferrer">Roadmap</a>
               </div>
               <div className={styles.footerNavCol}>
                 <span className={styles.footerNavLabel}>API</span>
                 <a href="/api/cliches" target="_blank" rel="noopener noreferrer">GET /api/cliches</a>
                 <a href="/api/library" target="_blank" rel="noopener noreferrer">GET /api/library</a>
-                <a href="https://github.com/verve-project/verve/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener noreferrer">API reference</a>
+                <a href="/docs" target="_blank" rel="noopener noreferrer">Docs ↗</a>
+                <a href="https://github.com/mohasbks/Verve/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener noreferrer">Architecture</a>
               </div>
             </nav>
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useRef } from "react";
 import styles from "./ClicheList.module.css";
 
 type ClicheEntry = {
@@ -17,7 +17,6 @@ type ClicheEntry = {
 const SEVERITY_ORDER = { high: 0, medium: 1, low: 2 };
 const CATEGORIES = ["all", "color", "typography", "layout", "motion", "copy"];
 
-// Category display labels — uppercase in CSS, human-readable here
 const CATEGORY_LABELS: Record<string, string> = {
   all: "All",
   color: "Color",
@@ -27,10 +26,15 @@ const CATEGORY_LABELS: Record<string, string> = {
   copy: "Copy",
 };
 
+import { useEffect } from "react";
+
 export function ClicheList() {
   const [cliches, setCliches] = useState<ClicheEntry[]>([]);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  // Microscope Lens: track which card is focused
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetch("/api/cliches")
@@ -46,7 +50,6 @@ export function ClicheList() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Count per category (for badges)
   const counts = CATEGORIES.reduce<Record<string, number>>((acc, cat) => {
     acc[cat] = cat === "all"
       ? cliches.length
@@ -55,6 +58,17 @@ export function ClicheList() {
   }, {});
 
   const filtered = filter === "all" ? cliches : cliches.filter((c) => c.category === filter);
+
+  // Microscope Lens: 150ms delay before activating to avoid accidental triggers
+  const handleCardEnter = (id: string) => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => setFocusedId(id), 150);
+  };
+
+  const handleCardLeave = () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => setFocusedId(null), 100);
+  };
 
   return (
     <div className={styles.wrapper}>
@@ -82,9 +96,20 @@ export function ClicheList() {
           <span className="cursor-blink">loading blocklist</span>
         </div>
       ) : (
-        <div className={styles.grid} role="tabpanel" aria-labelledby={`filter-${filter}`}>
+        <div
+          className={`${styles.grid} ${focusedId ? styles.gridDimmed : ""}`}
+          role="tabpanel"
+          aria-labelledby={`filter-${filter}`}
+        >
           {filtered.map((c) => (
-            <div key={c.id} className={`${styles.card}`}>
+            <div
+              key={c.id}
+              className={`${styles.card} ${focusedId === c.id ? styles.cardFocused : ""} ${focusedId && focusedId !== c.id ? styles.cardDimmed : ""}`}
+              onMouseEnter={() => handleCardEnter(c.id)}
+              onMouseLeave={handleCardLeave}
+              onFocus={() => handleCardEnter(c.id)}
+              onBlur={handleCardLeave}
+            >
               <div className={styles.cardHeader}>
                 <span className={`${styles.severity} ${styles[`sev-${c.severity}`]}`}>
                   {c.severity}
