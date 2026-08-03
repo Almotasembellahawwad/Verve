@@ -52,9 +52,10 @@
 
 .heroHeading {
   font-family: var(--font-display);
-  font-size: clamp(40px, 7vw, 88px);
-  font-weight: 700;
-  line-height: 1.0;
+  font-size: clamp(38px, 6.5vw, 84px);
+  /* Reduced from 700 → 600 — less visually heavy, more editorial precision */
+  font-weight: 600;
+  line-height: 1.05;
   letter-spacing: -0.04em;
   margin-bottom: 28px;
   color: var(--text-primary);
@@ -116,18 +117,27 @@
   background: var(--brand);
   color: var(--text-inverse);
   font-family: var(--font-display);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 14px;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   border: none;
   cursor: pointer;
-  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+  transition: background var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  /* Base glow — always present, amplified on hover */
+  box-shadow: 0 0 12px rgba(212, 144, 32, 0.2), 0 2px 8px rgba(0,0,0,0.3);
 }
 
 .ctaPrimary:hover {
   background: var(--brand-hover);
-  box-shadow: 0 0 28px rgba(212, 144, 32, 0.4);
+  /* Amplified glow + subtle lift */
+  box-shadow: 0 0 32px rgba(212, 144, 32, 0.55), 0 0 64px rgba(212, 144, 32, 0.15), 0 4px 16px rgba(0,0,0,0.4);
+  transform: translateY(-1px);
+}
+
+.ctaPrimary:active {
+  transform: translateY(0);
+  box-shadow: 0 0 16px rgba(212, 144, 32, 0.3);
 }
 
 .ctaSecondary {
@@ -142,12 +152,13 @@
   font-size: 14px;
   border: 1px solid var(--border-subtle);
   cursor: pointer;
-  transition: color var(--transition-fast), border-color var(--transition-fast);
+  transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
 }
 
 .ctaSecondary:hover {
   color: var(--text-primary);
-  border-color: var(--text-muted);
+  border-color: rgba(212, 144, 32, 0.25);
+  background: rgba(212, 144, 32, 0.04);
 }
 
 /* ---- SECTION COMMON ---- */

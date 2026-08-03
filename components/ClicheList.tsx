@@ -17,6 +17,16 @@ type ClicheEntry = {
 const SEVERITY_ORDER = { high: 0, medium: 1, low: 2 };
 const CATEGORIES = ["all", "color", "typography", "layout", "motion", "copy"];
 
+// Category display labels — uppercase in CSS, human-readable here
+const CATEGORY_LABELS: Record<string, string> = {
+  all: "All",
+  color: "Color",
+  typography: "Type",
+  layout: "Layout",
+  motion: "Motion",
+  copy: "Copy",
+};
+
 export function ClicheList() {
   const [cliches, setCliches] = useState<ClicheEntry[]>([]);
   const [filter, setFilter] = useState("all");
@@ -36,19 +46,33 @@ export function ClicheList() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Count per category (for badges)
+  const counts = CATEGORIES.reduce<Record<string, number>>((acc, cat) => {
+    acc[cat] = cat === "all"
+      ? cliches.length
+      : cliches.filter((c) => c.category === cat).length;
+    return acc;
+  }, {});
+
   const filtered = filter === "all" ? cliches : cliches.filter((c) => c.category === filter);
 
   return (
     <div className={styles.wrapper}>
-      <div className={styles.filterBar} role="group" aria-label="Filter by category">
+      {/* Filter bar with count badges */}
+      <div className={styles.filterBar} role="tablist" aria-label="Filter clichés by category">
         {CATEGORIES.map((cat) => (
           <button
             key={cat}
+            role="tab"
             className={`${styles.filterBtn} ${filter === cat ? styles.filterActive : ""}`}
             onClick={() => setFilter(cat)}
-            aria-pressed={filter === cat}
+            aria-selected={filter === cat}
+            id={`filter-${cat}`}
           >
-            {cat}
+            {CATEGORY_LABELS[cat]}
+            {!loading && counts[cat] > 0 && (
+              <span className={styles.filterCount}>{counts[cat]}</span>
+            )}
           </button>
         ))}
       </div>
@@ -58,9 +82,9 @@ export function ClicheList() {
           <span className="cursor-blink">loading blocklist</span>
         </div>
       ) : (
-        <div className={styles.grid}>
+        <div className={styles.grid} role="tabpanel" aria-labelledby={`filter-${filter}`}>
           {filtered.map((c) => (
-            <div key={c.id} className={`${styles.card} ${styles[`severity-${c.severity}`]}`}>
+            <div key={c.id} className={`${styles.card}`}>
               <div className={styles.cardHeader}>
                 <span className={`${styles.severity} ${styles[`sev-${c.severity}`]}`}>
                   {c.severity}
@@ -94,7 +118,7 @@ export function ClicheList() {
           Missing a pattern? The blocklist grows with community PRs.
         </p>
         <a
-          href="https://github.com/verve-project/verve/blob/main/docs/CONTRIBUTING.md"
+          href="https://github.com/mohasbks/Verve/blob/main/docs/CONTRIBUTING.md"
           target="_blank"
           rel="noopener noreferrer"
           className={styles.contributeLink}

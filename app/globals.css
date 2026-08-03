@@ -26,6 +26,13 @@
     --bg-raised: #1C1915;
     --bg-overlay: #242018;
 
+    /* -- Third accent: warm slate — depth layering for cards (NOT brand, NOT data) -- */
+    /* Derived from: oxidized copper, architectural concrete with warm undertone */
+    /* Used ONLY as card background variant to prevent flat monotony */
+    --bg-card-depth: #191714;       /* 1 step warmer/darker than --bg-surface */
+    --bg-card-accent: #1A1916;      /* slate variant — copper-grey undertone */
+    --border-depth: rgba(212,144,32,0.08); /* very faint amber depth separator */
+
     /* -- Brand accent: editorial amber — annotation, precision, marking -- */
     /* Derived from: ink annotation tools, calibration marks, editorial judgment */
     /* Not: neon, cyber, terminal green, "AI aesthetic" */
@@ -46,9 +53,10 @@
     --signal-dim: #2A2218;
 
     /* -- Text: warm cream, not cold white -- */
+    /* Raised --text-secondary from #9E9A88 → #A8A49A for WCAG AA on dark bg */
     --text-primary: #F0ECD6;
-    --text-secondary: #9E9A88;
-    --text-muted: #5A5648;
+    --text-secondary: #A8A49A;      /* +contrast from 9E9A88 — WCAG AA compliant */
+    --text-muted: #6A6459;          /* slightly raised for code readability */
     --text-inverse: #0F0D0B;
 
     /* -- Structural -- */

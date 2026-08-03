@@ -1,3 +1,15 @@
+/* =========================================================
+   PipelineViz — Animated 6-step pipeline
+   
+   v1.2 changes:
+   - Scroll-triggered cascade: steps activate sequentially 
+     (180ms between each) via IntersectionObserver
+   - Connector line: amber "fill" travels downward as steps
+     activate — data pipeline metaphor made visual
+   - Step cards: depth layering with --bg-card-depth on hover
+   - Module badges: amber tint when step is active
+   ========================================================= */
+
 .pipeline {
   display: flex;
   flex-direction: column;
@@ -5,12 +17,22 @@
   margin-top: 48px;
 }
 
+/* ── Step row ────────────────────────────────────────────── */
 .step {
   display: grid;
   grid-template-columns: 64px 1fr;
   gap: 0 24px;
+  opacity: 0.35;
+  transform: translateX(-4px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
+.stepActive {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ── Step ID badge ───────────────────────────────────────── */
 .stepLeft {
   display: flex;
   flex-direction: column;
@@ -20,45 +42,100 @@
 .stepId {
   width: 40px;
   height: 40px;
-  border: 1px solid rgba(212, 144, 32, 0.35);
+  border: 1px solid rgba(212, 144, 32, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-display);
   font-size: 13px;
   font-weight: 700;
-  color: var(--brand);
+  color: var(--text-muted);
   letter-spacing: 0.04em;
   clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
-  background: var(--brand-dim);
+  background: var(--bg-raised);
   flex-shrink: 0;
+  transition: 
+    color 0.35s ease,
+    border-color 0.35s ease,
+    background 0.35s ease,
+    box-shadow 0.35s ease;
 }
 
+.stepIdActive {
+  border-color: rgba(212, 144, 32, 0.5);
+  color: var(--brand);
+  background: var(--brand-dim);
+  box-shadow: 0 0 12px rgba(212, 144, 32, 0.15);
+}
+
+.stepIdNum {
+  line-height: 1;
+}
+
+/* ── Connector: glowing data pipeline ───────────────────── */
 .connector {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding-block: 4px;
+  min-height: 32px;
 }
 
 .connectorLine {
   width: 1px;
   flex: 1;
-  background: var(--border-subtle);
-  background-image: linear-gradient(to bottom, var(--border-active) 0%, var(--border-subtle) 100%);
+  background: rgba(255,255,255,0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Amber fill travels from top to bottom when step activates */
+.connectorFill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0%;
+  background: linear-gradient(
+    to bottom,
+    var(--brand) 0%,
+    rgba(212, 144, 32, 0.3) 100%
+  );
+  transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 6px rgba(212, 144, 32, 0.4);
+}
+
+.connectorFillActive {
+  height: 100%;
 }
 
 .connectorArrow {
   font-size: 12px;
-  color: var(--brand);
-  opacity: 0.5;
+  color: var(--text-muted);
+  opacity: 0.4;
   line-height: 1;
+  transition: color 0.35s ease, opacity 0.35s ease;
 }
 
+.connectorArrowActive {
+  color: var(--brand);
+  opacity: 0.7;
+}
+
+/* ── Step content ────────────────────────────────────────── */
 .stepContent {
   padding-bottom: 32px;
   padding-top: 8px;
+  /* Depth layering on hover — warm slate, not flat */
+  border-radius: 2px;
+  padding-left: 16px;
+  margin-left: -16px;
+  transition: background var(--transition-fast);
+}
+
+.step:hover .stepContent {
+  background: var(--bg-card-depth);
 }
 
 .step:last-child .stepContent {
@@ -81,6 +158,7 @@
   letter-spacing: -0.02em;
 }
 
+/* Module badge: amber tint when active */
 .stepModule {
   font-size: 11px;
   color: var(--text-muted);
@@ -89,15 +167,37 @@
   border: 1px solid var(--border-subtle);
   border-radius: 2px;
   font-family: var(--font-body);
+  transition: color 0.35s ease, border-color 0.35s ease, background 0.35s ease;
 }
 
+.stepModuleActive {
+  color: var(--brand);
+  border-color: rgba(212, 144, 32, 0.3);
+  background: var(--brand-dim);
+}
+
+/* Raised from 13px for better WCAG readability */
 .stepDesc {
   color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.7;
+  font-size: 13.5px;
+  line-height: 1.75;
   max-width: 600px;
 }
 
+/* ── Reduced motion ──────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .step {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .connectorFill {
+    height: 100%;
+    transition: none;
+  }
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 480px) {
   .step {
     grid-template-columns: 48px 1fr;
