@@ -230,6 +230,7 @@ export default function GeneratePanel() {
           apiKey: currentKey,
           provider,
           model,
+          pexelsKey: localStorage.getItem("verve_pexels_api_key") || undefined,
         }),
       });
 

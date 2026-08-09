@@ -5,13 +5,16 @@ import styles from "./ApiKeyModal.module.css";
 import type { Provider } from "@/lib/llm-adapter/types";
 import { PROVIDER_KEY_LABELS } from "@/lib/llm-adapter/types";
 
-const getKey = (p: Provider) => `verve_${p}_api_key`;
+const getKey = (p: Provider | "pexels") => `verve_${p}_api_key`;
 const ANTHROPIC_KEY = "verve_anthropic_api_key";
 
-const PROVIDERS: { id: Provider; label: string; icon: string; color: string }[] = [
+type AnyProvider = Provider | "pexels";
+
+const PROVIDERS: { id: AnyProvider; label: string; icon: string; color: string }[] = [
   { id: "anthropic", label: "Claude",  icon: "◆", color: "#D49020" },
   { id: "openai",    label: "GPT",     icon: "◎", color: "#74B87E" },
   { id: "gemini",    label: "Gemini",  icon: "✦", color: "#6B9FE4" },
+  { id: "pexels",    label: "Pexels",  icon: "▣", color: "#05A081" },
 ];
 
 // ── Hook used by SignalNav ────────────────────────────────────────────────────
@@ -19,12 +22,11 @@ export function useApiKey() {
   const [apiKey, setApiKeyState] = useState<string>("");
 
   useEffect(() => {
-    // Primary key = Anthropic (backward compat)
     const stored = localStorage.getItem(ANTHROPIC_KEY) ?? "";
     setApiKeyState(stored);
   }, []);
 
-  const saveApiKey = (key: string, provider: Provider = "anthropic") => {
+  const saveApiKey = (key: string, provider: AnyProvider = "anthropic") => {
     if (key) {
       localStorage.setItem(getKey(provider), key);
       if (provider === "anthropic") localStorage.setItem(ANTHROPIC_KEY, key);
@@ -32,7 +34,6 @@ export function useApiKey() {
       localStorage.removeItem(getKey(provider));
       if (provider === "anthropic") localStorage.removeItem(ANTHROPIC_KEY);
     }
-    // For nav indicator: show any key as "set"
     const anyKey = PROVIDERS.some((p) => !!localStorage.getItem(getKey(p.id)));
     setApiKeyState(anyKey ? key : "");
     window.dispatchEvent(new CustomEvent("verve:api-key-saved"));
@@ -44,16 +45,17 @@ export function useApiKey() {
 type Props = {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (key: string, provider?: Provider) => void;
+  onSave: (key: string, provider?: AnyProvider) => void;
   currentKey?: string;
 };
 
 export function ApiKeyModal({ isOpen, onClose, onSave, currentKey }: Props) {
-  const [activeProvider, setActiveProvider] = useState<Provider>("anthropic");
-  const [values, setValues] = useState<Record<Provider, string>>({
+  const [activeProvider, setActiveProvider] = useState<AnyProvider>("anthropic");
+  const [values, setValues] = useState<Record<AnyProvider, string>>({
     anthropic: "",
     openai: "",
     gemini: "",
+    pexels: "",
   });
   const [visible, setVisible] = useState(false);
 
@@ -64,6 +66,7 @@ export function ApiKeyModal({ isOpen, onClose, onSave, currentKey }: Props) {
         anthropic: localStorage.getItem(ANTHROPIC_KEY) ?? "",
         openai:    localStorage.getItem(getKey("openai")) ?? "",
         gemini:    localStorage.getItem(getKey("gemini")) ?? "",
+        pexels:    localStorage.getItem(getKey("pexels")) ?? "",
       });
     }
   }, [isOpen]);
@@ -71,7 +74,9 @@ export function ApiKeyModal({ isOpen, onClose, onSave, currentKey }: Props) {
   if (!isOpen) return null;
 
   const currentValue = values[activeProvider];
-  const info = PROVIDER_KEY_LABELS[activeProvider];
+  const info = activeProvider === "pexels"
+    ? { label: "Pexels API Key", placeholder: "Key from pexels.com/api", docsUrl: "https://www.pexels.com/api/" }
+    : PROVIDER_KEY_LABELS[activeProvider as Provider];
   const providerConfig = PROVIDERS.find((p) => p.id === activeProvider)!;
 
   const handleSave = () => {

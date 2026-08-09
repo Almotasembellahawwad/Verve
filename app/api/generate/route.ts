@@ -5,12 +5,13 @@ import { z } from "zod";
 export const maxDuration = 120;
 
 const RequestSchema = z.object({
-  brief: z.string().min(10).max(5000),
+  brief:        z.string().min(10).max(5000),
   existingCode: z.string().max(20000).optional(),
-  framework: z.enum(["nextjs", "react", "html"]).optional().default("nextjs"),
-  apiKey: z.string().optional(),
-  provider: z.enum(["anthropic", "openai", "gemini"]).optional().default("anthropic"),
-  model: z.string().optional(),
+  framework:    z.enum(["nextjs", "react", "html"]).optional().default("nextjs"),
+  apiKey:       z.string().optional(),
+  provider:     z.enum(["anthropic", "openai", "gemini"]).optional().default("anthropic"),
+  model:        z.string().optional(),
+  pexelsKey:    z.string().optional(), // Module H — optional asset sourcing
 });
 
 export async function POST(req: NextRequest) {
@@ -25,9 +26,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { apiKey, provider = "anthropic" } = parsed.data;
+    const { apiKey, provider = "anthropic", pexelsKey } = parsed.data;
 
-    // Require user API key
     if (!apiKey) {
       return NextResponse.json(
         { error: "No API key provided. Please add your API key in the provider selector.", code: "NO_API_KEY" },
@@ -39,23 +39,30 @@ export async function POST(req: NextRequest) {
       ...parsed.data,
       provider,
       apiKey,
+      pexelsKey,
     });
 
     return NextResponse.json({
-      plan: result.designPlan,
-      briefAnalysis: result.briefAnalysis,
-      blocklistMatches: result.blocklistResult.matches,
+      plan:              result.designPlan,
+      briefAnalysis:     result.briefAnalysis,
+      blocklistMatches:  result.blocklistResult.matches,
+      assetBundle:       result.assetBundle,             // Module H
       critique: {
-        passed: result.finalCritique.passed,
-        flaggedElements: result.finalCritique.flaggedElements,
+        passed:           result.finalCritique.passed,
+        flaggedElements:  result.finalCritique.flaggedElements,
         positiveElements: result.finalCritique.positiveElements,
-        verdict: result.finalCritique.overallVerdict,
-        transcript: result.finalCritique.rawCritique,
+        verdict:          result.finalCritique.overallVerdict,
+        transcript:       result.finalCritique.rawCritique,
+        // Module G additions
+        endingCheck:      result.finalCritique.endingCheck,
+        usabilityFloor:   result.finalCritique.usabilityFloor,
+        cognitiveScore:   result.finalCritique.cognitiveScore,
+        cognitiveFailures: result.finalCritique.cognitiveFailures,
       },
-      code: result.generatedCode,
+      code:              result.generatedCode,
       distinctivenessReport: result.distinctivenessReport,
-      revisionCount: result.revisionCount,
-      durationMs: result.durationMs,
+      revisionCount:     result.revisionCount,
+      durationMs:        result.durationMs,
     });
   } catch (err) {
     console.error("[/api/generate]", err);

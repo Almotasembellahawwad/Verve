@@ -1,5 +1,6 @@
 import { getLLMAdapter } from "../llm-adapter";
 import type { BriefAnalysis } from "./brief-analyzer";
+import { buildCognitiveGroundingPrompt } from "./cognitive-principles";
 import refraw from "../../data/reference-library.json";
 
 type RefEntry = {
@@ -30,6 +31,14 @@ export type DesignPlan = {
     justification: string;
   };
   referencesSampled: string[];
+  // ── Module G: Cognitive Grounding Layer ────────────────
+  cognitiveGrounding: {
+    vonRestorffCompliance: string;  // how signature element achieves visual isolation
+    gutenbergCompliance: string;    // POA/TA anchoring + fallow zone usage
+    signalNoiseRatio: number;       // 0.0–1.0 semantic/decorative ratio
+    peakEndDesign: string;          // closing section treatment
+    usabilityBaseline: string;      // contrast estimates + touch target confirmation
+  };
   rawPlan: string;
 };
 
@@ -70,9 +79,13 @@ export async function generateDesignPlan(
     ? `\n\n=== PREVIOUS CRITIQUE (APPLY AS NEGATIVE FEEDBACK) ===\nThe following elements were flagged as generic defaults. EVERY ONE must be changed:\n${previousCritique}\n=== END CRITIQUE ===\n`
     : "";
 
+  const cognitivePrompt = buildCognitiveGroundingPrompt();
+
   const systemPrompt = `You are a senior art director generating a design token plan for a specific project.
 
 ${blocklistInjection}
+
+${cognitivePrompt}
 
 === REAL DESIGN REFERENCES (use these as grounding, not imitation) ===
 ${refContext}
@@ -104,7 +117,14 @@ Respond ONLY in valid JSON with this exact schema:
     "implementation": "string — specific CSS/interaction implementation notes",
     "justification": "string — why this and not something else for THIS brief"
   },
-  "referencesSampled": ["array of reference names that informed this plan"]
+  "referencesSampled": ["array of reference names that informed this plan"],
+  "cognitiveGrounding": {
+    "vonRestorffCompliance": "string — how the signature element achieves visual isolation (contrast delta, scale, spacing)",
+    "gutenbergCompliance": "string — where POA and TA sit in your layout, where grid-breaking happens",
+    "signalNoiseRatio": 0.0,
+    "peakEndDesign": "string — specific description of the closing section (NOT generic footer)",
+    "usabilityBaseline": "string — contrast ratio estimates for primary text/bg, touch target confirmation"
+  }
 }`;
 
   const userMessage = `Brief Analysis:
