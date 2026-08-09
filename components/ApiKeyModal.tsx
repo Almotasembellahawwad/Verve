@@ -2,25 +2,39 @@
 
 import { useState, useEffect } from "react";
 import styles from "./ApiKeyModal.module.css";
+import type { Provider } from "@/lib/llm-adapter/types";
+import { PROVIDER_KEY_LABELS } from "@/lib/llm-adapter/types";
 
-const STORAGE_KEY = "verve_anthropic_api_key";
+const getKey = (p: Provider) => `verve_${p}_api_key`;
+const ANTHROPIC_KEY = "verve_anthropic_api_key";
 
+const PROVIDERS: { id: Provider; label: string; icon: string; color: string }[] = [
+  { id: "anthropic", label: "Claude",  icon: "◆", color: "#D49020" },
+  { id: "openai",    label: "GPT",     icon: "◎", color: "#74B87E" },
+  { id: "gemini",    label: "Gemini",  icon: "✦", color: "#6B9FE4" },
+];
+
+// ── Hook used by SignalNav ────────────────────────────────────────────────────
 export function useApiKey() {
   const [apiKey, setApiKeyState] = useState<string>("");
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) setApiKeyState(stored);
+    // Primary key = Anthropic (backward compat)
+    const stored = localStorage.getItem(ANTHROPIC_KEY) ?? "";
+    setApiKeyState(stored);
   }, []);
 
-  const saveApiKey = (key: string) => {
+  const saveApiKey = (key: string, provider: Provider = "anthropic") => {
     if (key) {
-      localStorage.setItem(STORAGE_KEY, key);
+      localStorage.setItem(getKey(provider), key);
+      if (provider === "anthropic") localStorage.setItem(ANTHROPIC_KEY, key);
     } else {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(getKey(provider));
+      if (provider === "anthropic") localStorage.removeItem(ANTHROPIC_KEY);
     }
-    setApiKeyState(key);
-    // Notify any panels listening for key changes
+    // For nav indicator: show any key as "set"
+    const anyKey = PROVIDERS.some((p) => !!localStorage.getItem(getKey(p.id)));
+    setApiKeyState(anyKey ? key : "");
     window.dispatchEvent(new CustomEvent("verve:api-key-saved"));
   };
 
@@ -30,30 +44,65 @@ export function useApiKey() {
 type Props = {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (key: string) => void;
+  onSave: (key: string, provider?: Provider) => void;
   currentKey?: string;
 };
 
 export function ApiKeyModal({ isOpen, onClose, onSave, currentKey }: Props) {
-  const [value, setValue] = useState(currentKey ?? "");
+  const [activeProvider, setActiveProvider] = useState<Provider>("anthropic");
+  const [values, setValues] = useState<Record<Provider, string>>({
+    anthropic: "",
+    openai: "",
+    gemini: "",
+  });
   const [visible, setVisible] = useState(false);
 
+  // Load stored keys when modal opens
   useEffect(() => {
-    setValue(currentKey ?? "");
-  }, [currentKey, isOpen]);
+    if (isOpen) {
+      setValues({
+        anthropic: localStorage.getItem(ANTHROPIC_KEY) ?? "",
+        openai:    localStorage.getItem(getKey("openai")) ?? "",
+        gemini:    localStorage.getItem(getKey("gemini")) ?? "",
+      });
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
+  const currentValue = values[activeProvider];
+  const info = PROVIDER_KEY_LABELS[activeProvider];
+  const providerConfig = PROVIDERS.find((p) => p.id === activeProvider)!;
+
   const handleSave = () => {
-    onSave(value.trim());
+    // Save all non-empty keys at once
+    PROVIDERS.forEach((p) => {
+      const v = values[p.id];
+      if (v) {
+        localStorage.setItem(getKey(p.id), v);
+        if (p.id === "anthropic") localStorage.setItem(ANTHROPIC_KEY, v);
+      }
+    });
+    // Primary save = active provider
+    onSave(currentValue.trim(), activeProvider);
     onClose();
   };
 
-  const maskedKey = value
-    ? value.startsWith("sk-ant-")
-      ? `sk-ant-...${value.slice(-6)}`
-      : `${value.slice(0, 8)}...${value.slice(-4)}`
-    : "";
+  const handleRemove = () => {
+    PROVIDERS.forEach((p) => {
+      localStorage.removeItem(getKey(p.id));
+    });
+    localStorage.removeItem(ANTHROPIC_KEY);
+    onSave("", activeProvider);
+    onClose();
+  };
+
+  const maskedKey = (val: string) => {
+    if (!val) return "";
+    return `${val.slice(0, 8)}...${val.slice(-4)}`;
+  };
+
+  const hasAnyKey = PROVIDERS.some((p) => !!values[p.id]);
 
   return (
     <div
@@ -64,51 +113,70 @@ export function ApiKeyModal({ isOpen, onClose, onSave, currentKey }: Props) {
       aria-labelledby="apikey-modal-title"
     >
       <div className={styles.modal}>
+        {/* Header */}
         <div className={styles.header}>
           <div className={styles.headerIcon} aria-hidden="true">⚙</div>
           <h2 id="apikey-modal-title" className={styles.title}>
-            Anthropic API Key
+            Configure AI Provider
           </h2>
-          <button
-            className={styles.closeBtn}
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ✕
-          </button>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close">✕</button>
         </div>
 
         <div className={styles.body}>
+          {/* Provider tabs */}
+          <div className={styles.providerTabs} role="tablist" aria-label="Select provider">
+            {PROVIDERS.map((p) => {
+              const hasKey = !!values[p.id];
+              return (
+                <button
+                  key={p.id}
+                  role="tab"
+                  aria-selected={activeProvider === p.id}
+                  className={`${styles.providerTab} ${activeProvider === p.id ? styles.providerTabActive : ""}`}
+                  onClick={() => { setActiveProvider(p.id); setVisible(false); }}
+                  style={activeProvider === p.id ? { "--provider-color": p.color } as React.CSSProperties : undefined}
+                >
+                  <span className={styles.providerIcon} aria-hidden="true">{p.icon}</span>
+                  {p.label}
+                  {hasKey && <span className={styles.keyDot} aria-label="Key configured" />}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Provider explanation */}
           <p className={styles.explanation}>
-            Verve runs on your own Anthropic API key. Your key is stored only in your
-            browser&apos;s local storage and sent directly to the server with each
-            request — it is never logged or persisted server-side.
+            Your key is stored only in your browser&apos;s <code>localStorage</code> and sent
+            directly with each request — never logged or persisted server-side.
           </p>
 
           <div className={styles.howToGet}>
             <span className={styles.howToIcon} aria-hidden="true">↗</span>
             <a
-              href="https://console.anthropic.com/account/keys"
+              href={info.docsUrl}
               target="_blank"
               rel="noopener noreferrer"
               className={styles.howToLink}
             >
-              Get your API key from console.anthropic.com
+              Get your {providerConfig.label} API key →
             </a>
           </div>
 
+          {/* Key input */}
           <div className={styles.inputGroup}>
             <label htmlFor="api-key-input" className={styles.label}>
-              API Key
+              {info.label}
             </label>
             <div className={styles.inputRow}>
               <input
                 id="api-key-input"
                 type={visible ? "text" : "password"}
                 className={styles.input}
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                placeholder="sk-ant-api03-..."
+                value={currentValue}
+                onChange={(e) =>
+                  setValues((prev) => ({ ...prev, [activeProvider]: e.target.value }))
+                }
+                placeholder={info.placeholder}
                 autoComplete="off"
                 spellCheck={false}
               />
@@ -121,41 +189,41 @@ export function ApiKeyModal({ isOpen, onClose, onSave, currentKey }: Props) {
                 {visible ? "Hide" : "Show"}
               </button>
             </div>
-            {value && !visible && (
-              <p className={styles.maskedPreview}>{maskedKey}</p>
+            {currentValue && !visible && (
+              <p className={styles.maskedPreview}>{maskedKey(currentValue)}</p>
             )}
           </div>
 
+          {/* Keys summary */}
+          {hasAnyKey && (
+            <div className={styles.keysSummary}>
+              {PROVIDERS.map((p) => values[p.id] ? (
+                <span key={p.id} className={styles.keyBadge}>
+                  <span aria-hidden="true">{p.icon}</span> {p.label} ✓
+                </span>
+              ) : null)}
+            </div>
+          )}
+
           <div className={styles.securityNote}>
             <span aria-hidden="true">🔒</span>
-            Your key is stored in{" "}
-            <code>localStorage</code> only. Clear it anytime by
-            clicking &ldquo;Remove key&rdquo; below.
+            Keys are stored per-provider in <code>localStorage</code>. Remove all below.
           </div>
         </div>
 
+        {/* Actions */}
         <div className={styles.actions}>
-          {currentKey && (
-            <button
-              className={styles.removeBtn}
-              onClick={() => { onSave(""); onClose(); }}
-              type="button"
-            >
-              Remove key
+          {hasAnyKey && (
+            <button className={styles.removeBtn} onClick={handleRemove} type="button">
+              Remove all keys
             </button>
           )}
           <div className={styles.actionsSpacer} />
-          <button
-            className={styles.cancelBtn}
-            onClick={onClose}
-            type="button"
-          >
-            Cancel
-          </button>
+          <button className={styles.cancelBtn} onClick={onClose} type="button">Cancel</button>
           <button
             className={styles.saveBtn}
             onClick={handleSave}
-            disabled={!value.trim()}
+            disabled={!currentValue.trim()}
             type="button"
           >
             Save key

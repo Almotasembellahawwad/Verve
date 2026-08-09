@@ -7,7 +7,7 @@ import { ApiKeyModal, useApiKey } from "./ApiKeyModal";
 const NAV_LINKS = [
   { href: "#how-it-works", label: "How it works" },
   { href: "#workspace",    label: "Try it" },
-  { href: "#blocklist",    label: "Blocklist" },
+  { href: "/showcase",     label: "Showcase" },
   { href: "/docs",         label: "Docs" },
 ] as const;
 
@@ -93,14 +93,14 @@ export function SignalNav() {
             <button
               onClick={() => setModalOpen(true)}
               className={`${styles.apiKeyBtn} ${hasKey ? styles.apiKeyBtnActive : ""}`}
-              title={hasKey ? "API key configured — click to change" : "Configure your Anthropic API key"}
-              aria-label={hasKey ? "API key configured" : "Set API key"}
+              title={hasKey ? "AI provider configured — click to change" : "Configure your AI provider API key"}
+              aria-label={hasKey ? "AI key configured" : "Configure AI key"}
               id="nav-api-key"
             >
               <KeyIcon />
               <span className={styles.apiKeyLabel}>
                 {hasKey ? (
-                  <><span className={styles.keyDot} aria-hidden="true" />API key set</>
+                  <><span className={styles.keyDot} aria-hidden="true" />Key set</>
                 ) : (
                   "Set API key"
                 )}

@@ -186,11 +186,11 @@ export default function Home() {
             </div>
             <nav className={styles.footerNav} aria-label="Footer navigation">
               <div className={styles.footerNavCol}>
-                <span className={styles.footerNavLabel}>Project</span>
+                <span className={styles.footerNavLabel}>Explore</span>
                 <a href="#how-it-works">How it works</a>
+                <a href="/showcase">Showcase</a>
                 <a href="#blocklist">Cliché blocklist</a>
-                <a href="https://github.com/mohasbks/Verve/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener noreferrer">Architecture</a>
-                <a href="https://github.com/mohasbks/Verve" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+                <a href="/docs">Docs ↗</a>
               </div>
               <div className={styles.footerNavCol}>
                 <span className={styles.footerNavLabel}>Contribute</span>
@@ -203,8 +203,8 @@ export default function Home() {
                 <span className={styles.footerNavLabel}>API</span>
                 <a href="/api/cliches" target="_blank" rel="noopener noreferrer">GET /api/cliches</a>
                 <a href="/api/library" target="_blank" rel="noopener noreferrer">GET /api/library</a>
-                <a href="/docs" target="_blank" rel="noopener noreferrer">Docs ↗</a>
                 <a href="https://github.com/mohasbks/Verve/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener noreferrer">Architecture</a>
+                <a href="https://github.com/mohasbks/Verve" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
               </div>
             </nav>
           </div>

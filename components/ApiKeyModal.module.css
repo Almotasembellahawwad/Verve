@@ -248,3 +248,77 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ── Provider Tabs ──────────────────────────────────────── */
+.providerTabs {
+  display: flex;
+  gap: 1px;
+  background: var(--border-subtle);
+  margin-bottom: 20px;
+}
+
+.providerTab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 0;
+  background: var(--bg-raised);
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: background var(--transition-fast), color var(--transition-fast);
+  position: relative;
+}
+
+.providerTab:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface);
+}
+
+.providerTabActive {
+  background: var(--bg-surface) !important;
+  color: var(--provider-color, var(--brand)) !important;
+  border-bottom: 2px solid var(--provider-color, var(--brand));
+}
+
+.providerIcon {
+  font-size: 13px;
+}
+
+/* Green dot = key configured */
+.keyDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--data-pass);
+  display: inline-block;
+  margin-left: 2px;
+  flex-shrink: 0;
+}
+
+/* Keys summary */
+.keysSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.keyBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--data-pass);
+  background: rgba(57, 255, 20, 0.06);
+  border: 1px solid rgba(57, 255, 20, 0.15);
+  padding: 2px 8px;
+}
