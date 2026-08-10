@@ -383,3 +383,43 @@
   .header { padding: 16px 20px; flex-direction: column; gap: 12px; }
   .ioGrid { grid-template-columns: 1fr; }
 }
+
+/* Brief card — run/copy split */
+.briefActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.briefCopyBtn {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.04);
+  border: 0.5px solid rgba(255,255,255,0.1);
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.briefCopyBtn:hover {
+  color: rgba(255,255,255,0.7);
+  border-color: rgba(255,255,255,0.2);
+}
+
+.briefRunBtn {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(52,211,153,0.75);
+  background: rgba(52,211,153,0.06);
+  border: 0.5px solid rgba(52,211,153,0.2);
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.briefRunBtn:hover {
+  color: #34d399;
+  border-color: rgba(52,211,153,0.4);
+  background: rgba(52,211,153,0.1);
+}

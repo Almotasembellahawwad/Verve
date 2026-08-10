@@ -318,6 +318,12 @@
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.05em;
+  animation: gradeStamp 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes gradeStamp {
+  from { transform: scale(0.5) rotate(-8deg); opacity: 0; }
+  to   { transform: scale(1)   rotate(0deg);  opacity: 1; }
 }
 
 .scoreNum {
@@ -326,6 +332,12 @@
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.03em;
+  animation: scoreSlideIn 0.38s 0.1s ease both;
+}
+
+@keyframes scoreSlideIn {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
 }
 
 .scoreOutOf {
@@ -1097,4 +1109,192 @@
   font-size: 9px;
   color: rgba(255,255,255,0.28);
   margin-left: 6px;
+}
+/* ============================================================
+   Animations + Mobile responsive
+   ============================================================ */
+
+/* Results section entrance */
+.results {
+  animation: resultsIn 0.4s 0.05s ease both;
+}
+@keyframes resultsIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Plan cards stagger */
+.planCard {
+  animation: cardIn 0.35s ease both;
+}
+.planCard:nth-child(1) { animation-delay: 0.05s; }
+.planCard:nth-child(2) { animation-delay: 0.10s; }
+.planCard:nth-child(3) { animation-delay: 0.15s; }
+.planCard:nth-child(4) { animation-delay: 0.20s; }
+.planCard:nth-child(5) { animation-delay: 0.25s; }
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Telemetry lines pulse while running */
+.tl-running {
+  background: rgba(167, 139, 250, 0.04);
+}
+.tlRunning {
+  position: relative;
+}
+.tlDots::after {
+  content: '';
+  display: inline-block;
+  animation: dots 1.2s steps(4, end) infinite;
+}
+@keyframes dots {
+  0%   { content: '';    }
+  25%  { content: '.';   }
+  50%  { content: '..';  }
+  75%  { content: '...'; }
+}
+
+/* Swatch hover */
+.swatchColor {
+  transition: transform 0.18s ease;
+}
+.swatch:hover .swatchColor {
+  transform: scale(1.08);
+}
+
+/* ============================================================
+   Mobile responsive
+   ============================================================ */
+
+@media (max-width: 640px) {
+
+  /* Panel spacing */
+  .panel {
+    gap: 20px;
+  }
+
+  /* Provider row stacks vertically */
+  .providerRow {
+    flex-direction: column;
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .providerTabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+
+  .providerTab {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* Toolbar wraps */
+  .panelToolbar {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* Sample briefs scroll horizontally */
+  .sampleBriefs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    gap: 6px;
+  }
+  .sampleChip {
+    flex-shrink: 0;
+  }
+
+  /* Textarea smaller on mobile */
+  .textarea {
+    font-size: 14px;
+  }
+
+  /* Options row stacks */
+  .optionsRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  /* Score banner stacks */
+  .scoreBanner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .scoreMain {
+    gap: 12px;
+  }
+
+  .grade {
+    font-size: 32px;
+  }
+
+  .scoreNum {
+    font-size: 20px;
+  }
+
+  .scoreMeta {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* View tabs scroll */
+  .viewTabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .viewTab {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* Plan grid collapses */
+  .metaGrid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Palette wraps tighter */
+  .palette {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  /* Code view */
+  .codeHeader {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Export buttons stack */
+  .exportBtns {
+    flex-direction: column;
+  }
+  .exportBtn {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Telemetry log compacter */
+  .telemetry {
+    font-size: 10px;
+    max-height: 200px;
+  }
+  .tlStageId, .tlModule {
+    display: none;
+  }
+
+  /* Generate button full width */
+  .generateBtn {
+    width: 100%;
+    justify-content: center;
+  }
 }

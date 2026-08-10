@@ -1,6 +1,6 @@
 "use client";
 // components/OnboardingModal.tsx
-// First-run onboarding — shown once via localStorage flag
+// First-run onboarding â€” shown once via localStorage flag
 // 3 slides explaining Verve's core value propositions
 // Dismissible with "Start designing" button
 
@@ -12,26 +12,26 @@ const SEEN_KEY = "verve_onboarding_seen_v2";
 const SLIDES = [
   {
     id: 1,
-    icon: "◈",
+    icon: "â—ˆ",
     iconColor: "#A78BFA",
     title: "Verve is a design intelligence pipeline",
-    body: "It runs your brief through 9 specialized modules — archetype analysis, competitive field mapping, adversarial critique, and Don Norman's 3-level scoring — before writing a single line of code.",
+    body: "It runs your brief through 9 specialized modules â€” archetype analysis, competitive field mapping, adversarial critique, and Don Norman's 3-level scoring â€” before writing a single line of code.",
     subtext: "Not a template generator. A system that thinks before it designs.",
   },
   {
     id: 2,
-    icon: "⚑",
+    icon: "âš‘",
     iconColor: "#FBBF24",
     title: "Generic defaults are the enemy",
-    body: "The pipeline maintains a 300+ item blocklist of clichés (hero backgrounds, gradient overlays, 'Meet the team' grids) and a competitive field dataset of 21 industries with their dominant visual patterns.",
-    subtext: "Every design is measured against what the field already does — then forced to differentiate.",
+    body: "The pipeline maintains a 300+ item blocklist of clichÃ©s (hero backgrounds, gradient overlays, 'Meet the team' grids) and a competitive field dataset of 21 industries with their dominant visual patterns.",
+    subtext: "Every design is measured against what the field already does â€” then forced to differentiate.",
   },
   {
     id: 3,
-    icon: "▶",
+    icon: "â–¶",
     iconColor: "#34D399",
     title: "Write a specific brief. Get a distinctive design.",
-    body: "The quality of the output is proportional to the specificity of the input. Generic brief → generic plan (and the critique loop will flag it). Specific brief → archetype-matched, competitively-aware design.",
+    body: "The quality of the output is proportional to the specificity of the input. Generic brief â†’ generic plan (and the critique loop will flag it). Specific brief â†’ archetype-matched, competitively-aware design.",
     subtext: "Use the sample briefs to see the difference. Start with 'Interior Design' or 'Motion Portfolio'.",
   },
 ];
@@ -110,7 +110,7 @@ export default function OnboardingModal() {
         <div className={styles.actions}>
           {slide > 0 ? (
             <button className={styles.prevBtn} onClick={prev}>
-              ← Back
+              â† Back
             </button>
           ) : (
             <button className={styles.skipBtn} onClick={dismiss}>
@@ -123,7 +123,7 @@ export default function OnboardingModal() {
             onClick={next}
             id={slide === SLIDES.length - 1 ? "onboarding-start" : `onboarding-next-${slide}`}
           >
-            {slide === SLIDES.length - 1 ? "Start designing →" : "Next →"}
+            {slide === SLIDES.length - 1 ? "Start designing â†’" : "Next â†’"}
           </button>
         </div>
 

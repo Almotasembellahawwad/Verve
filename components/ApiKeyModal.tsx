@@ -49,7 +49,7 @@ type Props = {
   currentKey?: string;
 };
 
-export function ApiKeyModal({ isOpen, onClose, onSave, currentKey }: Props) {
+export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
   const [activeProvider, setActiveProvider] = useState<AnyProvider>("anthropic");
   const [values, setValues] = useState<Record<AnyProvider, string>>({
     anthropic: "",
@@ -59,7 +59,6 @@ export function ApiKeyModal({ isOpen, onClose, onSave, currentKey }: Props) {
   });
   const [visible, setVisible] = useState(false);
 
-  // Load stored keys when modal opens
   useEffect(() => {
     if (isOpen) {
       setValues({
@@ -75,12 +74,11 @@ export function ApiKeyModal({ isOpen, onClose, onSave, currentKey }: Props) {
 
   const currentValue = values[activeProvider];
   const info = activeProvider === "pexels"
-    ? { label: "Pexels API Key", placeholder: "Key from pexels.com/api", docsUrl: "https://www.pexels.com/api/" }
+    ? { label: "Pexels API Key", placeholder: "Key from pexels.com/api â€” enables contextual photography", docsUrl: "https://www.pexels.com/api/" }
     : PROVIDER_KEY_LABELS[activeProvider as Provider];
   const providerConfig = PROVIDERS.find((p) => p.id === activeProvider)!;
 
   const handleSave = () => {
-    // Save all non-empty keys at once
     PROVIDERS.forEach((p) => {
       const v = values[p.id];
       if (v) {
@@ -88,15 +86,12 @@ export function ApiKeyModal({ isOpen, onClose, onSave, currentKey }: Props) {
         if (p.id === "anthropic") localStorage.setItem(ANTHROPIC_KEY, v);
       }
     });
-    // Primary save = active provider
     onSave(currentValue.trim(), activeProvider);
     onClose();
   };
 
   const handleRemove = () => {
-    PROVIDERS.forEach((p) => {
-      localStorage.removeItem(getKey(p.id));
-    });
+    PROVIDERS.forEach((p) => { localStorage.removeItem(getKey(p.id)); });
     localStorage.removeItem(ANTHROPIC_KEY);
     onSave("", activeProvider);
     onClose();
@@ -122,9 +117,9 @@ export function ApiKeyModal({ isOpen, onClose, onSave, currentKey }: Props) {
         <div className={styles.header}>
           <div className={styles.headerIcon} aria-hidden="true">âš™</div>
           <h2 id="apikey-modal-title" className={styles.title}>
-            Configure AI Provider
+            Configure API Keys
           </h2>
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Close">âœ•</button>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close">Ã—</button>
         </div>
 
         <div className={styles.body}>
@@ -149,11 +144,24 @@ export function ApiKeyModal({ isOpen, onClose, onSave, currentKey }: Props) {
             })}
           </div>
 
-          {/* Provider explanation */}
-          <p className={styles.explanation}>
-            Your key is stored only in your browser&apos;s <code>localStorage</code> and sent
-            directly with each request â€” never logged or persisted server-side.
-          </p>
+          {/* Pexels explanation */}
+          {activeProvider === "pexels" && (
+            <div className={styles.pexelsNote}>
+              <span>â–£</span>
+              <span>
+                Pexels provides <strong>contextual photography</strong> â€” the pipeline sources images specific to your brief subject (not generic stock). Without this key, the design plan will suggest placeholder images.{" "}
+                <strong>Free tier: 200 req/hour.</strong>
+              </span>
+            </div>
+          )}
+
+          {/* Privacy note */}
+          {activeProvider !== "pexels" && (
+            <p className={styles.explanation}>
+              Your key is stored only in your browser&apos;s <code>localStorage</code> and sent
+              directly with each request â€” never logged or persisted server-side.
+            </p>
+          )}
 
           <div className={styles.howToGet}>
             <span className={styles.howToIcon} aria-hidden="true">â†—</span>
@@ -163,7 +171,7 @@ export function ApiKeyModal({ isOpen, onClose, onSave, currentKey }: Props) {
               rel="noopener noreferrer"
               className={styles.howToLink}
             >
-              Get your {providerConfig.label} API key â†’
+              Get your {providerConfig.label} {activeProvider === "pexels" ? "API" : ""} key â†’
             </a>
           </div>
 

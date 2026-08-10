@@ -179,6 +179,20 @@ export default function GeneratePanel() {
     setApiKey(stored);
   }, [provider]);
 
+  // Pick up ?brief= query param (set by Lab "Run in workspace" button)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const prefilled = params.get("brief");
+    if (prefilled) {
+      setBrief(decodeURIComponent(prefilled));
+      // Clean the URL without reload
+      const url = new URL(window.location.href);
+      url.searchParams.delete("brief");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
+
   useEffect(() => {
     const onStorageChange = () => {
       const stored = localStorage.getItem(getStorageKey(provider)) ?? "";

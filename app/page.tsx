@@ -19,11 +19,11 @@ export default function Home() {
       <SignalNav />
       <OnboardingModal />
 
-      {/* HERO — Signature element: live before/after transformation */}
+      {/* HERO â€” Signature element: live before/after transformation */}
       <section className={styles.hero} id="hero">
         <div className={styles.heroLabel}>
           <span className={styles.statusDot} aria-hidden="true" />
-          <span className="muted-text">signal active — v1.0.0</span>
+          <span className="muted-text">signal active â€” v1.0.0</span>
         </div>
 
         <h1 className={styles.heroHeading}>
@@ -72,7 +72,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* WORKSPACE — Generate + Critique */}
+      {/* WORKSPACE â€” Generate + Critique */}
       <section className={styles.workspace} id="workspace">
         <div className="container">
           <div className={styles.sectionLabel}>
@@ -125,11 +125,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CLICHÉ BLOCKLIST — Public + transparent */}
+      {/* CLICHÃ‰ BLOCKLIST â€” Public + transparent */}
       <section className={styles.clicheSection} id="blocklist">
         <div className="container">
           <div className={styles.sectionLabel}>
-            <span className="muted-text">// cliché blocklist — public, versioned, community-maintained</span>
+            <span className="muted-text">// clichÃ© blocklist â€” public, versioned, community-maintained</span>
           </div>
           <h2 className={styles.sectionHeading}>
             What Verve is{" "}
@@ -139,7 +139,7 @@ export default function Home() {
           <p className={styles.sectionBody}>
             This list drives steps 2 and 4 of the pipeline. It&apos;s open-source,
             versioned by date, and accepts community PRs. The blocklist is the engine
-            — not a style guide.
+            â€” not a style guide.
           </p>
           <ClicheList />
         </div>
@@ -151,8 +151,8 @@ export default function Home() {
           <div className={styles.statsGrid}>
             <div className={styles.statItem}>
               <span className={styles.statNum}>20</span>
-              <span className={styles.statLabel}>clichés blocked</span>
-              <span className={styles.statMeta}>color · type · layout · motion · copy</span>
+              <span className={styles.statLabel}>clichÃ©s blocked</span>
+              <span className={styles.statMeta}>color Â· type Â· layout Â· motion Â· copy</span>
             </div>
             <div className={styles.statItem}>
               <span className={styles.statNum}>30</span>
@@ -162,7 +162,7 @@ export default function Home() {
             <div className={styles.statItem}>
               <span className={styles.statNum}>6</span>
               <span className={styles.statLabel}>pipeline steps</span>
-              <span className={styles.statMeta}>brief → code in one call</span>
+              <span className={styles.statMeta}>brief â†’ code in one call</span>
             </div>
             <div className={styles.statItem}>
               <span className={styles.statNum}>MIT</span>
@@ -183,7 +183,7 @@ export default function Home() {
                 An open-source design taste layer.
               </p>
               <p className={styles.footerMeta}>
-                MIT License · Built to be forked, extended, improved.
+                MIT License Â· Built to be forked, extended, improved.
               </p>
             </div>
             <nav className={styles.footerNav} aria-label="Footer navigation">
@@ -191,12 +191,12 @@ export default function Home() {
                 <span className={styles.footerNavLabel}>Explore</span>
                 <a href="#how-it-works">How it works</a>
                 <a href="/showcase">Showcase</a>
-                <a href="#blocklist">Cliché blocklist</a>
-                <a href="/docs">Docs ↗</a>
+                <a href="#blocklist">ClichÃ© blocklist</a>
+                <a href="/docs">Docs â†—</a>
               </div>
               <div className={styles.footerNavCol}>
                 <span className={styles.footerNavLabel}>Contribute</span>
-                <a href="https://github.com/mohasbks/Verve/blob/main/docs/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">Add a cliché</a>
+                <a href="https://github.com/mohasbks/Verve/blob/main/docs/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">Add a clichÃ©</a>
                 <a href="https://github.com/mohasbks/Verve/blob/main/docs/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">Add a reference</a>
                 <a href="https://github.com/mohasbks/Verve/issues" target="_blank" rel="noopener noreferrer">Open an issue</a>
                 <a href="https://github.com/mohasbks/Verve/blob/main/docs/ROADMAP.md" target="_blank" rel="noopener noreferrer">Roadmap</a>
@@ -206,14 +206,14 @@ export default function Home() {
                 <a href="/api/cliches" target="_blank" rel="noopener noreferrer">GET /api/cliches</a>
                 <a href="/api/library" target="_blank" rel="noopener noreferrer">GET /api/library</a>
                 <a href="https://github.com/mohasbks/Verve/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener noreferrer">Architecture</a>
-                <a href="https://github.com/mohasbks/Verve" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+                <a href="https://github.com/mohasbks/Verve" target="_blank" rel="noopener noreferrer">GitHub â†—</a>
               </div>
             </nav>
           </div>
           <div className={styles.footerBase}>
-            <span className="muted-text">© 2026 Verve. MIT License.</span>
+            <span className="muted-text">Â© 2026 Verve. MIT License.</span>
             <span className="muted-text">
-              <span className="signal-text">█</span> signal active
+              <span className="signal-text">â–ˆ</span> signal active
             </span>
           </div>
         </div>

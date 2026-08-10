@@ -73,7 +73,7 @@ export function ClicheList() {
   return (
     <div className={styles.wrapper}>
       {/* Filter bar with count badges */}
-      <div className={styles.filterBar} role="tablist" aria-label="Filter clichés by category">
+      <div className={styles.filterBar} role="tablist" aria-label="Filter clichÃ©s by category">
         {CATEGORIES.map((cat) => (
           <button
             key={cat}
@@ -148,7 +148,7 @@ export function ClicheList() {
           rel="noopener noreferrer"
           className={styles.contributeLink}
         >
-          Add a cliché pattern →
+          Add a clichÃ© pattern â†’
         </a>
       </div>
     </div>

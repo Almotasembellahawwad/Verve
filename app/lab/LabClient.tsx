@@ -107,6 +107,11 @@ export default function LabClient() {
     setTimeout(() => setCopiedBrief(null), 2000);
   };
 
+  const runBrief = (brief: string) => {
+    const params = new URLSearchParams({ brief });
+    window.open(`/?${params.toString()}#workspace`, "_blank");
+  };
+
   return (
     <div className={styles.lab}>
       {/* Header */}
@@ -115,7 +120,7 @@ export default function LabClient() {
           <a href="/" className={styles.backLink}>← Workspace</a>
           <div>
             <h1 className={styles.title}>Prompt Engineering Lab</h1>
-            <p className={styles.subtitle}>Pipeline internals · Module reference · Sample briefs</p>
+            <p className={styles.subtitle}>Pipeline internals · Module reference · Sample briefs · Live run</p>
           </div>
         </div>
         <div className={styles.headerMeta}>
@@ -253,20 +258,30 @@ export default function LabClient() {
         {/* Sample Briefs */}
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>Sample Briefs</h2>
-          <p className={styles.sectionDesc}>Click to copy — paste directly into the workspace brief field.</p>
+          <p className={styles.sectionDesc}>
+            Click <strong style={{ color: "rgba(255,255,255,0.6)" }}>Copy</strong> to paste into the workspace,
+            or <strong style={{ color: "rgba(52,211,153,0.8)" }}>Run</strong> to open the workspace with this brief pre-filled.
+          </p>
           <div className={styles.briefGrid}>
             {SAMPLE_BRIEFS.map((s) => (
-              <button
-                key={s.label}
-                className={styles.briefCard}
-                onClick={() => copyBrief(s.brief, s.label)}
-              >
+              <div key={s.label} className={styles.briefCard}>
                 <div className={styles.briefLabel}>{s.label}</div>
                 <div className={styles.briefText}>{s.brief.slice(0, 120)}…</div>
-                <div className={styles.briefCopy}>
-                  {copiedBrief === s.label ? "✓ Copied" : "Copy brief"}
+                <div className={styles.briefActions}>
+                  <button
+                    className={styles.briefCopyBtn}
+                    onClick={() => copyBrief(s.brief, s.label)}
+                  >
+                    {copiedBrief === s.label ? "✓ Copied" : "Copy"}
+                  </button>
+                  <button
+                    className={styles.briefRunBtn}
+                    onClick={() => runBrief(s.brief)}
+                  >
+                    Run in workspace →
+                  </button>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </section>

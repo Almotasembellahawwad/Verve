@@ -19,9 +19,9 @@ type DesignCritique = {
 type InputMode = "url" | "code";
 
 const SECTION_CONFIG = [
-  { key: "hierarchyIssues", label: "Hierarchy", icon: "▤" },
-  { key: "contrastIssues", label: "Contrast", icon: "◑" },
-  { key: "spacingIssues", label: "Spacing", icon: "↔" },
+  { key: "hierarchyIssues", label: "Hierarchy", icon: "â–¤" },
+  { key: "contrastIssues", label: "Contrast", icon: "â—‘" },
+  { key: "spacingIssues", label: "Spacing", icon: "â†”" },
   { key: "typographyIssues", label: "Typography", icon: "T" },
 ] as const;
 
@@ -140,7 +140,7 @@ export default function CritiquePanel() {
               aria-describedby="url-hint"
             />
             <p id="url-hint" className={styles.hint}>
-              The page will be analyzed for hierarchy, contrast, spacing, typography, and known AI-design clichés.
+              The page will be analyzed for hierarchy, contrast, spacing, typography, and known AI-design clichÃ©s.
             </p>
           </div>
         ) : (
@@ -162,15 +162,15 @@ export default function CritiquePanel() {
 
         {error && (
           <div className={styles.error} role="alert">
-            <span>⚠</span> {error}
+            <span>âš </span> {error}
           </div>
         )}
 
         {missingKey && (
           <div className={styles.apiKeyBanner} role="alert">
-            <div className={styles.apiKeyBannerIcon} aria-hidden="true">⚿</div>
+            <div className={styles.apiKeyBannerIcon} aria-hidden="true">âš¿</div>
             <div className={styles.apiKeyBannerText}>
-              <strong>API key required.</strong> Verve runs on your own Anthropic API key —
+              <strong>API key required.</strong> Verve runs on your own Anthropic API key â€”
               it&apos;s never stored server-side.
               <br />
               <a
@@ -179,7 +179,7 @@ export default function CritiquePanel() {
                 rel="noopener noreferrer"
                 className={styles.apiKeyBannerGetLink}
               >
-                Get a free key at console.anthropic.com ↗
+                Get a free key at console.anthropic.com â†—
               </a>
             </div>
             <button
@@ -207,7 +207,7 @@ export default function CritiquePanel() {
             </>
           ) : (
             <>
-              <span aria-hidden="true">◈</span>
+              <span aria-hidden="true">â—ˆ</span>
               Run critique
             </>
           )}
@@ -224,8 +224,8 @@ export default function CritiquePanel() {
             </div>
             <div className={styles.issueSummary}>
               <span>{totalIssues} issue{totalIssues !== 1 ? "s" : ""} found</span>
-              <span>·</span>
-              <span>{result.clicheMatches.length} cliché{result.clicheMatches.length !== 1 ? "s" : ""} detected</span>
+              <span>Â·</span>
+              <span>{result.clicheMatches.length} clichÃ©{result.clicheMatches.length !== 1 ? "s" : ""} detected</span>
             </div>
           </div>
 
@@ -254,7 +254,7 @@ export default function CritiquePanel() {
                         <span className={styles.issueText}>{issue.issue}</span>
                       </div>
                       <div className={styles.fix}>
-                        <span className={styles.fixLabel}>fix →</span>
+                        <span className={styles.fixLabel}>fix â†’</span>
                         {issue.fix}
                       </div>
                     </div>
@@ -264,12 +264,12 @@ export default function CritiquePanel() {
             );
           })}
 
-          {/* Cliché Matches */}
+          {/* ClichÃ© Matches */}
           {result.clicheMatches.length > 0 && (
             <details className={styles.issueSection} open>
               <summary className={styles.issueSectionHeader}>
-                <span className={styles.issueIcon} aria-hidden="true">⊗</span>
-                <span>Cliché patterns</span>
+                <span className={styles.issueIcon} aria-hidden="true">âŠ—</span>
+                <span>ClichÃ© patterns</span>
                 <span className={styles.issueCount} style={{ background: "rgba(255,80,80,0.12)", color: "#FF5050" }}>
                   {result.clicheMatches.length}
                 </span>
@@ -278,12 +278,12 @@ export default function CritiquePanel() {
                 {result.clicheMatches.map((c, i) => (
                   <div key={i} className={`${styles.issue} ${styles["sev-high"]}`}>
                     <div className={styles.issueHeader}>
-                      <span className={styles.issueSeverity}>cliché</span>
+                      <span className={styles.issueSeverity}>clichÃ©</span>
                       <span className={styles.issueText}>{c.pattern}</span>
                     </div>
                     <p className={styles.evidence}>{c.evidence}</p>
                     <div className={styles.fix}>
-                      <span className={styles.fixLabel}>fix →</span>
+                      <span className={styles.fixLabel}>fix â†’</span>
                       {c.fix}
                     </div>
                   </div>
@@ -296,7 +296,7 @@ export default function CritiquePanel() {
           {result.signatureOpportunities.length > 0 && (
             <div className={styles.opportunities}>
               <h3 className={styles.opportunitiesTitle}>
-                <span className="signal-text">◆</span> Signature opportunities
+                <span className="signal-text">â—†</span> Signature opportunities
               </h3>
               <ul className={styles.opportunityList}>
                 {result.signatureOpportunities.map((op, i) => (
