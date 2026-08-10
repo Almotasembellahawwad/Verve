@@ -1,0 +1,385 @@
+/* app/lab/lab.module.css */
+
+.lab {
+  min-height: 100vh;
+  background: var(--bg, #0C0C0C);
+  color: var(--text, rgba(255,255,255,0.88));
+  font-family: var(--font-body, system-ui, sans-serif);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 20px 40px;
+  border-bottom: 0.5px solid rgba(255,255,255,0.07);
+  background: rgba(255,255,255,0.01);
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.backLink {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.backLink:hover { color: rgba(255,255,255,0.8); }
+
+.title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: rgba(255,255,255,0.92);
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.25);
+}
+
+.headerMeta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.metaBadge {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: rgba(255,255,255,0.3);
+  border: 0.5px solid rgba(255,255,255,0.1);
+  padding: 3px 8px;
+  text-transform: uppercase;
+}
+
+.body {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 60px;
+}
+
+.section {}
+
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  margin: 0 0 20px;
+  border-bottom: 0.5px solid rgba(255,255,255,0.06);
+  padding-bottom: 10px;
+}
+
+.sectionDesc {
+  font-size: 12px;
+  color: rgba(255,255,255,0.3);
+  margin: -10px 0 20px;
+}
+
+/* ── Module Explorer ─────────────────────────── */
+.moduleLayout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 0;
+  border: 0.5px solid rgba(255,255,255,0.08);
+}
+
+.moduleNav {
+  border-right: 0.5px solid rgba(255,255,255,0.07);
+  display: flex;
+  flex-direction: column;
+}
+
+.moduleBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  border-bottom: 0.5px solid rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+  width: 100%;
+}
+.moduleBtn:hover { background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.7); }
+.moduleBtn.active { background: rgba(167,139,250,0.08); color: rgba(255,255,255,0.92); border-right: 2px solid #A78BFA; }
+
+.moduleId {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: #A78BFA;
+  font-family: 'Courier New', monospace;
+  flex-shrink: 0;
+  width: 36px;
+}
+.moduleBtn.active .moduleId { color: #A78BFA; }
+
+.moduleName {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.moduleDetail {
+  padding: 24px 28px;
+}
+
+.detailHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.detailId {
+  font-size: 11px;
+  color: #A78BFA;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.08em;
+}
+
+.detailName {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.9);
+  margin: 0;
+}
+
+.detailDesc {
+  font-size: 13px;
+  line-height: 1.7;
+  color: rgba(255,255,255,0.5);
+  margin: 0 0 20px;
+}
+
+.detailSection {
+  margin-bottom: 20px;
+}
+
+.detailLabel {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+  margin-bottom: 8px;
+}
+
+.promptBox {
+  background: rgba(255,255,255,0.03);
+  border: 0.5px solid rgba(255,255,255,0.08);
+  padding: 12px 14px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'Courier New', monospace;
+}
+
+.ioGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.ioList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ioItem, .ioItemOut {
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  padding: 3px 8px 3px 0;
+  border-left: 2px solid rgba(255,255,255,0.08);
+  padding-left: 8px;
+}
+
+.ioItemOut { border-left-color: #34D399; color: rgba(52,211,153,0.7); }
+
+/* ── Archetype Explorer ──────────────────────── */
+.archetypeLayout {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 0;
+  border: 0.5px solid rgba(255,255,255,0.08);
+}
+
+.archetypePicker {
+  border-right: 0.5px solid rgba(255,255,255,0.07);
+  display: flex;
+  flex-direction: column;
+}
+
+.archetypeBtn {
+  padding: 9px 14px;
+  background: none;
+  border: none;
+  border-bottom: 0.5px solid rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.4);
+  cursor: pointer;
+  font-size: 11px;
+  text-align: left;
+  transition: all 0.15s;
+}
+.archetypeBtn:hover { background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.7); }
+.archetypeBtn.archetypeActive {
+  background: rgba(251,191,36,0.07);
+  color: #FBBF24;
+  border-right: 2px solid #FBBF24;
+}
+
+.archetypeDetail {
+  padding: 24px 28px;
+}
+
+.archetypeName {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: rgba(255,255,255,0.92);
+  margin: 0 0 16px;
+}
+
+.archetypeGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 0.5px solid rgba(255,255,255,0.06);
+}
+
+.archetypeVal {
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(255,255,255,0.6);
+  margin: 0;
+}
+
+.designConstraints {}
+
+.constraintGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.constraintItem {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 12px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.constraintKey {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.25);
+  padding-top: 1px;
+}
+
+.constraintVal {
+  color: rgba(255,255,255,0.6);
+}
+
+.avoidList {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 12px;
+}
+
+.avoidItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  color: rgba(255,80,80,0.6);
+  line-height: 1.5;
+}
+
+.avoidIcon {
+  flex-shrink: 0;
+  font-size: 9px;
+  margin-top: 2px;
+}
+
+/* ── Sample Briefs ───────────────────────────── */
+.briefGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.briefCard {
+  background: rgba(255,255,255,0.02);
+  border: 0.5px solid rgba(255,255,255,0.08);
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.briefCard:hover {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.15);
+}
+
+.briefLabel {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(167,139,250,0.8);
+}
+
+.briefText {
+  font-size: 12px;
+  line-height: 1.65;
+  color: rgba(255,255,255,0.5);
+}
+
+.briefCopy {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(52,211,153,0.5);
+  margin-top: auto;
+  transition: color 0.2s;
+}
+.briefCard:hover .briefCopy { color: rgba(52,211,153,0.9); }
+
+@media (max-width: 768px) {
+  .moduleLayout,
+  .archetypeLayout { grid-template-columns: 1fr; }
+  .moduleNav,
+  .archetypePicker { flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 0.5px solid rgba(255,255,255,0.07); }
+  .archetypeGrid { grid-template-columns: 1fr; }
+  .body { padding: 20px; }
+  .header { padding: 16px 20px; flex-direction: column; gap: 12px; }
+  .ioGrid { grid-template-columns: 1fr; }
+}

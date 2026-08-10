@@ -23,14 +23,17 @@ import { generateDistinctivenessReport, type DistinctivenessReport }   from "./s
 import { sourceAssets, type AssetBundle }                              from "./asset-sourcer";
 import { resolveArchetype, formatArchetypeForPlanGenerator, type ArchetypeResolution } from "./brand-archetype-resolver";
 import { buildAnimationLanguage, formatAnimationForCodeGen, type AnimationLanguage } from "./animation-language";
+import { analyzeCompetitiveField, type CompetitiveAnalysis }           from "./competitive-field";
 import { createAdapter, resetLLMAdapter }                              from "../llm-adapter";
 import type { Provider }                                               from "../llm-adapter/types";
+
 
 // ── Result type ───────────────────────────────────────────────────────────────
 export type PipelineResult = {
   briefAnalysis:          BriefAnalysis;
   blocklistResult:        BlocklistResult;
   assetBundle:            AssetBundle;            // Module H
+  competitiveAnalysis:    CompetitiveAnalysis;    // Module L
   archetypeResolution:    ArchetypeResolution;    // Module I
   animationLanguage:      AnimationLanguage;       // Module K
   designPlan:             DesignPlan;
@@ -85,10 +88,11 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   // ── [01] Brief Analysis ──────────────────────────────────────────────────
   const briefAnalysis = await analyzeBrief(brief, existingCode);
 
-  // ── [02] Asset Sourcing + Blocklist — parallel ───────────────────────────
-  const [blocklistResult, assetBundle] = await Promise.all([
+  // ── [02] Asset Sourcing + Blocklist + Competitive Field — parallel ─────────
+  const [blocklistResult, assetBundle, competitiveAnalysis] = await Promise.all([
     Promise.resolve(runBlocklistFilter(brief, existingCode)),
     sourceAssets(briefAnalysis, pexelsKey),
+    Promise.resolve(analyzeCompetitiveField(briefAnalysis)),
   ]);
 
   // ── [02.5] Brand Archetype Resolution (Module I) ─────────────────────────
@@ -105,6 +109,8 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     blocklistResult.systemPromptInjection,
     "",
     assetBundle.assetSummary,
+    "",
+    competitiveAnalysis.systemPromptInjection,
   ].join("\n");
 
   // ── [03] Design Plan + [04] Critique loop ────────────────────────────────
@@ -156,6 +162,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     briefAnalysis,
     blocklistResult,
     assetBundle,
+    competitiveAnalysis,
     archetypeResolution,
     animationLanguage,
     designPlan,
