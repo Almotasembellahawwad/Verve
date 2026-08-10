@@ -3,9 +3,13 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-D49020?style=flat-square)](LICENSE)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-white?style=flat-square&logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript)](https://typescriptlang.org)
-[![Anthropic](https://img.shields.io/badge/Powered%20by-Claude-191919?style=flat-square)](https://anthropic.com)
+[![Anthropic](https://img.shields.io/badge/Claude-3.5%20Sonnet-191919?style=flat-square)](https://anthropic.com)
+[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991?style=flat-square)](https://openai.com)
+[![Gemini](https://img.shields.io/badge/Google-Gemini-4285F4?style=flat-square)](https://ai.google.dev)
 
-> **Verve** is an open-source design taste layer that sits between any LLM and its code output — forcing bold, non-generic, context-specific UI instead of the median AI aesthetic.
+> **Verve** is an open-source design intelligence pipeline that sits between any LLM and its code output — forcing bold, non-generic, context-specific UI through 9 specialized modules instead of producing the median AI aesthetic.
+
+[**Try it live →**](https://verve-design.vercel.app) · [Prompt Engineering Lab →](/lab) · [Docs →](/docs)
 
 ---
 
@@ -23,239 +27,228 @@ AI-generated interfaces converge on the same visual defaults:
 
 This isn't a prompting skill issue. It's a **statistical regression-to-the-mean problem**. Every model, trained on the same corpus, learns the average. The average is indistinguishable.
 
-Verve interrupts that convergence **mechanically** — through a structured 6-step pipeline, not by asking the model to "be more creative."
+Verve interrupts that convergence **mechanically** — through a structured 9-stage pipeline, not by asking the model to "be more creative."
 
 ---
 
-## How it works
+## How it works — 9 Pipeline Modules
 
 ```
 User brief (+ optional existing code)
         ↓
-[1] BRIEF ANALYZER       → subject, audience, primary job, tone, industry
+[01] BRIEF ANALYZER        → subject, audience, primaryJob (JTBD), tone, industry
         ↓
-[2] CLICHÉ BLOCKLIST     → scans brief against 20+ known AI-design tells
-                           injects a blocking system prompt into all downstream calls
+[02] ASSETS + BLOCKLIST + COMPETITIVE FIELD (parallel)
+     • Cliché Blocklist    → 300+ known AI-design tells blocked at system prompt level
+     • Asset Sourcer       → Pexels photos (12-item cliché image blocklist), Fontshare fonts, Lucide icons
+     • Competitive Field   → 21-industry dataset of dominant visual patterns — injected as negative constraints
         ↓
-[3] DESIGN PLAN          → color palette (derived from subject matter, not trends)
-                           type pairing (with written justification)
-                           layout concept
-                           signature element (required, non-empty, uniquely justified)
+[02.5] BRAND ARCHETYPE     → Resolves primary + secondary Jungian archetype from 12 profiles
+       (Module I)            Maps to design tokens: color personality, typography, animation easing
+                             Identifies archetypeConflict — what to avoid
         ↓
-[4] ADVERSARIAL CRITIQUE → isolated second LLM call:
-                           "Would a generic prompt produce this same plan?"
-                           Rejects + regenerates if >3 elements flagged as defaults.
-                           Max 2 revision cycles.
+[02.6] ANIMATION LANGUAGE  → Derives CSS animation tokens from archetype: easing curves, @keyframes,
+       (Module K)            duration scale, temporal character — injected into both plan + code
         ↓
-[5] CODE GENERATION      → full component code, responsive, accessible,
-                           prefers-reduced-motion aware. Only after plan passes.
+[03] DESIGN PLAN           → colorPalette (subject-derived, not trend-chasing)
+     + COGNITIVE MODULE       typePairing (with optical size system + rationale)
+     (Module G)               layoutConcept (narrative, not 4-card grid)
+                             signatureElement (required, uniquely justified, non-empty)
+                             5 cognitive layers: Von Restorff, Gutenberg, Signal-Noise,
+                             Peak-End Rule, Aesthetic-Usability Effect
         ↓
-[6] DISTINCTIVENESS SCORE → 0-100 score, letter grade (S/A/B/C/D),
-                             critique transcript, what was avoided, what remains.
-                             Surfaced to you — transparency is the product.
+[04] ADVERSARIAL CRITIQUE  → 3-part parallel evaluation:
+                             DesignCritic: "Would a generic prompt produce this?"
+                             EndingCheck: Peak-End Rule — is the closing section filler?
+                             UsabilityFloor: contrast ratio, touch targets, body text minimum
+                             Rejects + regenerates if flagged. Max 2 revision cycles.
+        ↓
+[05] CODE GENERATION       → Full component code (Next.js 15 | React 18 | HTML+CSS)
+                             Animation tokens injected as CSS custom properties
+                             Signature element implemented exactly as specified in plan
+        ↓
+[06] NORMAN 3-LEVEL SCORE  → Don Norman's 3-Level evaluation:
+     (Module J)              Visceral (35%) — first impression, visual boldness
+                             Behavioral (40%) — usability, evaluated BLIND to aesthetics
+                             Reflective (25%) — shareability, archetype coherence
+                             Composite 0-100 score, grade S/A/B/C/D
 ```
-
-Every step is a pure function wrapping an LLM call. Each is independently testable and swappable.
 
 ---
 
-## Quickstart
+## Key Design Decisions
 
-**Prerequisites:** Node.js 18+, an [Anthropic API key](https://console.anthropic.com/account/keys)
+### Why the Behavioral score is evaluated "blind"
+The [Aesthetic-Usability Effect](https://lawsofux.com/aesthetic-usability-effect/) causes evaluators to rate usable-but-ugly interfaces as harder to use, and beautiful-but-broken interfaces as easier. Module J explicitly separates aesthetic and functional evaluation to prevent this bias from inflating usability scores.
+
+### Why Brand Archetypes, not just "tone"
+Tone descriptors ("professional", "modern", "clean") are ambiguous and produce the same middle-ground output. A Jungian archetype carries specific **design prohibitions** — a Ruler archetype prohibits rounded corners, playful typography, and warm palettes; a Jester prohibits rigid grids and serious color values. The prohibition set is what prevents convergence.
+
+### Why Competitive Field analysis
+The pipeline doesn't just avoid generic design — it avoids **industry-specific generic design**. Every interior design firm uses the same warm neutrals and serif typography. Every SaaS uses the same blue-tinted dashboard screenshots. Module L identifies these patterns per industry and injects them as explicit "AVOID" constraints.
+
+### Why the critique loop, not just a better prompt
+A single prompt asking the model to "be distinctive" doesn't work because the model doesn't have a principled definition of distinctiveness. The critique loop provides one: an isolated LLM call with a specific rubric, blind to the original prompt, evaluating only the plan's outputs.
+
+---
+
+## Scoring System
+
+| Grade | Score | Meaning |
+|-------|-------|---------|
+| **S** | 90-100 | Exceptional — no generic defaults detected, high archetype coherence |
+| **A** | 75-89 | Strong — minor improvements available |
+| **B** | 60-74 | Good — some patterns present from the competitive field |
+| **C** | 45-59 | Average — multiple generic defaults, weak signature element |
+| **D** | 0-44 | Generic — fails the critique loop, significant revision needed |
+
+---
+
+## Features
+
+### Core Pipeline
+- **9-module orchestration** running in parallel where possible
+- **SSE Streaming** — real-time per-stage progress events (no fake timer)
+- **Adversarial critique** with up to 2 revision cycles
+- **Framework support**: Next.js 15, React 18, HTML+CSS
+
+### Intelligence Modules
+- **Brand Archetype Resolver** (Module I) — 12 Jungian archetypes with design token mappings
+- **Animation Language** (Module K) — archetype-specific easing curves, keyframes, temporal tokens
+- **Competitive Field Analysis** (Module L) — 21 industries × 5 dominant patterns each
+- **Cognitive Design Module** (Module G) — 5 UX laws enforced at plan generation
+- **Norman 3-Level Scorer** (Module J) — visceral/behavioral/reflective evaluation
+
+### UI Features
+- **SSE Live Telemetry** — watch each pipeline stage run in real time
+- **Sample Briefs** — 6 ready-made briefs showing Verve's range
+- **Design History** — localStorage-based, last 20 generations with grade + palette
+- **Score Certificate** — shareable editorial card (copy as PNG image)
+- **Export** — CSS Variables, Figma Tokens (Style Dictionary JSON), README setup guide
+- **Prompt Engineering Lab** (`/lab`) — inspect module system prompts, archetype reference, sample briefs
+- **First-run Onboarding** — 3-slide introduction to the pipeline philosophy
+- **Multi-provider** — Claude (Anthropic), GPT-4o (OpenAI), Gemini (Google)
+
+---
+
+## Getting started
+
+### Prerequisites
+- Node.js 18+
+- An API key from [Anthropic](https://console.anthropic.com/account/keys), [OpenAI](https://platform.openai.com/api-keys), or [Google AI Studio](https://aistudio.google.com)
+- (Optional) A [Pexels API key](https://www.pexels.com/api/) for contextual photography
+
+### Local development
 
 ```bash
 git clone https://github.com/mohasbks/Verve.git
 cd Verve
 npm install
-cp .env.example .env.local
-# Add your ANTHROPIC_API_KEY to .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open `http://localhost:3000`. Enter your API key in the workspace — it's stored in `localStorage` only, never sent to any server except the LLM provider.
 
-> **No server-side key storage.** Verve runs on your own Anthropic key, sent with each request and never persisted. You can also paste it directly in the UI without touching `.env.local`.
+### Environment variables (optional)
 
----
-
-## API reference
-
-All endpoints available without authentication in v1. Rate limiting is applied generously for anonymous use.
-
-### `POST /api/generate`
-Run the full 6-step pipeline.
-
-```json
-// Request
-{
-  "brief": "A landing page for a carbon accounting SaaS for manufacturing CFOs.",
-  "existingCode": "<optional — paste code to redesign>",
-  "framework": "nextjs | react | html",
-  "apiKey": "<your-anthropic-key>"
-}
-
-// Response
-{
-  "briefAnalysis": { "subject": "...", "audience": "...", "tone": "...", "industry": "..." },
-  "plan": {
-    "colorPalette": [{ "name": "...", "hex": "#...", "role": "..." }],
-    "typePairing": { "display": "...", "body": "...", "rationale": "..." },
-    "layoutConcept": "...",
-    "signatureElement": { "name": "...", "description": "...", "justification": "..." }
-  },
-  "critique": { "passed": true, "flaggedElements": [], "verdict": "..." },
-  "code": { "code": "...", "framework": "nextjs", "componentName": "...", "setupNotes": "..." },
-  "distinctivenessReport": { "score": 91, "grade": "A", "clichesAvoided": [], "recommendations": [] },
-  "revisionCount": 0,
-  "durationMs": 12400
-}
-```
-
-### `POST /api/critique`
-Standalone design critic — paste code or a URL to get a cliché analysis.
-
-```json
-{ "code": "<paste component code>" }
-// → { "critique": { "flags": [], "score": 78, "summary": "..." } }
-```
-
-### `GET /api/cliches`
-Returns the full public blocklist (cached 1h).
-
-### `POST /api/cliches/suggest`
-Submit a new cliché pattern (goes to server log + manual PR queue for now).
-
-### `GET /api/library`
-Returns the reference library entries used for design plan grounding (cached 1h).
-
----
-
-## Repo structure
-
-```
-/app
-  page.tsx                  Landing page (client component)
-  /api
-    /generate/route.ts      POST — full 6-step pipeline
-    /critique/route.ts      POST — standalone design critic
-    /cliches/route.ts       GET  — public blocklist
-    /cliches/suggest/       POST — community submission
-    /library/route.ts       GET  — reference library
-
-/lib
-  /engine
-    brief-analyzer.ts       Step 1 — extracts structured brief
-    blocklist-filter.ts     Step 2 — cliché detection + prompt injection
-    plan-generator.ts       Step 3 — design plan with signature element
-    critique-loop.ts        Step 4 — adversarial self-critique (max 2 cycles)
-    code-generator.ts       Step 5 — framework-specific code output
-    scorer.ts               Step 6 — distinctiveness report (0-100)
-    design-critic.ts        Module E — standalone critic
-    pipeline.ts             Orchestrator (pure function composition)
-  /llm-adapter
-    index.ts                Provider-agnostic adapter (swap here to change LLM)
-
-/data
-  cliches.json              The blocklist — version controlled, community-maintained
-  reference-library.json    30 reference designs for plan grounding
-
-/components                 UI (subject to its own blocklist rules)
-/docs                       Architecture, CONTRIBUTING, ROADMAP
+```env
+# Only needed for server-side default keys — the UI accepts user-provided keys
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+GOOGLE_AI_API_KEY=AIza...
+PEXELS_API_KEY=...
 ```
 
 ---
 
-## Contributing a cliché pattern
+## Project Structure
 
-The blocklist is the most leverageable part of Verve. Each new entry tightens what the pipeline can produce.
-
-**5 minutes to contribute:**
-
-1. Open `data/cliches.json`
-2. Add an entry:
-
-```json
-{
-  "id": "category-NNN",
-  "category": "color | typography | layout | motion | copy",
-  "pattern": "Short, specific name for the pattern",
-  "description": "What it is, why it appears, why it's a regression-to-mean tell",
-  "example_values": ["specific hex codes, class names, copy strings, or timing values"],
-  "severity": "high | medium | low",
-  "date_observed": "YYYY-MM-DD",
-  "tags": ["keyword1", "keyword2"]
-}
+```
+verve/
+├── app/
+│   ├── api/
+│   │   ├── generate/
+│   │   │   ├── route.ts          — Standard JSON pipeline endpoint
+│   │   │   └── stream/route.ts   — SSE streaming pipeline endpoint
+│   │   ├── critique/route.ts     — Standalone critique mode
+│   │   ├── compare/route.ts      — Before/After comparison
+│   │   └── cliches/route.ts      — Cliché detection
+│   ├── lab/                      — Prompt Engineering Lab
+│   │   ├── page.tsx
+│   │   └── LabClient.tsx
+│   ├── docs/page.tsx
+│   ├── showcase/page.tsx
+│   └── page.tsx                  — Main workspace
+├── components/
+│   ├── GeneratePanel.tsx          — Main generation UI
+│   ├── Certificate.tsx            — Shareable score certificate
+│   ├── HistoryDrawer.tsx          — Past generations drawer
+│   ├── OnboardingModal.tsx        — First-run introduction
+│   ├── PipelineViz.tsx            — Pipeline diagram
+│   ├── BeforeAfterHero.tsx        — Hero comparison component
+│   └── SignalNav.tsx              — Navigation
+└── lib/
+    ├── engine/
+    │   ├── pipeline.ts            — Main orchestrator
+    │   ├── brief-analyzer.ts      — [01] Brief parsing
+    │   ├── blocklist-filter.ts    — [02] Cliché blocking
+    │   ├── asset-sourcer.ts       — [02] Image/font/icon sourcing
+    │   ├── brand-archetype-resolver.ts — [I] 12 Jungian archetypes
+    │   ├── animation-language.ts  — [K] Archetype animation tokens
+    │   ├── competitive-field.ts   — [L] 21-industry visual patterns
+    │   ├── plan-generator.ts      — [03] Design plan + cognitive module
+    │   ├── critique-loop.ts       — [04] Adversarial 3-part critique
+    │   ├── code-generator.ts      — [05] Code output
+    │   └── scorer.ts              — [J] Norman 3-Level scoring
+    ├── history.ts                 — localStorage design history
+    ├── export.ts                  — CSS / Figma / README export
+    └── llm-adapter/               — Multi-provider LLM abstraction
 ```
 
-3. Open a PR titled `cliche: [pattern name]`
+---
 
-**Good entries name a specific, recognizable pattern with real example values.** `"Don't use blue"` is not useful. `"#6366F1 / #8B5CF6 gradient — appears in ~60% of AI-generated SaaS hero sections"` is useful.
+## Theoretical foundation
+
+The pipeline draws from established UX and cognitive psychology research:
+
+| Principle | Applied in |
+|-----------|-----------|
+| **Von Restorff Effect** (isolation effect) | Signature Element — one element must be visually isolated to be memorable |
+| **Peak-End Rule** (Kahneman) | EndingCheck in critique loop — closing sections cannot be filler |
+| **Aesthetic-Usability Effect** (Nielsen) | Behavioral score evaluated blind to aesthetics |
+| **Jobs-to-be-Done** (Christensen) | Brief Analyzer extracts primaryJob, not just features |
+| **Brand Archetypes** (Jung / Mark & Pearson) | Module I — 12 archetypes mapped to design prohibitions |
+| **Don Norman 3-Level Design** | Module J — visceral/behavioral/reflective scoring |
+| **Gutenberg Diagram** | Cognitive Module — layout respects Primary Optical Area + Terminal Area |
+| **Signal-to-Noise Ratio** | Cognitive Module — measured 0.0-1.0, excessive complexity flagged |
 
 ---
 
-## Contributing a reference entry
+## Supported providers
 
-The reference library grounds the design plan generator in high-quality real work. Each entry expands what Verve can draw inspiration from.
-
-```json
-{
-  "id": "ref-NNN",
-  "name": "Company / Project Name",
-  "url": "https://example.com",
-  "industry": "fintech | developer-tools | portfolio | ...",
-  "mood": ["specific adjective 1", "specific adjective 2"],
-  "what_makes_it_work": "The named, specific thing that makes this design work. Not 'looks nice.'",
-  "specific_techniques": ["named technique 1", "named technique 2"],
-  "color_palette": ["#HEX1", "#HEX2", "#HEX3"],
-  "tags": ["keyword1", "keyword2"]
-}
-```
-
-PR title: `reference: [name]`
+| Provider | Models |
+|----------|--------|
+| **Anthropic** | claude-opus-4-5, claude-sonnet-4-5, claude-haiku-3-5 |
+| **OpenAI** | gpt-4o, gpt-4o-mini, o3-mini |
+| **Google** | gemini-2.5-pro, gemini-2.5-flash |
 
 ---
 
-## Design principles for contributors
+## Contributing
 
-Components in `/components` are subject to the same blocklist rules as any Verve output:
+Pull requests welcome. The highest-value contribution areas:
 
-- **No Inter as primary sans-serif** — Verve uses Space Grotesk + IBM Plex Mono
-- **No soft-shadow white cards** — use border + bg-depth variation instead
-- **No blue-to-purple gradients** — amber (#D49020) is the only accent
-- **One signature element** — clearly named, visually present, justified in comments
-
-If you're adding a UI component, run it mentally against `data/cliches.json` before submitting. Verve must practice what it preaches.
-
----
-
-## Roadmap
-
-**Phase 1 — current (complete):**
-- [x] 6-step pipeline end-to-end
-- [x] Standalone design critic
-- [x] Community-extensible cliché blocklist (20 entries)
-- [x] Reference library (30 entries)
-- [x] Landing page dogfooding Verve's own rules
-
-**Phase 2 — after first users:**
-- [ ] Community contribution UI (web form → auto-PR, no GitHub account required)
-- [ ] Postgres-backed project history (Neon serverless)
-- [ ] Public API with rate limiting (Upstash Redis)
-- [ ] Distinctiveness scoring v2 (calibrated against usage data)
-- [ ] CI/CD (GitHub Actions: typecheck + lint + build on PR)
-
-**Phase 3 — after traction:**
-- [ ] Figma MCP bridge — ground plans in existing design tokens
-- [ ] Vue + Svelte code output adapters
-- [ ] Screenshot analysis via Claude vision API
-- [ ] VSCode extension — critic inline on open files
+1. **Module L expansion** — adding more industries to `lib/engine/competitive-field.ts`
+2. **Module I refinement** — improving archetype detection accuracy in `brand-archetype-resolver.ts`
+3. **Test coverage** — the pipeline has no unit tests yet
+4. **Compare Mode** — a custom diff UI for before/after design comparisons (in progress)
 
 ---
 
 ## License
 
-MIT. Fork it, extend it, build on it.
+MIT — see [LICENSE](LICENSE)
 
 ---
 
-*Built by [AlmotasembellahAwwad](https://github.com/mohasbks) · Open to freelance work in product design and frontend development.*
+*Built with Next.js 15, TypeScript, Anthropic Claude, and a principled disdain for hero gradients.*
