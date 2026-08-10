@@ -109,6 +109,23 @@ type PipelineResult = {
     };
     normanSummary?: string;
   };
+  // Module N -- Restraint Check (Dieter Rams)
+  restraintResult?: {
+    verdict: "disciplined" | "restrained-further" | "over-designed";
+    boldestElement: string;
+    reasoning: string;
+    suggestion: string | null;
+    restraintScore: number;
+  };
+  // Engineering Score -- Dual Scoring axis 2
+  engineeringResult?: {
+    compositeScore: number;
+    grade: string;
+    passed: boolean;
+    dimensions: { id: string; name: string; score: number; weight: number; flags: string[]; passed: boolean }[];
+    criticalFailures: string[];
+    recommendations: string[];
+  };
   revisionCount: number;
   durationMs: number;
 };
@@ -909,7 +926,130 @@ export default function GeneratePanel() {
                 </div>
               )}
 
-              {/* Competitive Field — Module L */}
+              {/* Module N -- Restraint Check (Dieter Rams) */}
+              {result.restraintResult && (
+                <div className={styles.reportSection}>
+                  <h3 className={styles.reportSectionTitle}>
+                    Restraint Check &mdash; Module N
+                    <span style={{
+                      fontSize: "9px", letterSpacing: "0.1em", marginLeft: 8,
+                      color: result.restraintResult.verdict === "disciplined" ? "#34D399"
+                        : result.restraintResult.verdict === "restrained-further" ? "#FBBF24"
+                        : "#FF5050"
+                    }}>
+                      {result.restraintResult.verdict.toUpperCase().replace(/-/g, " ")}
+                    </span>
+                  </h3>
+
+                  {/* Score bar */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                    <div style={{ flex: 1, height: "3px", background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                      <div style={{
+                        height: "100%",
+                        width: `${result.restraintResult.restraintScore}%`,
+                        background: result.restraintResult.verdict === "disciplined" ? "#34D399"
+                          : result.restraintResult.verdict === "restrained-further" ? "#FBBF24" : "#FF5050",
+                        transition: "width 0.7s ease"
+                      }} />
+                    </div>
+                    <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.5)", width: 36, textAlign: "right" }}>
+                      {result.restraintResult.restraintScore}/100
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", lineHeight: 1.7, marginBottom: 8 }}>
+                    <strong style={{ color: "rgba(255,255,255,0.6)", fontWeight: 600 }}>
+                      Boldest element:
+                    </strong>{" "}{result.restraintResult.boldestElement}
+                  </p>
+                  <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", lineHeight: 1.7, marginBottom: 8 }}>
+                    {result.restraintResult.reasoning}
+                  </p>
+                  {result.restraintResult.suggestion && (
+                    <div style={{
+                      fontSize: "11px", lineHeight: 1.7,
+                      borderLeft: "2px solid rgba(251,191,36,0.4)",
+                      paddingLeft: 10, color: "rgba(251,191,36,0.7)"
+                    }}>
+                      <strong style={{ color: "rgba(251,191,36,0.9)" }}>Suggestion:</strong>{" "}
+                      {result.restraintResult.suggestion}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Engineering Score -- Dual Scoring axis 2 */}
+              {result.engineeringResult && (
+                <div className={styles.reportSection}>
+                  <h3 className={styles.reportSectionTitle}>
+                    Engineering Score &mdash; Dual Scoring
+                    <span style={{
+                      fontSize: "9px", letterSpacing: "0.1em", marginLeft: 8,
+                      color: result.engineeringResult.passed ? "#34D399" : "#FF5050"
+                    }}>
+                      Grade {result.engineeringResult.grade}
+                      {result.engineeringResult.passed ? " \u2713 PASS" : " \u2715 FAIL"}
+                    </span>
+                  </h3>
+
+                  {/* Composite bar */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                    <div style={{ flex: 1, height: "3px", background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                      <div style={{
+                        height: "100%",
+                        width: `${result.engineeringResult.compositeScore}%`,
+                        background: result.engineeringResult.compositeScore >= 75 ? "#34D399"
+                          : result.engineeringResult.compositeScore >= 55 ? "#FBBF24" : "#FF5050",
+                        transition: "width 0.7s ease"
+                      }} />
+                    </div>
+                    <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.5)", width: 36, textAlign: "right" }}>
+                      {result.engineeringResult.compositeScore}/100
+                    </span>
+                  </div>
+
+                  {/* Dimension bars */}
+                  {result.engineeringResult.dimensions.map((dim) => (
+                    <div key={dim.id} style={{ marginBottom: 10 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                        <span style={{ fontSize: "10px", letterSpacing: "0.07em", textTransform: "uppercase", color: dim.passed ? "rgba(255,255,255,0.5)" : "#FF5050" }}>
+                          {dim.name}
+                        </span>
+                        <span style={{ fontSize: "10px", color: dim.passed ? "rgba(255,255,255,0.4)" : "#FF5050", fontWeight: 600 }}>
+                          {dim.score}
+                        </span>
+                      </div>
+                      <div style={{ height: "2px", background: "rgba(255,255,255,0.05)", borderRadius: 1, overflow: "hidden", marginBottom: 3 }}>
+                        <div style={{
+                          height: "100%", width: `${dim.score}%`,
+                          background: dim.passed ? "rgba(255,255,255,0.2)" : "rgba(255,80,80,0.5)",
+                          transition: "width 0.6s ease"
+                        }} />
+                      </div>
+                      {dim.flags.length > 0 && (
+                        <p style={{ fontSize: "10px", color: "rgba(255,80,80,0.6)", margin: 0 }}>
+                          &#9651; {dim.flags[0]}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+
+                  {result.engineeringResult.recommendations.length > 0 && (
+                    <div style={{ marginTop: 10, borderTop: "0.5px solid rgba(255,255,255,0.06)", paddingTop: 10 }}>
+                      <div style={{ fontSize: "9px", letterSpacing: "0.1em", color: "rgba(255,255,255,0.25)", marginBottom: 6, textTransform: "uppercase" }}>
+                        Top fixes
+                      </div>
+                      {result.engineeringResult.recommendations.map((rec, i) => (
+                        <p key={i} style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", lineHeight: 1.7, margin: "0 0 4px" }}>
+                          {i + 1}. {rec}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Competitive Field -- Module L */}
               {(() => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const cf = (result as any).competitiveField;
@@ -917,7 +1057,7 @@ export default function GeneratePanel() {
                 return (
                   <div className={styles.reportSection}>
                     <h3 className={styles.reportSectionTitle}>
-                      Competitive Field — Module L
+                      Competitive Field &mdash; Module L
                       <span style={{ fontSize: "9px", letterSpacing: "0.1em", marginLeft: 8, color: cf.temperature === "hot" ? "#FF5050" : cf.temperature === "warm" ? "#FBBF24" : "#34D399" }}>
                         {cf.temperature?.toUpperCase()} MARKET
                       </span>
@@ -925,7 +1065,7 @@ export default function GeneratePanel() {
                     <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "10px", lineHeight: 1.7 }}>{cf.opportunity}</p>
                     <div className={styles.detailLabel} style={{ marginBottom: 6 }}>Patterns avoided in this design ({cf.industry})</div>
                     {(cf.patterns as string[])?.map((p, i) => (
-                      <div key={i} className={styles.avoidChip}><span style={{ color: "#FF5050", marginRight: 6 }}>✕</span>{p}</div>
+                      <div key={i} className={styles.avoidChip}><span style={{ color: "#FF5050", marginRight: 6 }}>&#10005;</span>{p}</div>
                     ))}
                   </div>
                 );
