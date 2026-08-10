@@ -1,9 +1,53 @@
+// =========================================================
+// lib/engine/scorer.ts
+// Module J: Don Norman 3-Level Distinctiveness Report
+//
+// Based on: Don Norman — "Emotional Design: Why We Love
+// (or Hate) Everyday Things" (2004), Chapter 1.
+//
+// Norman's Three Levels of Design Processing:
+//
+// 1. VISCERAL (Instinctive)
+//    The automatic, pre-conscious response.
+//    "Does this look good, dangerous, safe, attractive?"
+//    Measured by: visual boldness, distinctiveness, first-
+//    impression contrast vs. the generic field.
+//
+// 2. BEHAVIORAL (Functional)
+//    The experience of use and interaction.
+//    "Does this work? Is it easy? Does it perform its job?"
+//    Measured by: contrast ratios, navigation clarity,
+//    CTA legibility, touch target compliance, SNR.
+//    NOTE: Positive visceral/reflective can MASK behavioral
+//    failures (the Aesthetic-Usability Effect). This level
+//    evaluates BLIND to aesthetics.
+//
+// 3. REFLECTIVE (Conscious, long-term)
+//    The meaning we assign after the experience.
+//    "What does this say about me? Would I show this to
+//    someone? Am I proud to use/share this?"
+//    Measured by: brand archetype coherence, shareability
+//    signal, distinctiveness beyond the industry norm,
+//    signature element memorability.
+//
+// =========================================================
+
 import type { BlocklistResult } from "./blocklist-filter";
 import type { DesignPlan } from "./plan-generator";
 import type { CritiqueResult } from "./critique-loop";
+import type { ArchetypeResolution } from "./brand-archetype-resolver";
+
+// ── Score types ───────────────────────────────────────────────────────────────
+export type NormanLevelScore = {
+  score: number;        // 0–100
+  grade: "S" | "A" | "B" | "C" | "D";
+  rationale: string;    // why this score
+  improvements: string[];
+};
 
 export type DistinctivenessReport = {
-  score: number;           // 0–100 overall distinctiveness
+  // ── Legacy composite (kept for backward compat) ──────────────────────────
+  score: number;
   grade: "S" | "A" | "B" | "C" | "D";
   clichesAvoided: string[];
   clichesDetected: string[];
@@ -12,128 +56,294 @@ export type DistinctivenessReport = {
   critiqueTranscript: string;
   revisionCount: number;
   recommendations: string[];
-  // ── Module G additions ─────────────────────────────────────────
-  signalNoiseRatio: number;              // 0.0–1.0 from cognitive grounding
-  cognitiveScore: number;                // 0–25 (5 per principle)
+
+  // ── Module G additions ────────────────────────────────────────────────────
+  signalNoiseRatio: number;
+  cognitiveScore: number;
   endingQuality: "strong" | "intentional" | "weak" | "filler";
   accessibilityPass: boolean;
-  cognitiveBreakdown: {                  // per-principle compliance
+  cognitiveBreakdown: {
     vonRestorff: string;
     gutenberg: string;
     peakEnd: string;
     signalNoise: string;
     aestheticUsability: string;
   };
+
+  // ── Module I addition ─────────────────────────────────────────────────────
+  archetypeId: string;
+  archetypeCoherence: number; // 0–100: how well design reflects archetype
+
+  // ── Module J: Don Norman 3-Level Scoring ─────────────────────────────────
+  normanLevels: {
+    visceral:    NormanLevelScore;   // first impression, visual boldness
+    behavioral:  NormanLevelScore;   // usability, functional clarity
+    reflective:  NormanLevelScore;   // shareability, pride, brand coherence
+  };
+  normanSummary: string; // which level is the current weakest link
 };
 
-export function generateDistinctivenessReport(
+// ── Grade helper ──────────────────────────────────────────────────────────────
+function toGrade(s: number): "S" | "A" | "B" | "C" | "D" {
+  return s >= 90 ? "S" : s >= 80 ? "A" : s >= 65 ? "B" : s >= 50 ? "C" : "D";
+}
+
+// ── Level 1: Visceral Score ───────────────────────────────────────────────────
+// "Does it make a strong first impression?"
+// High = bold, distinctive, instantly different from the generic field
+// Low = could be any brand, forgettable, defaults everywhere
+function scoreVisceral(
   blocklistResult: BlocklistResult,
   plan: DesignPlan,
   finalCritique: CritiqueResult,
   revisionCount: number
-): DistinctivenessReport {
-  // ── Base score: 100, deductions from clichés + critique ───────────────────
+): NormanLevelScore {
   let score = 100;
+  const improvements: string[] = [];
 
-  const highSeverityDetected = blocklistResult.matches.filter((m) => m.severity === "high");
-  const mediumSeverityDetected = blocklistResult.matches.filter((m) => m.severity === "medium");
+  // Deduct for blocklist violations (high-severity = immediately forgettable)
+  const highSeverity = blocklistResult.matches.filter((m) => m.severity === "high");
+  const medSeverity  = blocklistResult.matches.filter((m) => m.severity === "medium");
+  score -= highSeverity.length * 15;
+  score -= medSeverity.length  * 6;
 
-  // Deduct for detected clichés in original content
-  score -= highSeverityDetected.length * 12;
-  score -= mediumSeverityDetected.length * 5;
+  // Deduct for critique flags on visual elements
+  const visualFlags = finalCritique.flaggedElements.filter((e) =>
+    ["color", "type", "typography", "layout", "signature", "palette"].some((k) =>
+      e.element.toLowerCase().includes(k)
+    )
+  );
+  score -= visualFlags.filter((e) => e.severity === "high").length   * 12;
+  score -= visualFlags.filter((e) => e.severity === "medium").length * 5;
 
-  // Deduct for critique flags
-  const highCritiqueFlags = finalCritique.flaggedElements.filter((e) => e.severity === "high");
-  const mediumCritiqueFlags = finalCritique.flaggedElements.filter((e) => e.severity === "medium");
-  score -= highCritiqueFlags.length * 10;
-  score -= mediumCritiqueFlags.length * 4;
+  // Bonus for no high-severity clichés
+  if (highSeverity.length === 0) score += 8;
 
-  // Add back for revision cycles (shows the system caught and fixed issues)
-  if (revisionCount > 0) score += revisionCount * 5;
+  // Bonus for positive critique elements
+  score += Math.min(finalCritique.positiveElements.length * 3, 12);
 
-  // Add for positive critique elements
-  score += Math.min(finalCritique.positiveElements.length * 3, 15);
+  // Bonus for revision (showed system caught and improved it)
+  if (revisionCount > 0) score += revisionCount * 4;
 
-  // ── Module G: Cognitive Grounding bonus/penalty ───────────────────────────
-  // Bonus for cognitive compliance (max +15)
-  const cogBonus = Math.round((finalCritique.cognitiveScore / 25) * 15);
-  score += cogBonus;
+  // Bonus for strong signature element (non-empty name ≠ "None")
+  if (plan.signatureElement.name && plan.signatureElement.name !== "None") score += 6;
 
-  // Penalty for usability failure (−15 — non-negotiable)
-  if (!finalCritique.usabilityFloor.passed) {
-    score -= 15;
-  }
-
-  // Penalty for Peak-End failure
-  if (finalCritique.endingCheck.quality === "filler") score -= 8;
-  else if (finalCritique.endingCheck.quality === "weak") score -= 4;
-  // Bonus for strong ending
-  else if (finalCritique.endingCheck.quality === "strong") score += 5;
-
-  // Clamp
   score = Math.max(0, Math.min(100, score));
 
-  const grade = score >= 90 ? "S" : score >= 80 ? "A" : score >= 65 ? "B" : score >= 50 ? "C" : "D";
+  if (highSeverity.length > 0) improvements.push(`Remove visual clichés: ${highSeverity.map((m) => m.pattern).join(", ")}`);
+  if (visualFlags.length > 0)  improvements.push(`Revise flagged visual elements: ${visualFlags.map((e) => e.element).join(", ")}`);
+  if (score < 75) improvements.push("Strengthen the Signature Element — it should be visually irreversible");
 
-  // ── Signal-to-Noise Ratio ────────────────────────────────────────────────
-  const signalNoiseRatio = plan.cognitiveGrounding?.signalNoiseRatio ?? 0.5;
+  return {
+    score,
+    grade: toGrade(score),
+    rationale: `Visceral: First-impression boldness based on ${highSeverity.length} high-severity clichés, ${finalCritique.flaggedElements.length} critique flags, ${finalCritique.positiveElements.length} positive elements. Signature element: "${plan.signatureElement.name}".`,
+    improvements,
+  };
+}
+
+// ── Level 2: Behavioral Score ─────────────────────────────────────────────────
+// "Does it actually work? Is it usable?"
+// CRITICAL: Evaluated blind to aesthetics (Aesthetic-Usability Effect mitigation)
+// High = passes contrast, navigation, touch targets, SNR is functional
+// Low = beautiful but unusable — contrast fails, CTA unclear, dense layout
+function scoreBehavioral(
+  plan: DesignPlan,
+  finalCritique: CritiqueResult
+): NormanLevelScore {
+  let score = 100;
+  const improvements: string[] = [];
+
+  // Hard penalty: usability floor failure (non-negotiable behavioral failure)
+  if (!finalCritique.usabilityFloor.passed) {
+    score -= 30; // severe — this is not a stylistic opinion
+    finalCritique.usabilityFloor.issues.forEach((issue) =>
+      improvements.push(`[CRITICAL] ${issue}`)
+    );
+  }
+
+  // Individual usability checks
+  if (!finalCritique.usabilityFloor.contrastOk) {
+    score -= 10;
+    improvements.push("Contrast ratio below WCAG 2.1 AA — increase text/background delta");
+  }
+  if (!finalCritique.usabilityFloor.touchTargetsOk) {
+    score -= 8;
+    improvements.push("Touch targets may be below 44×44px — enlarge interactive elements");
+  }
+  if (!finalCritique.usabilityFloor.bodyTextOk) {
+    score -= 8;
+    improvements.push("Body text legibility: ensure ≥16px size with ≥1.5 line-height");
+  }
+
+  // Signal-to-noise ratio (behavioral clarity — not aesthetic preference)
+  const snr = plan.cognitiveGrounding?.signalNoiseRatio ?? 0.5;
+  if (snr < 0.5) {
+    score -= 12;
+    improvements.push(`Low signal-to-noise ratio (${snr.toFixed(2)}) — too much decoration reduces scannability`);
+  } else if (snr < 0.65) {
+    score -= 5;
+    improvements.push(`Signal-to-noise ratio ${snr.toFixed(2)} — consider reducing decorative elements`);
+  }
+
+  // Cognitive failures (behavioral layer — not visceral)
+  const behavioralCognitiveFailures = finalCritique.cognitiveFailures.filter((f) =>
+    f.toLowerCase().includes("contrast") ||
+    f.toLowerCase().includes("touch") ||
+    f.toLowerCase().includes("legib") ||
+    f.toLowerCase().includes("usability") ||
+    f.toLowerCase().includes("gutenberg")
+  );
+  score -= behavioralCognitiveFailures.length * 5;
+
+  // Bonus for strong usability pass
+  if (finalCritique.usabilityFloor.passed && snr >= 0.7) score += 10;
+
+  score = Math.max(0, Math.min(100, score));
+
+  return {
+    score,
+    grade: toGrade(score),
+    rationale: `Behavioral: Usability floor ${finalCritique.usabilityFloor.passed ? "PASS" : "FAIL"} | Contrast: ${finalCritique.usabilityFloor.contrastOk ? "✓" : "✗"} | Touch targets: ${finalCritique.usabilityFloor.touchTargetsOk ? "✓" : "✗"} | Body text: ${finalCritique.usabilityFloor.bodyTextOk ? "✓" : "✗"} | S/N Ratio: ${snr.toFixed(2)}`,
+    improvements,
+  };
+}
+
+// ── Level 3: Reflective Score ─────────────────────────────────────────────────
+// "Would someone be proud to show this? Is this worth sharing?"
+// High = design reflects a coherent identity that the target audience
+//        would use to signal their own taste/values
+// Low = competent but forgettable — not embarrassing, but not notable
+function scoreReflective(
+  plan: DesignPlan,
+  finalCritique: CritiqueResult,
+  archetypeResolution?: ArchetypeResolution
+): NormanLevelScore {
+  let score = 60; // reflective starts at baseline — most designs don't achieve shareability
+  const improvements: string[] = [];
+
+  // Archetype coherence: does the design reflect the identified archetype?
+  let archetypeCoherence = 50; // default
+  if (archetypeResolution) {
+    // Heuristic: if there are no archetype-violation flags in critique → high coherence
+    const archetypeViolations = finalCritique.flaggedElements.filter((e) =>
+      archetypeResolution.primaryProfile.design.avoidInDesign.some((avoid) =>
+        e.element.toLowerCase().includes(avoid.split(" ")[0].toLowerCase())
+      )
+    ).length;
+    archetypeCoherence = Math.max(20, 100 - archetypeViolations * 20);
+    score += (archetypeCoherence - 50) * 0.3; // scaled contribution
+  }
+
+  // Peak-End Rule: strong ending drives reflective quality
+  // (people remember the peak + the end — a strong ending drives shareability)
+  if (finalCritique.endingCheck.quality === "strong")      score += 18;
+  else if (finalCritique.endingCheck.quality === "intentional") score += 8;
+  else if (finalCritique.endingCheck.quality === "weak")    score -= 5;
+  else if (finalCritique.endingCheck.quality === "filler")  score -= 15;
+
+  // Signature element: is it memorable?
+  const hasDistinctSignature = plan.signatureElement.name &&
+    plan.signatureElement.name !== "None" &&
+    plan.signatureElement.justification.length > 80;
+  if (hasDistinctSignature) score += 12;
+
+  // Positive critique elements (genuine specificity → shareability signal)
+  score += Math.min(finalCritique.positiveElements.length * 5, 15);
+
+  // Cognitive score contribution (high cognitive = principled = proud-able)
+  const cogBonus = Math.round((finalCritique.cognitiveScore / 25) * 10);
+  score += cogBonus;
+
+  // Von Restorff: if signature element is truly distinctive → shareability
+  const vrCompliance = plan.cognitiveGrounding?.vonRestorffCompliance ?? "";
+  if (vrCompliance.length > 60) score += 5; // detailed justification = real isolation
+
+  score = Math.max(0, Math.min(100, score));
+
+  if (!archetypeResolution) improvements.push("Add brand archetype resolution to improve identity coherence");
+  if (finalCritique.endingCheck.quality === "filler" || finalCritique.endingCheck.quality === "weak") {
+    improvements.push(`Closing section is "${finalCritique.endingCheck.quality}" — strengthen it to improve last-impression memory`);
+  }
+  if (!hasDistinctSignature) improvements.push("Signature element needs a stronger, specific justification to be memorable");
+  if (score < 70) improvements.push("To improve shareability: ensure the design reflects the brand archetype coherently so the audience sees their own values in it");
+
+  return {
+    score,
+    grade: toGrade(score),
+    rationale: `Reflective: Ending quality "${finalCritique.endingCheck.quality}" | Signature element specificity: ${hasDistinctSignature ? "strong" : "weak"} | Archetype coherence: ${archetypeResolution ? `${archetypeCoherence}% (${archetypeResolution.primaryArchetype})` : "not evaluated"} | Cognitive contribution: ${finalCritique.cognitiveScore}/25`,
+    improvements,
+  };
+}
+
+// ── Main export ───────────────────────────────────────────────────────────────
+export function generateDistinctivenessReport(
+  blocklistResult: BlocklistResult,
+  plan: DesignPlan,
+  finalCritique: CritiqueResult,
+  revisionCount: number,
+  archetypeResolution?: ArchetypeResolution
+): DistinctivenessReport {
+
+  // ── Don Norman 3 levels ───────────────────────────────────────────────────
+  const visceral   = scoreVisceral(blocklistResult, plan, finalCritique, revisionCount);
+  const behavioral = scoreBehavioral(plan, finalCritique);
+  const reflective = scoreReflective(plan, finalCritique, archetypeResolution);
+
+  // ── Composite score (weighted average — behavioral is minimum floor) ──────
+  // Visceral:   35% — boldness drives first impression
+  // Behavioral: 40% — usability is non-negotiable (highest weight)
+  // Reflective: 25% — long-term value and brand coherence
+  const composite = Math.round(
+    visceral.score   * 0.35 +
+    behavioral.score * 0.40 +
+    reflective.score * 0.25
+  );
+  const compositeGrade = toGrade(composite);
+
+  // ── Archetype coherence ───────────────────────────────────────────────────
+  let archetypeCoherence = 50;
+  if (archetypeResolution) {
+    const violations = finalCritique.flaggedElements.filter((e) =>
+      archetypeResolution.primaryProfile.design.avoidInDesign.some((a) =>
+        e.element.toLowerCase().includes(a.split(" ")[0].toLowerCase())
+      )
+    ).length;
+    archetypeCoherence = Math.max(20, 100 - violations * 20);
+  }
 
   // ── Cliché lists ──────────────────────────────────────────────────────────
-  const allClichePatterns = [
+  const clichesDetected = [
     ...blocklistResult.matches.map((m) => m.pattern),
-    ...finalCritique.flaggedElements
-      .filter((e) => e.severity === "high")
-      .map((e) => e.element),
+    ...finalCritique.flaggedElements.filter((e) => e.severity === "high").map((e) => e.element),
   ];
-
   const clichesAvoided = finalCritique.positiveElements;
 
-  // ── Recommendations ───────────────────────────────────────────────────────
-  const recommendations: string[] = [];
+  // ── Unified recommendations (deduplicated from all 3 levels) ─────────────
+  const allRecs = [
+    ...visceral.improvements,
+    ...behavioral.improvements,
+    ...reflective.improvements,
+  ].filter((r, i, arr) => arr.indexOf(r) === i);
 
-  if (!finalCritique.usabilityFloor.passed) {
-    finalCritique.usabilityFloor.issues.forEach((issue) =>
-      recommendations.push(`⚠ Usability: ${issue}`)
-    );
-  }
+  // ── Norman summary ────────────────────────────────────────────────────────
+  const weakest = [
+    { label: "Visceral",   score: visceral.score },
+    { label: "Behavioral", score: behavioral.score },
+    { label: "Reflective", score: reflective.score },
+  ].sort((a, b) => a.score - b.score)[0];
 
-  if (finalCritique.endingCheck.quality === "filler" || finalCritique.endingCheck.quality === "weak") {
-    recommendations.push(`Peak-End: ${finalCritique.endingCheck.recommendation}`);
-  }
+  const normanSummary = `Weakest level: ${weakest.label} (${weakest.score}/100). ${
+    weakest.label === "Visceral"   ? "Focus on visual boldness — the first impression is not yet distinctive enough." :
+    weakest.label === "Behavioral" ? "Usability issues are undermining the design — solve function before form." :
+    "The design needs a clearer identity narrative to become shareable."
+  }`;
 
-  if (finalCritique.cognitiveFailures.length > 0) {
-    finalCritique.cognitiveFailures.slice(0, 2).forEach((f) =>
-      recommendations.push(`Cognitive: ${f}`)
-    );
-  }
-
-  if (highCritiqueFlags.length > 0) {
-    recommendations.push(
-      `Consider revising: ${highCritiqueFlags.map((e) => e.element).join(", ")}`
-    );
-  }
-
-  if (score < 70) {
-    recommendations.push(
-      "This design still has generic elements. Consider manually selecting a more unusual color derived from your subject matter."
-    );
-  }
-
-  if (!plan.signatureElement.name) {
-    recommendations.push("A stronger signature element would significantly increase distinctiveness.");
-  }
-
-  if (signalNoiseRatio < 0.65) {
-    recommendations.push(
-      `Signal-to-Noise: Ratio ${signalNoiseRatio.toFixed(2)} — reduce decorative elements or add more semantic content density.`
-    );
-  }
-
-  // ── Cognitive breakdown (human-readable per principle) ────────────────────
+  // ── Cognitive breakdown ───────────────────────────────────────────────────
   const cg = plan.cognitiveGrounding;
   const cognitiveBreakdown = {
-    vonRestorff: cg?.vonRestorffCompliance ?? "Not evaluated",
-    gutenberg:   cg?.gutenbergCompliance   ?? "Not evaluated",
+    vonRestorff: cg?.vonRestorffCompliance   ?? "Not evaluated",
+    gutenberg:   cg?.gutenbergCompliance     ?? "Not evaluated",
     peakEnd:     finalCritique.endingCheck.description ?? "Not evaluated",
     signalNoise: cg ? `S/N Ratio: ${cg.signalNoiseRatio.toFixed(2)}` : "Not evaluated",
     aestheticUsability: finalCritique.usabilityFloor.passed
@@ -142,20 +352,30 @@ export function generateDistinctivenessReport(
   };
 
   return {
-    score,
-    grade,
+    // Legacy composite
+    score: composite,
+    grade: compositeGrade,
     clichesAvoided,
-    clichesDetected: [...new Set(allClichePatterns)],
+    clichesDetected: [...new Set(clichesDetected)],
     signatureElement: `${plan.signatureElement.name}: ${plan.signatureElement.description}`,
-    critiqueSummary: finalCritique.overallVerdict,
+    critiqueSummary:  finalCritique.overallVerdict,
     critiqueTranscript: finalCritique.rawCritique,
     revisionCount,
-    recommendations,
-    // Module G fields
-    signalNoiseRatio,
-    cognitiveScore: finalCritique.cognitiveScore,
-    endingQuality: finalCritique.endingCheck.quality,
+    recommendations: allRecs,
+
+    // Module G
+    signalNoiseRatio: cg?.signalNoiseRatio ?? 0.5,
+    cognitiveScore:   finalCritique.cognitiveScore,
+    endingQuality:    finalCritique.endingCheck.quality,
     accessibilityPass: finalCritique.usabilityFloor.passed,
     cognitiveBreakdown,
+
+    // Module I
+    archetypeId: archetypeResolution?.primaryArchetype ?? "unknown",
+    archetypeCoherence,
+
+    // Module J — Don Norman 3-Level
+    normanLevels: { visceral, behavioral, reflective },
+    normanSummary,
   };
 }

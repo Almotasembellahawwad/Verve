@@ -63,7 +63,9 @@ function getRelevantReferences(analysis: BriefAnalysis): RefEntry[] {
 export async function generateDesignPlan(
   analysis: BriefAnalysis,
   blocklistInjection: string,
-  previousCritique?: string
+  previousCritique?: string,
+  archetypeContext?: string,   // Module I injection
+  animationContext?: string    // Module K injection
 ): Promise<DesignPlan> {
   const llm = getLLMAdapter();
   const refs = getRelevantReferences(analysis);
@@ -81,15 +83,20 @@ export async function generateDesignPlan(
 
   const cognitivePrompt = buildCognitiveGroundingPrompt();
 
+  const archetypeSection = archetypeContext
+    ? `\n${archetypeContext}\n`
+    : "";
+
+  const animationSection = animationContext
+    ? `\n${animationContext}\n`
+    : "";
+
   const systemPrompt = `You are a senior art director generating a design token plan for a specific project.
 
 ${blocklistInjection}
 
 ${cognitivePrompt}
-
-=== REAL DESIGN REFERENCES (use these as grounding, not imitation) ===
-${refContext}
-
+${archetypeSection}${animationSection}
 === YOUR TASK ===
 Generate a COMPACT, OPINIONATED design plan for this specific brief. Not a generic plan — a plan that could ONLY be for this brief.
 
@@ -98,6 +105,7 @@ Rules:
 2. The type pairing must be CHOSEN, not defaulted. Explicitly state WHY this pairing works for THIS brief.
 3. EXACTLY ONE signature element — a bold, specific, justifiable design risk. Not "use a unique gradient." Something that, if removed, would make the design generic.
 4. The layout concept must differ from the 4-card-grid, alternating-sections, centered-hero defaults.
+5. ALL archetype constraints above are HARD requirements — color, type, layout decisions must be coherent with the identified archetype.
 ${critiqueNote}
 
 Respond ONLY in valid JSON with this exact schema:
@@ -125,7 +133,11 @@ Respond ONLY in valid JSON with this exact schema:
     "peakEndDesign": "string — specific description of the closing section (NOT generic footer)",
     "usabilityBaseline": "string — contrast ratio estimates for primary text/bg, touch target confirmation"
   }
-}`;
+}
+
+=== REAL DESIGN REFERENCES (use these as grounding, not imitation) ===
+${refContext}
+`;
 
   const userMessage = `Brief Analysis:
 Subject: ${analysis.subject}

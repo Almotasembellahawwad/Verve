@@ -56,6 +56,23 @@ type PipelineResult = {
     componentName: string;
     setupNotes: string;
   };
+  // Module I
+  archetype?: {
+    id: string;
+    name: string;
+    secondaryId: string | null;
+    confidence: number;
+    reasoning: string;
+    emotionalJob: string;
+    archetypeConflict: string;
+  };
+  // Module K
+  animationLanguage?: {
+    archetypeId: string;
+    codeGenHint: string;
+    primaryEasing: { name: string; css: string; description: string };
+    durations: { instant: number; fast: number; medium: number; slow: number; dramatic: number };
+  };
   distinctivenessReport: {
     score: number;
     grade: string;
@@ -65,6 +82,16 @@ type PipelineResult = {
     critiqueSummary: string;
     revisionCount: number;
     recommendations: string[];
+    // Module I
+    archetypeId?: string;
+    archetypeCoherence?: number;
+    // Module J — Don Norman 3-Level
+    normanLevels?: {
+      visceral:   { score: number; grade: string; rationale: string; improvements: string[] };
+      behavioral: { score: number; grade: string; rationale: string; improvements: string[] };
+      reflective: { score: number; grade: string; rationale: string; improvements: string[] };
+    };
+    normanSummary?: string;
   };
   revisionCount: number;
   durationMs: number;
@@ -522,6 +549,43 @@ export default function GeneratePanel() {
                 </div>
               </div>
 
+              {/* Module I: Archetype Card */}
+              {result.archetype && (
+                <div className={styles.planCard}>
+                  <h3 className={styles.planCardTitle}>Brand Archetype — Module I</h3>
+                  <div className={styles.metaGrid}>
+                    <div>
+                      <span className={styles.metaKey}>Primary</span>
+                      <span className={styles.metaVal} style={{ color: "var(--signal)" }}>
+                        {result.archetype.name} ({result.archetype.id})
+                      </span>
+                    </div>
+                    {result.archetype.secondaryId && (
+                      <div>
+                        <span className={styles.metaKey}>Secondary</span>
+                        <span className={styles.metaVal}>{result.archetype.secondaryId}</span>
+                      </div>
+                    )}
+                    <div>
+                      <span className={styles.metaKey}>Confidence</span>
+                      <span className={styles.metaVal}>{Math.round((result.archetype.confidence ?? 0) * 100)}%</span>
+                    </div>
+                    <div>
+                      <span className={styles.metaKey}>Emotional Job (JTBD)</span>
+                      <span className={styles.metaVal}>{result.archetype.emotionalJob}</span>
+                    </div>
+                    <div style={{ gridColumn: "1/-1" }}>
+                      <span className={styles.metaKey}>Reasoning</span>
+                      <span className={styles.metaVal}>{result.archetype.reasoning}</span>
+                    </div>
+                    <div style={{ gridColumn: "1/-1" }}>
+                      <span className={styles.metaKey} style={{ color: "#FF5050" }}>Archetype Conflict (avoid)</span>
+                      <span className={styles.metaVal}>{result.archetype.archetypeConflict}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className={styles.planCard}>
                 <h3 className={styles.planCardTitle}>Color Palette</h3>
                 <div className={styles.palette}>
@@ -652,6 +716,51 @@ export default function GeneratePanel() {
                       <li key={i} className={styles.reportItem}>{r}</li>
                     ))}
                   </ul>
+                </div>
+              )}
+
+              {/* Module J — Don Norman 3-Level Score */}
+              {result.distinctivenessReport.normanLevels && (
+                <div className={styles.reportSection}>
+                  <h3 className={styles.reportSectionTitle}>Don Norman 3-Level Analysis — Module J</h3>
+                  {result.distinctivenessReport.normanSummary && (
+                    <p style={{ fontSize: "12px", color: "var(--text-dim)", marginBottom: "12px", lineHeight: 1.6 }}>
+                      {result.distinctivenessReport.normanSummary}
+                    </p>
+                  )}
+                  {([
+                    { key: "visceral",   label: "Visceral",   desc: "First impression — visual boldness",      color: "#A78BFA" },
+                    { key: "behavioral", label: "Behavioral", desc: "Usability — function, clarity (evaluated blind to aesthetics)", color: "#34D399" },
+                    { key: "reflective", label: "Reflective", desc: "Shareability — would someone be proud to show this?", color: "#FBBF24" },
+                  ] as const).map(({ key, label, desc, color }) => {
+                    const level = result.distinctivenessReport.normanLevels![key];
+                    return (
+                      <div key={key} style={{ marginBottom: "16px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 600, color, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                            {label} — Grade {level.grade}
+                          </span>
+                          <span style={{ fontSize: "13px", fontWeight: 700, color }}>{level.score}/100</span>
+                        </div>
+                        <div style={{ height: "4px", background: "rgba(255,255,255,0.06)", borderRadius: "2px", overflow: "hidden", marginBottom: "4px" }}>
+                          <div style={{ height: "100%", width: `${level.score}%`, background: color, borderRadius: "2px", transition: "width 0.6s ease" }} />
+                        </div>
+                        <div style={{ fontSize: "10px", color: "var(--text-dim)", marginBottom: "4px" }}>{desc}</div>
+                        {level.improvements.length > 0 && (
+                          <ul style={{ margin: 0, paddingLeft: "14px" }}>
+                            {level.improvements.slice(0, 2).map((imp, i) => (
+                              <li key={i} style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", lineHeight: 1.6 }}>{imp}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {result.distinctivenessReport.archetypeCoherence !== undefined && (
+                    <div style={{ borderTop: "0.5px solid rgba(255,255,255,0.06)", paddingTop: "10px", marginTop: "4px", fontSize: "11px", color: "var(--text-dim)" }}>
+                      Archetype coherence ({result.distinctivenessReport.archetypeId}): <strong style={{ color: "var(--signal)" }}>{result.distinctivenessReport.archetypeCoherence}%</strong>
+                    </div>
+                  )}
                 </div>
               )}
 
