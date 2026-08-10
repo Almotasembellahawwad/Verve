@@ -4,6 +4,10 @@ import { useState, useEffect, useRef } from "react";
 import styles from "./GeneratePanel.module.css";
 import { PROVIDER_MODELS, DEFAULT_MODEL, PROVIDER_KEY_LABELS } from "@/lib/llm-adapter/types";
 import type { Provider } from "@/lib/llm-adapter/types";
+import { addHistory, entryFromResult } from "@/lib/history";
+import type { HistoryEntry } from "@/lib/history";
+import { downloadCSS, downloadFigmaTokens, downloadREADME } from "@/lib/export";
+import HistoryDrawer from "./HistoryDrawer";
 
 const ANTHROPIC_KEY = "verve_anthropic_api_key";
 const getStorageKey = (p: Provider) => `verve_${p}_api_key`;
@@ -14,16 +18,26 @@ const PROVIDERS: { id: Provider; label: string; icon: string }[] = [
   { id: "gemini",    label: "Gemini",  icon: "✦" },
 ];
 
-// ─── Pipeline telemetry stages ────────────────────────────────────────────────
-// Heuristic timing based on real Claude API call durations.
-// When SSE streaming is implemented, these will be replaced by real events.
+// ─── Pipeline telemetry stages (SSE real events now power this) ───────────────
 const PIPELINE_STAGES = [
-  { id: "01", name: "BRIEF ANALYZER",       module: "brief-analyzer.ts",    durationMs: 1800,  status: "EXTRACTING"  },
-  { id: "02", name: "CLICHÉ BLOCKLIST",     module: "blocklist-filter.ts",  durationMs: 600,   status: "SCANNING"    },
-  { id: "03", name: "DESIGN PLAN",          module: "plan-generator.ts",    durationMs: 6000,  status: "GENERATING"  },
-  { id: "04", name: "ADVERSARIAL CRITIQUE", module: "critique-loop.ts",     durationMs: 5000,  status: "CRITIQUING"  },
-  { id: "05", name: "CODE GENERATION",      module: "code-generator.ts",    durationMs: 9000,  status: "COMPILING"   },
-  { id: "06", name: "DISTINCTIVENESS",      module: "scorer.ts",            durationMs: 500,   status: "SCORING"     },
+  { id: "01",   name: "BRIEF ANALYZER",         module: "brief-analyzer.ts",   status: "EXTRACTING"  },
+  { id: "02",   name: "ASSETS + BLOCKLIST + L",  module: "H+Blocklist+L",       status: "SCANNING"    },
+  { id: "02.5", name: "BRAND ARCHETYPE",         module: "Module I",            status: "RESOLVING"   },
+  { id: "02.6", name: "ANIMATION LANGUAGE",      module: "Module K",            status: "DERIVING"    },
+  { id: "03",   name: "DESIGN PLAN + COGNITIVE", module: "plan-generator.ts",   status: "GENERATING"  },
+  { id: "04",   name: "ADVERSARIAL CRITIQUE",    module: "critique-loop.ts",    status: "CRITIQUING"  },
+  { id: "05",   name: "CODE GENERATION",         module: "code-generator.ts",   status: "COMPILING"   },
+  { id: "06",   name: "NORMAN 3-LEVEL SCORE",    module: "scorer.ts",           status: "SCORING"     },
+] as const;
+
+// ─── Sample Briefs ────────────────────────────────────────────────────────────
+const SAMPLE_BRIEFS = [
+  { label: "Interior Design",   brief: "Interior design company in Abu Dhabi. High-end residential and hospitality. Target: HNW individuals and hotel developers. Goal: consultation bookings." },
+  { label: "Motion Portfolio",  brief: "Portfolio for a senior motion designer at a major studio. Title sequences and brand films. Must feel different from typical creative portfolios." },
+  { label: "SaaS Analytics",    brief: "B2B analytics platform for e-commerce teams. Helps merchandisers understand product performance without SQL. Target: non-technical team leads." },
+  { label: "Luxury Skincare",   brief: "Skincare brand launching in the UK. Ingredients from Norway. Clinical efficacy, but brand voice should be warm and accessible, not pharmaceutical." },
+  { label: "Law Firm",          brief: "Employment law firm specializing in discrimination and unfair dismissal. Clients are individuals, not corporations. Must feel trustworthy and on their side." },
+  { label: "Architecture",      brief: "Architecture practice in London specializing in adaptive reuse — converting industrial buildings into residential and cultural spaces. 40 completed projects." },
 ] as const;
 
 type StageState = "waiting" | "running" | "done" | "flagged";
@@ -101,7 +115,7 @@ const FRAMEWORKS = ["nextjs", "react", "html"] as const;
 type Framework = (typeof FRAMEWORKS)[number];
 
 // ─── Telemetry Log Component ──────────────────────────────────────────────────
-function TelemetryLog({ stages }: { stages: StageState[] }) {
+function TelemetryLog({ stages, extras }: { stages: StageState[]; extras: Record<string, string> }) {
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -151,7 +165,10 @@ export default function GeneratePanel() {
   const [apiKey, setApiKey] = useState("");
   const [missingKey, setMissingKey] = useState(false);
   const [stageStates, setStageStates] = useState<StageState[]>([]);
+  const [stageExtras, setStageExtras] = useState<Record<string, string>>({});
+  const [historyOpen, setHistoryOpen] = useState(false);
   const telemetryTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const abortRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem(getStorageKey(provider))
@@ -186,44 +203,22 @@ export default function GeneratePanel() {
     window.dispatchEvent(new CustomEvent("verve:open-api-key-modal"));
   };
 
-  // ── Heuristic telemetry progress ──────────────────────────────────────────
-  const startTelemetry = () => {
-    telemetryTimers.current.forEach(clearTimeout);
-    telemetryTimers.current = [];
-
-    const initial: StageState[] = PIPELINE_STAGES.map(() => "waiting");
-    setStageStates(initial);
-
-    let elapsed = 0;
-    PIPELINE_STAGES.forEach((stage, i) => {
-      // Mark as running
-      const runTimer = setTimeout(() => {
-        setStageStates((prev) => {
-          const next = [...prev];
-          next[i] = "running";
-          return next;
-        });
-      }, elapsed);
-
-      elapsed += stage.durationMs;
-
-      // Mark as done
-      const doneTimer = setTimeout(() => {
-        setStageStates((prev) => {
-          const next = [...prev];
-          // Stage 04 (critique) has a chance to show FLAGGED briefly if there are revisions
-          next[i] = "done";
-          return next;
-        });
-      }, elapsed);
-
-      telemetryTimers.current.push(runTimer, doneTimer);
+  // ── SSE-based telemetry: update stage from real events ──────────────────
+  const updateStage = (stageId: string, state: StageState, extra?: string) => {
+    setStageStates((prev) => {
+      const idx = PIPELINE_STAGES.findIndex((s) => s.id === stageId);
+      if (idx < 0) return prev;
+      const next = [...prev];
+      next[idx] = state;
+      return next;
     });
+    if (extra) {
+      setStageExtras((prev) => ({ ...prev, [stageId]: extra }));
+    }
   };
 
   const stopTelemetry = () => {
     telemetryTimers.current.forEach(clearTimeout);
-    // Mark all remaining as done
     setStageStates(PIPELINE_STAGES.map(() => "done"));
   };
 
@@ -244,10 +239,15 @@ export default function GeneratePanel() {
     setError(null);
     setMissingKey(false);
     setResult(null);
-    startTelemetry();
+    setStageExtras({});
+    setStageStates(PIPELINE_STAGES.map(() => "waiting"));
+
+    // ── SSE streaming via fetch + ReadableStream ─────────────────────────
+    let aborted = false;
+    abortRef.current = () => { aborted = true; };
 
     try {
-      const res = await fetch("/api/generate", {
+      const res = await fetch("/api/generate/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -261,25 +261,74 @@ export default function GeneratePanel() {
         }),
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        if (data.code === "NO_API_KEY") {
-          setMissingKey(true);
-          return;
-        }
-        throw new Error(data.error ?? "Generation failed");
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
+        if ((data as Record<string, string>).code === "NO_API_KEY") { setMissingKey(true); return; }
+        throw new Error((data as Record<string, string>).error ?? "Generation failed");
       }
 
-      const data = await res.json();
-      stopTelemetry();
-      setResult(data);
-      setActiveView("plan");
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let   buffer  = "";
+
+      while (!aborted) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+
+        for (const part of parts) {
+          if (!part.trim()) continue;
+          const lines = part.split("\n");
+          let eventType = "message";
+          let dataStr   = "";
+          for (const line of lines) {
+            if (line.startsWith("event: ")) eventType = line.slice(7).trim();
+            if (line.startsWith("data: "))  dataStr   = line.slice(6).trim();
+          }
+          if (!dataStr) continue;
+
+          let payload: Record<string, unknown>;
+          try { payload = JSON.parse(dataStr); } catch { continue; }
+
+          if (eventType === "stage_start") {
+            updateStage(payload.id as string, "running");
+          } else if (eventType === "stage_done") {
+            const extra = payload.extra as Record<string, unknown> | undefined;
+            const hint  = extra ? Object.entries(extra).map(([k,v]) => `${k}: ${v}`).join(" · ") : undefined;
+            updateStage(payload.id as string, "done", hint);
+          } else if (eventType === "stage_flag") {
+            updateStage(payload.id as string, "flagged", payload.reason as string);
+          } else if (eventType === "result") {
+            stopTelemetry();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const data = payload as any;
+            setResult(data);
+            setActiveView("plan");
+            // ── Save to history ──────────────────────────────────────────
+            try { addHistory(entryFromResult(brief, data)); } catch {}
+          } else if (eventType === "error") {
+            throw new Error((payload as Record<string, string>).message ?? "Pipeline error");
+          }
+        }
+      }
+
     } catch (err) {
       stopTelemetry();
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(false);
+      abortRef.current = null;
     }
+  };
+
+  const handleRestoreHistory = (entry: HistoryEntry) => {
+    setHistoryOpen(false);
+    setBrief(entry.brief);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (entry.fullResult) { setResult(entry.fullResult as any); setActiveView("plan"); }
   };
 
   const gradeColor = (grade: string) => {
@@ -294,7 +343,25 @@ export default function GeneratePanel() {
   };
 
   return (
-    <div className={styles.panel}>
+    <>
+      {/* ── History Drawer ────────────────────────────────────────────── */}
+      <HistoryDrawer open={historyOpen} onClose={() => setHistoryOpen(false)} onRestore={handleRestoreHistory} />
+
+      <div className={styles.panel}>
+        {/* ── Top toolbar ─────────────────────────────────────────── */}
+        <div className={styles.panelToolbar}>
+          <button
+            className={styles.toolbarBtn}
+            onClick={() => setHistoryOpen(true)}
+            id="history-btn"
+            title="View past generations"
+          >
+            ◱ History
+          </button>
+          <a href="/lab" className={styles.toolbarLink} target="_blank" title="Prompt Engineering Lab">
+            ▧ Lab
+          </a>
+        </div>
       {/* ── Provider Row ──────────────────────────────────────────────────────── */}
       <div className={styles.providerRow}>
         <div className={styles.providerGroup}>
@@ -367,6 +434,23 @@ export default function GeneratePanel() {
           <label htmlFor="brief-input" className={styles.label}>
             Design brief
           </label>
+
+          {/* Sample Briefs quick-fill */}
+          <div className={styles.sampleBriefs} role="group" aria-label="Sample briefs">
+            {SAMPLE_BRIEFS.map((s) => (
+              <button
+                key={s.label}
+                className={styles.sampleChip}
+                onClick={() => setBrief(s.brief)}
+                disabled={loading}
+                title={s.brief}
+                type="button"
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+
           <textarea
             id="brief-input"
             className={styles.textarea}
@@ -483,7 +567,7 @@ export default function GeneratePanel() {
 
       {/* ── Live Telemetry Log (visible while loading) ────────────────────── */}
       {loading && stageStates.length > 0 && (
-        <TelemetryLog stages={stageStates} />
+        <TelemetryLog stages={stageStates} extras={stageExtras} />
       )}
 
       {/* ── Results ───────────────────────────────────────────────────────── */}
@@ -657,6 +741,37 @@ export default function GeneratePanel() {
               {result.code.setupNotes && (
                 <p className={styles.setupNotes}>{result.code.setupNotes}</p>
               )}
+
+              {/* Export Panel */}
+              <div className={styles.exportPanel}>
+                <div className={styles.exportTitle}>Export Design Tokens</div>
+                <div className={styles.exportBtns}>
+                  <button
+                    className={styles.exportBtn}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    onClick={() => downloadCSS(result.plan as any, result.briefAnalysis.subject.slice(0, 20).toLowerCase().replace(/\s+/g, "-"))}
+                    title="Download CSS custom properties file"
+                  >
+                    ⇩ CSS Variables
+                  </button>
+                  <button
+                    className={styles.exportBtn}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    onClick={() => downloadFigmaTokens(result.plan as any, result.briefAnalysis.subject.slice(0, 20).toLowerCase().replace(/\s+/g, "-"))}
+                    title="Download Style Dictionary JSON for Figma"
+                  >
+                    ⇩ Figma Tokens
+                  </button>
+                  <button
+                    className={styles.exportBtn}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    onClick={() => downloadREADME(result.plan as any, brief, result.briefAnalysis.subject.slice(0, 20).toLowerCase().replace(/\s+/g, "-"))}
+                    title="Download setup guide with font imports and editing instructions"
+                  >
+                    ⇩ README.md
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -764,6 +879,28 @@ export default function GeneratePanel() {
                 </div>
               )}
 
+              {/* Competitive Field — Module L */}
+              {(() => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const cf = (result as any).competitiveField;
+                if (!cf?.matched) return null;
+                return (
+                  <div className={styles.reportSection}>
+                    <h3 className={styles.reportSectionTitle}>
+                      Competitive Field — Module L
+                      <span style={{ fontSize: "9px", letterSpacing: "0.1em", marginLeft: 8, color: cf.temperature === "hot" ? "#FF5050" : cf.temperature === "warm" ? "#FBBF24" : "#34D399" }}>
+                        {cf.temperature?.toUpperCase()} MARKET
+                      </span>
+                    </h3>
+                    <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "10px", lineHeight: 1.7 }}>{cf.opportunity}</p>
+                    <div className={styles.detailLabel} style={{ marginBottom: 6 }}>Patterns avoided in this design ({cf.industry})</div>
+                    {(cf.patterns as string[])?.map((p, i) => (
+                      <div key={i} className={styles.avoidChip}><span style={{ color: "#FF5050", marginRight: 6 }}>✕</span>{p}</div>
+                    ))}
+                  </div>
+                );
+              })()}
+
               <details className={styles.transcriptDetails}>
                 <summary className={styles.transcriptSummary}>
                   Full critique transcript
@@ -775,5 +912,6 @@ export default function GeneratePanel() {
         </div>
       )}
     </div>
+  </>
   );
 }

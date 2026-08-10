@@ -939,3 +939,144 @@
   .tlDots::after       { animation: none; content: '...'; }
 }
 
+
+/* ============================================================
+   GeneratePanel — New feature styles (History, Sample Briefs,
+   Export Panel, Competitive Field, Lab toolbar)
+   ============================================================ */
+
+/* Toolbar */
+.panelToolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0 14px;
+  border-bottom: 0.5px solid rgba(255,255,255,0.05);
+  margin-bottom: 12px;
+}
+
+.toolbarBtn {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.03);
+  border: 0.5px solid rgba(255,255,255,0.08);
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.toolbarBtn:hover {
+  color: rgba(255,255,255,0.75);
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.15);
+}
+
+.toolbarLink {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.02);
+  border: 0.5px solid rgba(255,255,255,0.06);
+  padding: 5px 10px;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.toolbarLink:hover {
+  color: rgba(167,139,250,0.9);
+  border-color: rgba(167,139,250,0.3);
+}
+
+/* Sample Briefs */
+.sampleBriefs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.sampleChip {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.03);
+  border: 0.5px solid rgba(255,255,255,0.08);
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+.sampleChip:hover {
+  color: rgba(167,139,250,0.9);
+  border-color: rgba(167,139,250,0.35);
+  background: rgba(167,139,250,0.06);
+}
+.sampleChip:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* Export Panel */
+.exportPanel {
+  margin-top: 20px;
+  padding: 16px;
+  background: rgba(255,255,255,0.02);
+  border: 0.5px solid rgba(255,255,255,0.07);
+}
+
+.exportTitle {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+  margin-bottom: 10px;
+}
+
+.exportBtns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.exportBtn {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(52,211,153,0.7);
+  background: rgba(52,211,153,0.05);
+  border: 0.5px solid rgba(52,211,153,0.2);
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.exportBtn:hover {
+  background: rgba(52,211,153,0.1);
+  border-color: rgba(52,211,153,0.4);
+  color: rgba(52,211,153,1);
+}
+
+/* Competitive Field chips */
+.avoidChip {
+  font-size: 11px;
+  color: rgba(255,80,80,0.55);
+  padding: 4px 0;
+  border-bottom: 0.5px solid rgba(255,255,255,0.04);
+  line-height: 1.6;
+}
+
+.detailLabel {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.28);
+  margin-bottom: 6px;
+}
+
+/* Extra info in telemetry */
+.tlExtra {
+  font-size: 9px;
+  color: rgba(255,255,255,0.28);
+  margin-left: 6px;
+}
