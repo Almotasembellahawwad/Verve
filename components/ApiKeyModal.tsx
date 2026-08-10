@@ -11,10 +11,11 @@ const ANTHROPIC_KEY = "verve_anthropic_api_key";
 type AnyProvider = Provider | "pexels";
 
 const PROVIDERS: { id: AnyProvider; label: string; description: string; color: string; keyPrefix: string }[] = [
-  { id: "anthropic", label: "Anthropic / Claude",  description: "Claude Sonnet, Opus, Haiku",    color: "#D49020", keyPrefix: "sk-ant-" },
-  { id: "openai",    label: "OpenAI / GPT",         description: "GPT-4o, GPT-4o-mini, o3-mini", color: "#74B87E", keyPrefix: "sk-"     },
-  { id: "gemini",    label: "Google / Gemini",       description: "Gemini 2.5 Pro & Flash",       color: "#6B9FE4", keyPrefix: "AIza"    },
-  { id: "pexels",    label: "Pexels",                description: "Contextual photography",        color: "#05A081", keyPrefix: ""        },
+  { id: "anthropic",   label: "Anthropic / Claude",    description: "Claude Sonnet, Opus, Haiku",        color: "#D49020", keyPrefix: "sk-ant-" },
+  { id: "openai",      label: "OpenAI / GPT",           description: "GPT-5.6 Terra, Sol, Luna",          color: "#74B87E", keyPrefix: "sk-"     },
+  { id: "gemini",      label: "Google / Gemini",         description: "Gemini 2.5 Pro & Flash",            color: "#6B9FE4", keyPrefix: "AIza"    },
+  { id: "openrouter",  label: "OpenRouter",              description: "Free models: Gemma, GPT OSS, Llama", color: "#9A6FF0", keyPrefix: "sk-or-"  },
+  { id: "pexels",      label: "Pexels",                  description: "Contextual photography",             color: "#05A081", keyPrefix: ""        },
 ];
 
 export function useApiKey() {
@@ -51,17 +52,18 @@ type Props = {
 export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
   const [activeProvider, setActiveProvider] = useState<AnyProvider>("anthropic");
   const [values, setValues] = useState<Record<AnyProvider, string>>({
-    anthropic: "", openai: "", gemini: "", pexels: "",
+    anthropic: "", openai: "", gemini: "", openrouter: "", pexels: "",
   });
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setValues({
-        anthropic: localStorage.getItem(ANTHROPIC_KEY) ?? "",
-        openai:    localStorage.getItem(getKey("openai")) ?? "",
-        gemini:    localStorage.getItem(getKey("gemini")) ?? "",
-        pexels:    localStorage.getItem(getKey("pexels")) ?? "",
+        anthropic:   localStorage.getItem(ANTHROPIC_KEY) ?? "",
+        openai:      localStorage.getItem(getKey("openai")) ?? "",
+        gemini:      localStorage.getItem(getKey("gemini")) ?? "",
+        openrouter:  localStorage.getItem(getKey("openrouter")) ?? "",
+        pexels:      localStorage.getItem(getKey("pexels")) ?? "",
       });
     }
   }, [isOpen]);
@@ -164,6 +166,15 @@ export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
                 Get key &#8599;
               </a>
             </div>
+
+            {/* OpenRouter note */}
+            {activeProvider === "openrouter" && (
+              <div className={styles.openrouterNote}>
+                <strong>Free models included:</strong> Gemma 4 31B, GPT OSS 20B, Llama 3.3 70B, Mistral Small 3.2.
+                No billing required for free tier models. Rate limits apply (20 req/min on free tier).
+                Get your key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className={styles.inlineLink}>openrouter.ai/keys</a>.
+              </div>
+            )}
 
             {/* Pexels note */}
             {activeProvider === "pexels" && (

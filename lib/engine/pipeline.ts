@@ -78,11 +78,12 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     pexelsKey,
   } = input;
 
-  // ── API key injection ────────────────────────────────────────────────────
+  // -- API key injection ---------------------------------------------------
   if (apiKey) {
-    process.env.ANTHROPIC_API_KEY  = provider === "anthropic" ? apiKey : (process.env.ANTHROPIC_API_KEY ?? "");
-    process.env.OPENAI_API_KEY     = provider === "openai"    ? apiKey : (process.env.OPENAI_API_KEY    ?? "");
-    process.env.GOOGLE_AI_API_KEY  = provider === "gemini"    ? apiKey : (process.env.GOOGLE_AI_API_KEY ?? "");
+    process.env.ANTHROPIC_API_KEY   = provider === "anthropic"   ? apiKey : (process.env.ANTHROPIC_API_KEY  ?? "");
+    process.env.OPENAI_API_KEY      = provider === "openai"      ? apiKey : (process.env.OPENAI_API_KEY     ?? "");
+    process.env.GOOGLE_AI_API_KEY   = provider === "gemini"      ? apiKey : (process.env.GOOGLE_AI_API_KEY  ?? "");
+    process.env.OPENROUTER_API_KEY  = provider === "openrouter"  ? apiKey : (process.env.OPENROUTER_API_KEY ?? "");
     resetLLMAdapter();
   }
 

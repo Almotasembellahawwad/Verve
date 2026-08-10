@@ -1,34 +1,37 @@
 // =========================================================
 // lib/llm-adapter/index.ts
-// Factory — creates the right adapter from provider + apiKey
+// Factory -- creates the right adapter from provider + apiKey
 // All engine modules call createAdapter() from the request context
 // =========================================================
 
 export type { LLMAdapter, LLMMessage, LLMOptions, Provider } from "./types";
 export { PROVIDER_MODELS, DEFAULT_MODEL, PROVIDER_KEY_LABELS } from "./types";
-export { ClaudeAdapter } from "./claude";
-export { OpenAIAdapter } from "./openai";
-export { GeminiAdapter } from "./gemini";
+export { ClaudeAdapter }       from "./claude";
+export { OpenAIAdapter }       from "./openai";
+export { GeminiAdapter }       from "./gemini";
+export { OpenRouterAdapter }   from "./openrouter";
 
 import type { Provider, LLMAdapter } from "./types";
-import { ClaudeAdapter } from "./claude";
-import { OpenAIAdapter } from "./openai";
-import { GeminiAdapter } from "./gemini";
+import { ClaudeAdapter }       from "./claude";
+import { OpenAIAdapter }       from "./openai";
+import { GeminiAdapter }       from "./gemini";
+import { OpenRouterAdapter }   from "./openrouter";
 
 /**
- * Per-request factory — creates adapter from user-provided apiKey.
+ * Per-request factory -- creates adapter from user-provided apiKey.
  * Used by all API routes (/api/generate, /api/compare, /api/critique).
  */
 export function createAdapter(provider: Provider, apiKey: string, model?: string): LLMAdapter {
   switch (provider) {
-    case "anthropic": return new ClaudeAdapter(apiKey, model);
-    case "openai":    return new OpenAIAdapter(apiKey, model);
-    case "gemini":    return new GeminiAdapter(apiKey, model);
-    default:          throw new Error(`Unknown provider: ${provider}`);
+    case "anthropic":   return new ClaudeAdapter(apiKey, model);
+    case "openai":      return new OpenAIAdapter(apiKey, model);
+    case "gemini":      return new GeminiAdapter(apiKey, model);
+    case "openrouter":  return new OpenRouterAdapter(apiKey, model);
+    default:            throw new Error(`Unknown provider: ${provider}`);
   }
 }
 
-// ── Legacy singleton (for backwards compatibility with old engine calls) ────
+// -- Legacy singleton (for backwards compatibility with old engine calls) ----
 // Engine modules that haven't been updated yet still call getLLMAdapter().
 // These will use the ANTHROPIC_API_KEY env variable as fallback.
 // New modules should call createAdapter() with the user's key instead.
