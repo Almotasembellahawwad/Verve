@@ -1298,3 +1298,83 @@
     justify-content: center;
   }
 }
+/* ── Provider tab with color variable */
+.providerTabActive {
+  border-color: var(--provider-color, var(--brand));
+  color: var(--provider-color, var(--text-primary));
+}
+
+/* FREE badge on OpenRouter tab */
+.freeTag {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  background: rgba(52, 211, 153, 0.12);
+  color: rgba(52, 211, 153, 0.85);
+  border: 0.5px solid rgba(52, 211, 153, 0.25);
+  padding: 1px 5px;
+  margin-left: 5px;
+  vertical-align: middle;
+  line-height: 1.6;
+}
+
+/* Key status badge -- replaces inline input */
+.keySetBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(52, 211, 153, 0.75);
+  background: rgba(52, 211, 153, 0.05);
+  border: 0.5px solid rgba(52, 211, 153, 0.2);
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+.keySetBadge:hover {
+  background: rgba(52, 211, 153, 0.09);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: rgba(52, 211, 153, 1);
+}
+
+.keySetDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(52, 211, 153, 0.8);
+  flex-shrink: 0;
+  box-shadow: 0 0 5px rgba(52, 211, 153, 0.5);
+}
+
+.keyManageHint {
+  color: rgba(52, 211, 153, 0.4);
+  font-size: 9px;
+  margin-left: 2px;
+  transition: color 0.18s;
+}
+.keySetBadge:hover .keyManageHint {
+  color: rgba(52, 211, 153, 0.8);
+}
+
+.keyMissingBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 171, 0, 0.7);
+  background: rgba(255, 171, 0, 0.05);
+  border: 0.5px solid rgba(255, 171, 0, 0.2);
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+.keyMissingBadge:hover {
+  background: rgba(255, 171, 0, 0.09);
+  border-color: rgba(255, 171, 0, 0.4);
+  color: rgba(255, 171, 0, 1);
+}

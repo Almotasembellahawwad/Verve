@@ -13,10 +13,11 @@ import Certificate  from "./Certificate";
 const ANTHROPIC_KEY = "verve_anthropic_api_key";
 const getStorageKey = (p: Provider) => `verve_${p}_api_key`;
 
-const PROVIDERS: { id: Provider; label: string; icon: string }[] = [
-  { id: "anthropic", label: "Claude",  icon: "◆" },
-  { id: "openai",    label: "GPT",     icon: "◎" },
-  { id: "gemini",    label: "Gemini",  icon: "✦" },
+const PROVIDERS: { id: Provider; label: string; icon: string; color: string }[] = [
+  { id: "anthropic",  label: "Claude",      icon: "◆", color: "#D49020" },
+  { id: "openai",     label: "GPT",         icon: "◎", color: "#74B87E" },
+  { id: "gemini",     label: "Gemini",      icon: "✦", color: "#6B9FE4" },
+  { id: "openrouter", label: "OpenRouter",   icon: "⬡", color: "#9A6FF0" },
 ];
 
 // ─── Pipeline telemetry stages (SSE real events now power this) ───────────────
@@ -396,7 +397,7 @@ export default function GeneratePanel() {
             ▧ Lab
           </a>
         </div>
-      {/* ── Provider Row ──────────────────────────────────────────────────────── */}
+      {/* -- Provider Row -------------------------------------------------------- */}
       <div className={styles.providerRow}>
         <div className={styles.providerGroup}>
           <span className={styles.label}>AI provider</span>
@@ -408,9 +409,11 @@ export default function GeneratePanel() {
                 onClick={() => handleProviderChange(p.id)}
                 type="button"
                 disabled={loading}
+                style={provider === p.id ? { "--provider-color": p.color } as React.CSSProperties : undefined}
               >
                 <span aria-hidden="true">{p.icon}</span>
                 {p.label}
+                {p.id === "openrouter" && <span className={styles.freeTag}>FREE</span>}
               </button>
             ))}
           </div>
@@ -426,39 +429,24 @@ export default function GeneratePanel() {
           >
             {PROVIDER_MODELS[provider].map((m) => (
               <option key={m.id} value={m.id}>
-                {m.label} — {m.description}
+                {m.label} &mdash; {m.description}
               </option>
             ))}
           </select>
         </div>
+        {/* Key status badge -- opens modal instead of inline input */}
         <div className={styles.inputGroup}>
           <span className={styles.label}>{PROVIDER_KEY_LABELS[provider].label}</span>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input
-              type="password"
-              className={styles.textarea}
-              style={{ padding: "8px 12px", resize: "none", fontSize: 12, fontFamily: "var(--font-body)" }}
-              value={apiKey}
-              onChange={(e) => {
-                setApiKey(e.target.value);
-                localStorage.setItem(getStorageKey(provider), e.target.value);
-                if (provider === "anthropic") localStorage.setItem(ANTHROPIC_KEY, e.target.value);
-              }}
-              placeholder={PROVIDER_KEY_LABELS[provider].placeholder}
-              disabled={loading}
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <a
-              href={PROVIDER_KEY_LABELS[provider].docsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.hint}
-              style={{ color: "var(--brand)", whiteSpace: "nowrap", fontSize: 11 }}
-            >
-              Get key ↗
-            </a>
-          </div>
+          <button
+            type="button"
+            className={apiKey ? styles.keySetBadge : styles.keyMissingBadge}
+            onClick={openApiKeyModal}
+            title={apiKey ? "Click to manage API keys" : "Click to add API key"}
+          >
+            {apiKey
+              ? <><span className={styles.keySetDot} />Key set &#10003;<span className={styles.keyManageHint}>Manage &#8599;</span></>
+              : <>Add key &#8599;</>}
+          </button>
         </div>
       </div>
 
