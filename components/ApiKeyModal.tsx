@@ -10,14 +10,13 @@ const ANTHROPIC_KEY = "verve_anthropic_api_key";
 
 type AnyProvider = Provider | "pexels";
 
-const PROVIDERS: { id: AnyProvider; label: string; icon: string; color: string }[] = [
-  { id: "anthropic", label: "Claude",  icon: "â—†", color: "#D49020" },
-  { id: "openai",    label: "GPT",     icon: "â—Ž", color: "#74B87E" },
-  { id: "gemini",    label: "Gemini",  icon: "âœ¦", color: "#6B9FE4" },
-  { id: "pexels",    label: "Pexels",  icon: "â–£", color: "#05A081" },
+const PROVIDERS: { id: AnyProvider; label: string; description: string; color: string; keyPrefix: string }[] = [
+  { id: "anthropic", label: "Anthropic / Claude",  description: "Claude Sonnet, Opus, Haiku",    color: "#D49020", keyPrefix: "sk-ant-" },
+  { id: "openai",    label: "OpenAI / GPT",         description: "GPT-4o, GPT-4o-mini, o3-mini", color: "#74B87E", keyPrefix: "sk-"     },
+  { id: "gemini",    label: "Google / Gemini",       description: "Gemini 2.5 Pro & Flash",       color: "#6B9FE4", keyPrefix: "AIza"    },
+  { id: "pexels",    label: "Pexels",                description: "Contextual photography",        color: "#05A081", keyPrefix: ""        },
 ];
 
-// â”€â”€ Hook used by SignalNav â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function useApiKey() {
   const [apiKey, setApiKeyState] = useState<string>("");
 
@@ -52,10 +51,7 @@ type Props = {
 export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
   const [activeProvider, setActiveProvider] = useState<AnyProvider>("anthropic");
   const [values, setValues] = useState<Record<AnyProvider, string>>({
-    anthropic: "",
-    openai: "",
-    gemini: "",
-    pexels: "",
+    anthropic: "", openai: "", gemini: "", pexels: "",
   });
   const [visible, setVisible] = useState(false);
 
@@ -73,10 +69,12 @@ export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
   if (!isOpen) return null;
 
   const currentValue = values[activeProvider];
-  const info = activeProvider === "pexels"
-    ? { label: "Pexels API Key", placeholder: "Key from pexels.com/api â€” enables contextual photography", docsUrl: "https://www.pexels.com/api/" }
-    : PROVIDER_KEY_LABELS[activeProvider as Provider];
   const providerConfig = PROVIDERS.find((p) => p.id === activeProvider)!;
+  const info = activeProvider === "pexels"
+    ? { label: "Pexels API Key", placeholder: "Your key from pexels.com/api", docsUrl: "https://www.pexels.com/api/" }
+    : PROVIDER_KEY_LABELS[activeProvider as Provider];
+
+  const hasAnyKey = PROVIDERS.some((p) => !!values[p.id]);
 
   const handleSave = () => {
     PROVIDERS.forEach((p) => {
@@ -97,12 +95,7 @@ export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
     onClose();
   };
 
-  const maskedKey = (val: string) => {
-    if (!val) return "";
-    return `${val.slice(0, 8)}...${val.slice(-4)}`;
-  };
-
-  const hasAnyKey = PROVIDERS.some((p) => !!values[p.id]);
+  const masked = (val: string) => val ? `${val.slice(0, 8)}...${val.slice(-4)}` : "";
 
   return (
     <div
@@ -113,82 +106,83 @@ export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
       aria-labelledby="apikey-modal-title"
     >
       <div className={styles.modal}>
-        {/* Header */}
+
+        {/* ---- Header ---- */}
         <div className={styles.header}>
-          <div className={styles.headerIcon} aria-hidden="true">âš™</div>
-          <h2 id="apikey-modal-title" className={styles.title}>
-            Configure API Keys
-          </h2>
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Close">Ã—</button>
+          <div>
+            <h2 id="apikey-modal-title" className={styles.title}>API Keys</h2>
+            <p className={styles.titleSub}>Stored locally in your browser only. Never sent to Verve servers.</p>
+          </div>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close">&#215;</button>
         </div>
 
         <div className={styles.body}>
-          {/* Provider tabs */}
-          <div className={styles.providerTabs} role="tablist" aria-label="Select provider">
+
+          {/* ---- Provider list (left column) ---- */}
+          <div className={styles.providerList} role="tablist" aria-label="Select provider">
             {PROVIDERS.map((p) => {
               const hasKey = !!values[p.id];
+              const isActive = activeProvider === p.id;
               return (
                 <button
                   key={p.id}
                   role="tab"
-                  aria-selected={activeProvider === p.id}
-                  className={`${styles.providerTab} ${activeProvider === p.id ? styles.providerTabActive : ""}`}
+                  aria-selected={isActive}
+                  className={`${styles.providerRow} ${isActive ? styles.providerRowActive : ""}`}
                   onClick={() => { setActiveProvider(p.id); setVisible(false); }}
-                  style={activeProvider === p.id ? { "--provider-color": p.color } as React.CSSProperties : undefined}
+                  style={isActive ? { "--c": p.color } as React.CSSProperties : undefined}
                 >
-                  <span className={styles.providerIcon} aria-hidden="true">{p.icon}</span>
-                  {p.label}
-                  {hasKey && <span className={styles.keyDot} aria-label="Key configured" />}
+                  <div className={styles.providerInfo}>
+                    <span className={styles.providerLabel}>{p.label}</span>
+                    <span className={styles.providerDesc}>{p.description}</span>
+                  </div>
+                  <div className={styles.providerStatus}>
+                    {hasKey
+                      ? <span className={styles.statusSet} style={{ color: p.color }}>&#10003; set</span>
+                      : <span className={styles.statusEmpty}>not set</span>
+                    }
+                  </div>
                 </button>
               );
             })}
           </div>
 
-          {/* Pexels explanation */}
-          {activeProvider === "pexels" && (
-            <div className={styles.pexelsNote}>
-              <span>â–£</span>
-              <span>
-                Pexels provides <strong>contextual photography</strong> â€” the pipeline sources images specific to your brief subject (not generic stock). Without this key, the design plan will suggest placeholder images.{" "}
-                <strong>Free tier: 200 req/hour.</strong>
+          {/* ---- Key input (right column) ---- */}
+          <div className={styles.keyPanel}>
+
+            {/* Provider header */}
+            <div className={styles.keyPanelHeader} style={{ borderColor: `${providerConfig.color}30` }}>
+              <span className={styles.keyPanelName} style={{ color: providerConfig.color }}>
+                {providerConfig.label}
               </span>
+              <a
+                href={info.docsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.getKeyLink}
+              >
+                Get key &#8599;
+              </a>
             </div>
-          )}
 
-          {/* Privacy note */}
-          {activeProvider !== "pexels" && (
-            <p className={styles.explanation}>
-              Your key is stored only in your browser&apos;s <code>localStorage</code> and sent
-              directly with each request â€” never logged or persisted server-side.
-            </p>
-          )}
+            {/* Pexels note */}
+            {activeProvider === "pexels" && (
+              <div className={styles.pexelsNote}>
+                <strong>What this enables:</strong> the pipeline sources real photography specific to your brief subject
+                (not generic stock). Without it, image slots are left as placeholders.
+                Free tier: 200 requests/hour.
+              </div>
+            )}
 
-          <div className={styles.howToGet}>
-            <span className={styles.howToIcon} aria-hidden="true">â†—</span>
-            <a
-              href={info.docsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.howToLink}
-            >
-              Get your {providerConfig.label} {activeProvider === "pexels" ? "API" : ""} key â†’
-            </a>
-          </div>
-
-          {/* Key input */}
-          <div className={styles.inputGroup}>
-            <label htmlFor="api-key-input" className={styles.label}>
-              {info.label}
-            </label>
+            {/* Input */}
+            <label htmlFor="api-key-input" className={styles.keyLabel}>{info.label}</label>
             <div className={styles.inputRow}>
               <input
                 id="api-key-input"
                 type={visible ? "text" : "password"}
                 className={styles.input}
                 value={currentValue}
-                onChange={(e) =>
-                  setValues((prev) => ({ ...prev, [activeProvider]: e.target.value }))
-                }
+                onChange={(e) => setValues((prev) => ({ ...prev, [activeProvider]: e.target.value }))}
                 placeholder={info.placeholder}
                 autoComplete="off"
                 spellCheck={false}
@@ -197,34 +191,29 @@ export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
                 type="button"
                 className={styles.visibilityBtn}
                 onClick={() => setVisible((v) => !v)}
-                aria-label={visible ? "Hide API key" : "Show API key"}
+                aria-label={visible ? "Hide" : "Show"}
               >
                 {visible ? "Hide" : "Show"}
               </button>
             </div>
             {currentValue && !visible && (
-              <p className={styles.maskedPreview}>{maskedKey(currentValue)}</p>
+              <p className={styles.maskedPreview}>{masked(currentValue)}</p>
             )}
-          </div>
+            {providerConfig.keyPrefix && currentValue && !currentValue.startsWith(providerConfig.keyPrefix) && (
+              <p className={styles.keyWarning}>
+                Expected prefix: <code>{providerConfig.keyPrefix}</code>
+              </p>
+            )}
 
-          {/* Keys summary */}
-          {hasAnyKey && (
-            <div className={styles.keysSummary}>
-              {PROVIDERS.map((p) => values[p.id] ? (
-                <span key={p.id} className={styles.keyBadge}>
-                  <span aria-hidden="true">{p.icon}</span> {p.label} âœ“
-                </span>
-              ) : null)}
-            </div>
-          )}
-
-          <div className={styles.securityNote}>
-            <span aria-hidden="true">ðŸ”’</span>
-            Keys are stored per-provider in <code>localStorage</code>. Remove all below.
+            {/* Security note */}
+            <p className={styles.securityNote}>
+              Keys are stored in <code>localStorage</code> and sent directly to the provider with each request.
+              Verve never logs or proxies them.
+            </p>
           </div>
         </div>
 
-        {/* Actions */}
+        {/* ---- Actions ---- */}
         <div className={styles.actions}>
           {hasAnyKey && (
             <button className={styles.removeBtn} onClick={handleRemove} type="button">
@@ -239,7 +228,7 @@ export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
             disabled={!currentValue.trim()}
             type="button"
           >
-            Save key
+            Save
           </button>
         </div>
       </div>

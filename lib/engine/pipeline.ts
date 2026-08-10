@@ -24,6 +24,8 @@ import { sourceAssets, type AssetBundle }                              from "./a
 import { resolveArchetype, formatArchetypeForPlanGenerator, type ArchetypeResolution } from "./brand-archetype-resolver";
 import { buildAnimationLanguage, formatAnimationForCodeGen, type AnimationLanguage } from "./animation-language";
 import { analyzeCompetitiveField, type CompetitiveAnalysis }           from "./competitive-field";
+import { runRestraintCheck, type RestraintResult }                     from "./restraint-check";  // Module N
+import { scoreEngineering, type EngineeringResult }                   from "./engineering-score"; // Dual Scoring
 import { createAdapter, resetLLMAdapter }                              from "../llm-adapter";
 import type { Provider }                                               from "../llm-adapter/types";
 
@@ -39,7 +41,9 @@ export type PipelineResult = {
   designPlan:             DesignPlan;
   finalCritique:          CritiqueResult;
   generatedCode:          GeneratedCode;
-  distinctivenessReport:  DistinctivenessReport;  // Module J (3-level)
+  distinctivenessReport:  DistinctivenessReport;  // Module J (3-level Norman)
+  restraintResult:        RestraintResult;        // Module N (Dieter Rams)
+  engineeringResult:      EngineeringResult;      // Dual Scoring — Engineering axis
   revisionCount:          number;
   durationMs:             number;
 };
@@ -149,6 +153,21 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     framework
   );
 
+  // -- [N] Restraint Check (Dieter Rams) -- deterministic, no LLM call ------
+  const restraintResult = runRestraintCheck({
+    colorPalette:      designPlan.colorPalette,
+    typePairing:       designPlan.typePairing,
+    signatureElement:  designPlan.signatureElement,
+    layoutConcept:     designPlan.layoutConcept,
+    referencesSampled: designPlan.referencesSampled ?? [],
+  });
+
+  // -- [ENG] Engineering Score -- deterministic, no LLM call ----------------
+  const engineeringResult = scoreEngineering(
+    generatedCode.code,
+    (framework as Parameters<typeof scoreEngineering>[1])
+  );
+
   // ── [06] Distinctiveness Report (Module J — 3-level Norman) ─────────────
   const distinctivenessReport = generateDistinctivenessReport(
     blocklistResult,
@@ -169,6 +188,8 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     finalCritique,
     generatedCode,
     distinctivenessReport,
+    restraintResult,
+    engineeringResult,
     revisionCount,
     durationMs: Date.now() - start,
   };
