@@ -8,6 +8,7 @@ import { addHistory, entryFromResult } from "@/lib/history";
 import type { HistoryEntry } from "@/lib/history";
 import { downloadCSS, downloadFigmaTokens, downloadREADME } from "@/lib/export";
 import HistoryDrawer from "./HistoryDrawer";
+import Certificate  from "./Certificate";
 
 const ANTHROPIC_KEY = "verve_anthropic_api_key";
 const getStorageKey = (p: Provider) => `verve_${p}_api_key`;
@@ -166,7 +167,8 @@ export default function GeneratePanel() {
   const [missingKey, setMissingKey] = useState(false);
   const [stageStates, setStageStates] = useState<StageState[]>([]);
   const [stageExtras, setStageExtras] = useState<Record<string, string>>({});
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyOpen,  setHistoryOpen]  = useState(false);
+  const [certOpen,     setCertOpen]     = useState(false);
   const telemetryTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const abortRef = useRef<(() => void) | null>(null);
 
@@ -346,6 +348,24 @@ export default function GeneratePanel() {
     <>
       {/* ── History Drawer ────────────────────────────────────────────── */}
       <HistoryDrawer open={historyOpen} onClose={() => setHistoryOpen(false)} onRestore={handleRestoreHistory} />
+
+      {/* ── Certificate ─────────────────────────────────────────── */}
+      {certOpen && result && (
+        <Certificate
+          onClose={() => setCertOpen(false)}
+          data={{
+            score:              result.distinctivenessReport.score,
+            grade:              result.distinctivenessReport.grade,
+            normanLevels:       result.distinctivenessReport.normanLevels,
+            archetypeId:        result.distinctivenessReport.archetypeId,
+            archetypeCoherence: result.distinctivenessReport.archetypeCoherence,
+            signatureElement:   result.distinctivenessReport.signatureElement,
+            brief,
+            durationMs:         result.durationMs,
+            revisionCount:      result.revisionCount,
+          }}
+        />
+      )}
 
       <div className={styles.panel}>
         {/* ── Top toolbar ─────────────────────────────────────────── */}
@@ -600,6 +620,14 @@ export default function GeneratePanel() {
               <span className={styles.duration}>
                 {(result.durationMs / 1000).toFixed(1)}s
               </span>
+              <button
+                className={styles.certBtn}
+                onClick={() => setCertOpen(true)}
+                id="open-certificate"
+                title="View shareable score certificate"
+              >
+                ▤ Certificate
+              </button>
             </div>
           </div>
 

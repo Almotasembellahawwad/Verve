@@ -13,6 +13,7 @@
     "@google/generative-ai": "^0.24.1",
     "colorthief": "^3.5.0",
     "framer-motion": "^12.43.0",
+    "html2canvas": "^1.4.1",
     "lucide-react": "^1.28.0",
     "next": "16.2.12",
     "openai": "^7.3.0",

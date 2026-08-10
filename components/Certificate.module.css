@@ -1,0 +1,320 @@
+/* components/Certificate.module.css */
+
+/* ── Overlay ──────────────────────────────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+}
+
+/* ── Modal shell ─────────────────────────────────────────────────────────── */
+.modal {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 520px;
+  background: #111010;
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
+}
+
+.modalTitle {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.modalActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.copyImgBtn {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(52, 211, 153, 0.7);
+  background: rgba(52, 211, 153, 0.06);
+  border: 0.5px solid rgba(52, 211, 153, 0.2);
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.copyImgBtn:hover:not(:disabled) {
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.5);
+}
+.copyImgBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.closeBtn {
+  width: 26px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.closeBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* ── Certificate Card ────────────────────────────────────────────────────── */
+.cert {
+  background: #0C0C0C;
+  padding: 32px 32px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Header row */
+.certHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.certBrand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.certLogoMark {
+  color: #A78BFA;
+  font-size: 14px;
+}
+
+.certMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.certDate,
+.certDuration,
+.certRevision {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.certRevision {
+  color: rgba(251, 191, 36, 0.5);
+}
+
+/* Score */
+.certScore {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 0;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
+}
+
+.certGrade {
+  font-size: 64px;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.certScoreNum {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1;
+}
+
+.certScoreOut {
+  font-size: 16px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.3);
+  margin-left: 2px;
+}
+
+.certScoreLabel {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.25);
+  margin-top: 4px;
+}
+
+/* Sections */
+.certSection {}
+
+.certSectionTitle {
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.22);
+  margin-bottom: 10px;
+}
+
+/* Norman bars */
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.barRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.barLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 90px;
+  flex-shrink: 0;
+}
+
+.barName {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.04em;
+}
+
+.barGrade {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.barTrack {
+  flex: 1;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+.barScore {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  width: 26px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Archetype */
+.certArchetype {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.certArchetypeName {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: capitalize;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.certArchetypeCoh {
+  font-size: 10px;
+  color: rgba(167, 139, 250, 0.6);
+  letter-spacing: 0.06em;
+}
+
+/* Signature */
+.certSignature {
+  font-size: 12px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Brief */
+.certBrief {
+  font-size: 11px;
+  line-height: 1.75;
+  color: rgba(255, 255, 255, 0.35);
+  border-left: 2px solid rgba(255, 255, 255, 0.06);
+  padding-left: 12px;
+}
+
+/* Footer */
+.certFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.05);
+}
+
+.certFooterNote {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.15);
+}
+
+.certFooterUrl {
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(167, 139, 250, 0.35);
+}
+
+/* ── Share hint ──────────────────────────────────────────────────────────── */
+.shareHint {
+  font-size: 11px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.2);
+  padding: 14px 18px;
+  margin: 0;
+  text-align: center;
+}

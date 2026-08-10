@@ -9,6 +9,7 @@ import { BeforeAfterHero } from "@/components/BeforeAfterHero";
 import { PipelineViz } from "@/components/PipelineViz";
 import { ClicheList } from "@/components/ClicheList";
 import { SignalNav } from "@/components/SignalNav";
+import OnboardingModal from "@/components/OnboardingModal";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"generate" | "critique" | "compare">("generate");
@@ -16,6 +17,7 @@ export default function Home() {
   return (
     <main className={styles.main}>
       <SignalNav />
+      <OnboardingModal />
 
       {/* HERO — Signature element: live before/after transformation */}
       <section className={styles.hero} id="hero">

@@ -1080,3 +1080,21 @@
   color: rgba(255,255,255,0.28);
   margin-left: 6px;
 }
+
+/* Certificate button (in score banner) */
+.certBtn {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(167, 139, 250, 0.65);
+  background: rgba(167, 139, 250, 0.06);
+  border: 0.5px solid rgba(167, 139, 250, 0.2);
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.certBtn:hover {
+  color: rgba(167, 139, 250, 1);
+  border-color: rgba(167, 139, 250, 0.4);
+  background: rgba(167, 139, 250, 0.1);
+}
