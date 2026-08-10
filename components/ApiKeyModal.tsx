@@ -11,13 +11,13 @@ const ANTHROPIC_KEY = "verve_anthropic_api_key";
 type AnyProvider = Provider | "pexels";
 
 const PROVIDERS: { id: AnyProvider; label: string; icon: string; color: string }[] = [
-  { id: "anthropic", label: "Claude",  icon: "◆", color: "#D49020" },
-  { id: "openai",    label: "GPT",     icon: "◎", color: "#74B87E" },
-  { id: "gemini",    label: "Gemini",  icon: "✦", color: "#6B9FE4" },
-  { id: "pexels",    label: "Pexels",  icon: "▣", color: "#05A081" },
+  { id: "anthropic", label: "Claude",  icon: "â—†", color: "#D49020" },
+  { id: "openai",    label: "GPT",     icon: "â—Ž", color: "#74B87E" },
+  { id: "gemini",    label: "Gemini",  icon: "âœ¦", color: "#6B9FE4" },
+  { id: "pexels",    label: "Pexels",  icon: "â–£", color: "#05A081" },
 ];
 
-// ── Hook used by SignalNav ────────────────────────────────────────────────────
+// â”€â”€ Hook used by SignalNav â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function useApiKey() {
   const [apiKey, setApiKeyState] = useState<string>("");
 
@@ -120,11 +120,11 @@ export function ApiKeyModal({ isOpen, onClose, onSave, currentKey }: Props) {
       <div className={styles.modal}>
         {/* Header */}
         <div className={styles.header}>
-          <div className={styles.headerIcon} aria-hidden="true">⚙</div>
+          <div className={styles.headerIcon} aria-hidden="true">âš™</div>
           <h2 id="apikey-modal-title" className={styles.title}>
             Configure AI Provider
           </h2>
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Close">✕</button>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close">âœ•</button>
         </div>
 
         <div className={styles.body}>
@@ -152,18 +152,18 @@ export function ApiKeyModal({ isOpen, onClose, onSave, currentKey }: Props) {
           {/* Provider explanation */}
           <p className={styles.explanation}>
             Your key is stored only in your browser&apos;s <code>localStorage</code> and sent
-            directly with each request — never logged or persisted server-side.
+            directly with each request â€” never logged or persisted server-side.
           </p>
 
           <div className={styles.howToGet}>
-            <span className={styles.howToIcon} aria-hidden="true">↗</span>
+            <span className={styles.howToIcon} aria-hidden="true">â†—</span>
             <a
               href={info.docsUrl}
               target="_blank"
               rel="noopener noreferrer"
               className={styles.howToLink}
             >
-              Get your {providerConfig.label} API key →
+              Get your {providerConfig.label} API key â†’
             </a>
           </div>
 
@@ -204,14 +204,14 @@ export function ApiKeyModal({ isOpen, onClose, onSave, currentKey }: Props) {
             <div className={styles.keysSummary}>
               {PROVIDERS.map((p) => values[p.id] ? (
                 <span key={p.id} className={styles.keyBadge}>
-                  <span aria-hidden="true">{p.icon}</span> {p.label} ✓
+                  <span aria-hidden="true">{p.icon}</span> {p.label} âœ“
                 </span>
               ) : null)}
             </div>
           )}
 
           <div className={styles.securityNote}>
-            <span aria-hidden="true">🔒</span>
+            <span aria-hidden="true">ðŸ”’</span>
             Keys are stored per-provider in <code>localStorage</code>. Remove all below.
           </div>
         </div>

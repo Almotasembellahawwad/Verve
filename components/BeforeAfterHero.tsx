@@ -3,9 +3,9 @@
 import { useState, useRef, useEffect } from "react";
 import styles from "./BeforeAfterHero.module.css";
 
-// ─── BEFORE: Generic AI output — every cliché documented ──────────────────────
+// â”€â”€â”€ BEFORE: Generic AI output â€” every clichÃ© documented â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Inter font, cream background, soft-shadow card, indigo CTA, vague copy.
-// This is the literal pattern from cliches.json — displayed, not hidden.
+// This is the literal pattern from cliches.json â€” displayed, not hidden.
 const BEFORE_HTML = `
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
@@ -98,22 +98,22 @@ const BEFORE_HTML = `
   }
 </style>
 <div class="b-wrap">
-  <span class="b-badge">✦ AI-Powered Platform</span>
+  <span class="b-badge">âœ¦ AI-Powered Platform</span>
   <h2 class="b-h2">Build faster.<br>Boost productivity.</h2>
   <p class="b-p">Streamline your workflow and deliver results with our powerful, easy-to-use platform. Trusted by 10,000+ teams.</p>
   <div class="b-cards">
     <div class="b-card">
-      <div class="b-card-icon">⚡</div>
+      <div class="b-card-icon">âš¡</div>
       <div class="b-card-label">Speed</div>
-      <div class="b-card-val">3× faster</div>
+      <div class="b-card-val">3Ã— faster</div>
     </div>
     <div class="b-card">
-      <div class="b-card-icon">🛡</div>
+      <div class="b-card-icon">ðŸ›¡</div>
       <div class="b-card-label">Secure</div>
       <div class="b-card-val">SOC 2</div>
     </div>
   </div>
-  <button class="b-btn">Get Started Free →</button>
+  <button class="b-btn">Get Started Free â†’</button>
   <div class="b-social">
     <span style="background:#E5E7EB;border-radius:50%;width:20px;height:20px;display:inline-block"></span>
     <span style="background:#D1D5DB;border-radius:50%;width:20px;height:20px;display:inline-block;margin-left:-6px"></span>
@@ -122,7 +122,7 @@ const BEFORE_HTML = `
   </div>
 </div>`;
 
-// ─── AFTER: Verve output — every cliché explicitly countered ──────────────────
+// â”€â”€â”€ AFTER: Verve output â€” every clichÃ© explicitly countered â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // IBM Plex Mono body, Space Grotesk display, amber accent, clip-path CTA,
 // editorial annotation style, no rounded cards, no gradients, no vague copy.
 const AFTER_HTML = `
@@ -214,17 +214,17 @@ const AFTER_HTML = `
   }
 </style>
 <div class="a-wrap">
-  <div class="a-score">// distinctiveness: 91 — grade A</div>
+  <div class="a-score">// distinctiveness: 91 â€” grade A</div>
   <h2 class="a-h2">The noise floor<br>just dropped.</h2>
   <p class="a-annotation">AI UIs converge on defaults. This one was built<br>against them. Deliberately.</p>
   <div class="a-metrics">
     <div class="a-metric">
-      <span class="a-metric-key">Clichés</span>
+      <span class="a-metric-key">ClichÃ©s</span>
       <span class="a-metric-val">0</span>
     </div>
     <div class="a-metric">
       <span class="a-metric-key">Revisions</span>
-      <span class="a-metric-val">1×</span>
+      <span class="a-metric-val">1Ã—</span>
     </div>
     <div class="a-metric">
       <span class="a-metric-key">Score</span>
@@ -232,11 +232,11 @@ const AFTER_HTML = `
     </div>
   </div>
   <button class="a-btn">Analyze brief_</button>
-  <div class="a-sig"><span>█</span> signal active — verve v1.0</div>
+  <div class="a-sig"><span>â–ˆ</span> signal active â€” verve v1.0</div>
 </div>`;
 
 export function BeforeAfterHero({ standalone = false }: { standalone?: boolean }) {
-  // Start at 42% — before is deliberately cramped, after dominates
+  // Start at 42% â€” before is deliberately cramped, after dominates
   const [dividerPos, setDividerPos] = useState(42);
   const [isDragging, setIsDragging] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -268,7 +268,7 @@ export function BeforeAfterHero({ standalone = false }: { standalone?: boolean }
   return (
     <div className={`${styles.comparisonRoot} ${standalone ? styles.standalone : ""}`}>
 
-      {/* Fixed labels — each anchored to its own side, not following divider */}
+      {/* Fixed labels â€” each anchored to its own side, not following divider */}
       <div className={styles.labelRow} aria-hidden="true">
         <span className={styles.labelBefore}>Base LLM</span>
         <span className={styles.labelAfter}>Verve Output</span>
@@ -281,7 +281,7 @@ export function BeforeAfterHero({ standalone = false }: { standalone?: boolean }
         role="group"
         aria-label="Drag to compare generic AI output versus Verve output"
       >
-        {/* BEFORE — generic, faded */}
+        {/* BEFORE â€” generic, faded */}
         <div className={styles.beforePanel}>
           <div className={styles.genericWatermark} aria-hidden="true">GENERIC</div>
           <div className={styles.chromeBar}>
@@ -297,7 +297,7 @@ export function BeforeAfterHero({ standalone = false }: { standalone?: boolean }
           </div>
         </div>
 
-        {/* AFTER — dominant, clipped from divider position */}
+        {/* AFTER â€” dominant, clipped from divider position */}
         <div
           className={styles.afterPanel}
           style={{ clipPath: `inset(0 0 0 ${dividerPos}%)` }}
@@ -327,7 +327,7 @@ export function BeforeAfterHero({ standalone = false }: { standalone?: boolean }
           onMouseDown={() => { setIsDragging(true); setHasInteracted(true); }}
           onTouchStart={() => { setIsDragging(true); setHasInteracted(true); }}
           role="slider"
-          aria-label="Comparison divider — drag left or right"
+          aria-label="Comparison divider â€” drag left or right"
           aria-valuemin={15}
           aria-valuemax={80}
           aria-valuenow={Math.round(dividerPos)}
@@ -351,9 +351,9 @@ export function BeforeAfterHero({ standalone = false }: { standalone?: boolean }
       {/* Caption */}
       <div className={styles.caption}>
         <span>Same brief.</span>
-        <span className="muted-text">·</span>
+        <span className="muted-text">Â·</span>
         <span className="muted-text">Drag to reveal.</span>
-        <span className="muted-text">·</span>
+        <span className="muted-text">Â·</span>
         <span className="muted-text">0 blocklist violations in Verve output.</span>
       </div>
     </div>

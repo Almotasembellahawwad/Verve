@@ -5,16 +5,16 @@ import styles from "./ComparePanel.module.css";
 import type { Provider } from "@/lib/llm-adapter/types";
 import { PROVIDER_MODELS, DEFAULT_MODEL, PROVIDER_KEY_LABELS } from "@/lib/llm-adapter/types";
 
-// ── Telemetry stages for both pipelines ─────────────────────────────────────
+// â”€â”€ Telemetry stages for both pipelines â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const BASELINE_STAGES = [
   { id: "B1", name: "PROMPT SENT",      durationMs: 1200 },
   { id: "B2", name: "GENERATING...",    durationMs: 7000 },
-  { id: "B3", name: "SCORING CLICHÉS",  durationMs: 500  },
+  { id: "B3", name: "SCORING CLICHÃ‰S",  durationMs: 500  },
 ];
 
 const VERVE_STAGES = [
   { id: "V1", name: "BRIEF ANALYZER",      durationMs: 1800 },
-  { id: "V2", name: "CLICHÉ BLOCKLIST",    durationMs: 600  },
+  { id: "V2", name: "CLICHÃ‰ BLOCKLIST",    durationMs: 600  },
   { id: "V3", name: "DESIGN PLAN",         durationMs: 6000 },
   { id: "V4", name: "ADVERSARIAL CRITIQUE",durationMs: 5000 },
   { id: "V5", name: "CODE GENERATION",     durationMs: 9000 },
@@ -63,9 +63,9 @@ const GRADE_COLOR: Record<string, string> = {
 };
 
 const PROVIDERS: { id: Provider; label: string; icon: string }[] = [
-  { id: "anthropic", label: "Claude",  icon: "◆" },
-  { id: "openai",    label: "GPT",     icon: "◎" },
-  { id: "gemini",    label: "Gemini",  icon: "✦" },
+  { id: "anthropic", label: "Claude",  icon: "â—†" },
+  { id: "openai",    label: "GPT",     icon: "â—Ž" },
+  { id: "gemini",    label: "Gemini",  icon: "âœ¦" },
 ];
 
 export default function ComparePanel() {
@@ -170,7 +170,7 @@ export default function ComparePanel() {
 
   return (
     <div className={styles.panel}>
-      {/* ── Input ───────────────────────────────────────────────────── */}
+      {/* â”€â”€ Input â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className={styles.inputArea}>
         <div className={styles.providerRow}>
           <div className={styles.providerGroup}>
@@ -201,7 +201,7 @@ export default function ComparePanel() {
             >
               {PROVIDER_MODELS[provider].map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.label} — {m.description}
+                  {m.label} â€” {m.description}
                 </option>
               ))}
             </select>
@@ -231,7 +231,7 @@ export default function ComparePanel() {
               rel="noopener noreferrer"
               className={styles.getKeyLink}
             >
-              Get key ↗
+              Get key â†—
             </a>
           </div>
         </div>
@@ -275,19 +275,19 @@ export default function ComparePanel() {
             aria-busy={loading}
           >
             {loading ? (
-              <><span className={styles.spinner} aria-hidden="true" />Running both…</>
+              <><span className={styles.spinner} aria-hidden="true" />Running bothâ€¦</>
             ) : (
-              <><span aria-hidden="true">⇄</span>Run comparison</>
+              <><span aria-hidden="true">â‡„</span>Run comparison</>
             )}
           </button>
         </div>
 
         {error && (
-          <div className={styles.error} role="alert"><span>⚠</span> {error}</div>
+          <div className={styles.error} role="alert"><span>âš </span> {error}</div>
         )}
       </div>
 
-      {/* ── Live Dual Telemetry ─────────────────────────────────────── */}
+      {/* â”€â”€ Live Dual Telemetry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {loading && baselineStages.length > 0 && (
         <div className={styles.dualTelemetry}>
           {/* Baseline */}
@@ -301,7 +301,7 @@ export default function ComparePanel() {
                 <span className={styles.tlId}>[{s.id}]</span>
                 <span className={styles.tlName}>{s.name}</span>
                 {baselineStages[i] === "running" && <span className={styles.tlDots} />}
-                {baselineStages[i] === "done" && <span className={styles.tlDone}>✓</span>}
+                {baselineStages[i] === "done" && <span className={styles.tlDone}>âœ“</span>}
               </div>
             ))}
           </div>
@@ -317,14 +317,14 @@ export default function ComparePanel() {
                 <span className={styles.tlId}>[{s.id}]</span>
                 <span className={styles.tlName}>{s.name}</span>
                 {verveStages[i] === "running" && <span className={styles.tlDots} />}
-                {verveStages[i] === "done" && <span className={styles.tlDone}>✓</span>}
+                {verveStages[i] === "done" && <span className={styles.tlDone}>âœ“</span>}
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── Results ─────────────────────────────────────────────────── */}
+      {/* â”€â”€ Results â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {result && (
         <div className={styles.results}>
           {/* Delta Banner */}
@@ -333,18 +333,18 @@ export default function ComparePanel() {
               <span className={styles.deltaNum} style={{ color: result.delta.scoreDelta >= 0 ? "var(--data-pass)" : "#E06050" }}>
                 {result.delta.scoreDelta >= 0 ? "+" : ""}{result.delta.scoreDelta}
               </span>
-              <span className={styles.deltaLabel}>points — Verve vs plain {provider}</span>
+              <span className={styles.deltaLabel}>points â€” Verve vs plain {provider}</span>
             </div>
             <div className={styles.deltaRight}>
               {result.delta.clichesEliminated > 0 && (
                 <span className={styles.deltaStat}>
                   <span className={styles.deltaStatNum}>{result.delta.clichesEliminated}</span>
-                  clichés eliminated
+                  clichÃ©s eliminated
                 </span>
               )}
               {result.verve.signatureElement && (
                 <span className={styles.deltaStat}>
-                  <span className={styles.deltaStatNum}>✦</span>
+                  <span className={styles.deltaStatNum}>âœ¦</span>
                   {result.verve.plan?.signatureElement?.name ?? result.verve.signatureElement}
                 </span>
               )}
@@ -374,10 +374,10 @@ export default function ComparePanel() {
 
               {activeView === "visual" && (
                 <div className={styles.visualPane}>
-                  {/* Clichés detected */}
+                  {/* ClichÃ©s detected */}
                   {result.baseline.clichesDetected.length > 0 && (
                     <div className={styles.clicheList} data-side="baseline">
-                      <span className={styles.clicheListLabel}>Clichés detected:</span>
+                      <span className={styles.clicheListLabel}>ClichÃ©s detected:</span>
                       {result.baseline.clichesDetected.map((c) => (
                         <span key={c} className={styles.clicheTag} data-side="baseline">{c}</span>
                       ))}
@@ -393,7 +393,7 @@ export default function ComparePanel() {
                       <div className={styles.gmCta}>Get Started</div>
                     </div>
                     <div className={styles.gmHero}>
-                      <div className={styles.gmBadge}>🚀 Introducing v2.0</div>
+                      <div className={styles.gmBadge}>ðŸš€ Introducing v2.0</div>
                       <div className={styles.gmHeadline}>Build faster.<br />Ship smarter.</div>
                       <div className={styles.gmSub}>The all-in-one platform to grow your business with AI-powered tools.</div>
                       <div className={styles.gmButtons}>
@@ -402,7 +402,7 @@ export default function ComparePanel() {
                       </div>
                     </div>
                     <div className={styles.gmFeatures}>
-                      {["⚡ Fast", "🔒 Secure", "📊 Analytics", "🤝 Collaborate"].map((f) => (
+                      {["âš¡ Fast", "ðŸ”’ Secure", "ðŸ“Š Analytics", "ðŸ¤ Collaborate"].map((f) => (
                         <div key={f} className={styles.gmFeatureCard}>{f}</div>
                       ))}
                     </div>
@@ -427,7 +427,7 @@ export default function ComparePanel() {
             {/* Divider */}
             <div className={styles.vsBar}>
               <span className={styles.vsLabel}>vs</span>
-              <div className={styles.vsArrow}>→</div>
+              <div className={styles.vsArrow}>â†’</div>
             </div>
 
             {/* RIGHT: Verve */}
@@ -450,7 +450,7 @@ export default function ComparePanel() {
                       {/* Color palette */}
                       <div className={styles.paletteMini}>
                         {result.verve.plan.colorPalette.slice(0, 5).map((c) => (
-                          <div key={c.hex} className={styles.swatchMini} style={{ background: c.hex }} title={`${c.name} — ${c.role}`} />
+                          <div key={c.hex} className={styles.swatchMini} style={{ background: c.hex }} title={`${c.name} â€” ${c.role}`} />
                         ))}
                         <span className={styles.paletteMiniLabel}>
                           {result.verve.plan.colorPalette.slice(0, 2).map((c) => c.name).join(" + ")}
@@ -463,7 +463,7 @@ export default function ComparePanel() {
                       </div>
                       {/* Signature element */}
                       <div className={styles.signatureMini}>
-                        <span className={styles.signatureMiniIcon}>✦</span>
+                        <span className={styles.signatureMiniIcon}>âœ¦</span>
                         <div>
                           <div className={styles.signatureMiniName}>{result.verve.plan.signatureElement.name}</div>
                           <div className={styles.signatureMiniDesc}>{result.verve.plan.signatureElement.description}</div>
@@ -471,7 +471,7 @@ export default function ComparePanel() {
                       </div>
                     </div>
                   )}
-                  {/* Clichés avoided */}
+                  {/* ClichÃ©s avoided */}
                   {result.verve.clichesAvoided.length > 0 && (
                     <div className={styles.clicheList} data-side="verve">
                       <span className={styles.clicheListLabel}>Deliberately avoided:</span>
