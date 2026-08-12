@@ -33,6 +33,7 @@ export const PROVIDER_MODELS: Record<Provider, { id: string; label: string; desc
   openai: [
     { id: "gpt-5.6-terra", label: "GPT-5.6 Terra", description: "Balanced intelligence & cost — reasoning model" },
     { id: "gpt-5.6-sol",   label: "GPT-5.6 Sol",   description: "Flagship reasoning — highest intelligence" },
+    { id: "gpt-5.6-luna",  label: "GPT-5.6 Luna",  description: "Efficient high-volume workloads — fastest GPT-5.6" },
     { id: "gpt-4o-mini",   label: "GPT-4o Mini",   description: "Affordable, lightweight — fast tasks" },
   ],
   gemini: [
