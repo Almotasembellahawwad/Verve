@@ -26,41 +26,83 @@ export async function generateCode(
 
   const frameworkNote = FRAMEWORK_NOTES[framework] ?? FRAMEWORK_NOTES.nextjs;
 
-  const colorTokens = plan.colorPalette
-    .map((c) => `  --color-${c.name.toLowerCase().replace(/\s+/g, "-")}: ${c.hex}; /* ${c.role} */`)
+  // Extract detailed color tokens with roles
+  const colorTokensDetailed = (plan.colorPalette ?? [])
+    .map((c) => `  --color-${c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}: ${c.hex}; /* Role: ${c.role} */`)
     .join("\n");
 
-  const systemPrompt = `You are a world-class award-winning creative technologist (Awwwards / FWA / Studio Freight standard) implementing a design plan into production-quality code.
+  // Extract Cognitive Grounding directives (Module G)
+  const cognitiveContext = plan.cognitiveGrounding
+    ? `
+COGNITIVE GROUNDING DIRECTIVES (Module G):
+• Von Restorff Visual Isolation: ${plan.cognitiveGrounding.vonRestorffCompliance ?? "N/A"}
+• Gutenberg Grid & POA/TA Anchoring: ${plan.cognitiveGrounding.gutenbergCompliance ?? "N/A"}
+• Peak-End Closing Section Treatment: ${plan.cognitiveGrounding.peakEndDesign ?? "N/A"}
+• Target Signal-to-Noise Ratio: ${plan.cognitiveGrounding.signalNoiseRatio ?? 0.8}
+• Usability Baseline: ${plan.cognitiveGrounding.usabilityBaseline ?? "N/A"}
+`
+    : "";
+
+  // Extract full Signature Element details
+  const signatureContext = plan.signatureElement
+    ? `
+SIGNATURE DESIGN ELEMENT (Visual Core):
+• Name: ${plan.signatureElement.name}
+• Description: ${plan.signatureElement.description ?? ""}
+• Implementation Guidelines: ${plan.signatureElement.implementation}
+• Strategic Justification: ${plan.signatureElement.justification ?? ""}
+`
+    : "";
+
+  // Extract raw plan text if available
+  const rawPlanBlock = plan.rawPlan
+    ? `
+RAW DESIGN PLAN SUMMARY:
+${plan.rawPlan}
+`
+    : "";
+
+  const systemPrompt = `You are a world-class award-winning creative technologist (Awwwards / FWA / Studio Freight standard) executing a complete design plan into code.
 
 ${blocklistInjection}
 
-CRITICAL PRODUCTION QUALITY RULES:
-1. IMAGES: Every <img> or background-image MUST use real, high-resolution Unsplash URLs matching the topic (e.g. "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=80"). NEVER use dead placeholders like "image.jpg", "large-image.jpg", or empty gray boxes!
-2. COLOR & CONTRAST: Ensure AAA contrast ratio between text and background. Primary text MUST be crisp and readable (#F4F1EA on dark canvas, #14221F on light canvas). NEVER use gray text on gray backgrounds!
-3. FONTS: Load ONLY real, verified Google Fonts via valid @import (e.g., Cormorant Garamond, DM Sans, Plus Jakarta Sans, Playfair Display, Space Grotesk). NEVER invent fake font names like "The Creator"!
-4. RESPONSIVE LAYOUT: Mobile-first responsive structure with grid/flexbox, rich spatial typography, and luxury editorial hierarchy.
-5. ACCESSIBILITY & MOTION: Keyboard focus states, ARIA labels, and prefers-reduced-motion media query wrapping all keyframes.
-6. SIGNATURE ELEMENT: The signature element "${plan.signatureElement.name}" MUST be fully built and rendered prominently.
+=== COMPREHENSIVE DESIGN PLAN TO EXECUTE IN CODE ===
 
-DESIGN TOKENS TO IMPLEMENT:
-CSS Variables:
-${colorTokens}
+COLOR PALETTE & CSS VARIABLES:
+${colorTokensDetailed}
 
-Display Font: ${plan.typePairing.display}
-Body Font: ${plan.typePairing.body}
-Type Rationale: ${plan.typePairing.rationale}
+TYPOGRAPHY SPECIFICATION:
+• Display Font: ${plan.typePairing.display}
+• Body Font: ${plan.typePairing.body}
+• Rationale: ${plan.typePairing.rationale}
 
-Signature Element: ${plan.signatureElement.name}
-Implementation: ${plan.signatureElement.implementation}
+${signatureContext}
+${cognitiveContext}
 
-Layout Concept:
+LAYOUT CONCEPT & STRUCTURE:
 ${plan.layoutConcept}
+
+${rawPlanBlock}
+
+CRITICAL DIRECTIVES FOR COMPLETE CODE TRANSLATION:
+1. FULL PLAN FAITHFULNESS: Every section, layout concept, and cognitive directive specified in the Design Plan above MUST be fully translated into actual HTML/CSS elements. Do NOT skip, summarize, or omit any section specified in the plan!
+2. NO EMPTY CONTAINERS OR STUBS: Never output empty <div> tags or stubbed sections (like <div class="image"></div>). Every element MUST have real copy, subheadings, rich paragraphs, specs, or populated images!
+3. MANDATORY 5-SECTION RICH PAGE ARCHITECTURE:
+   - Section 1: Hero -- Bold Editorial Headline, Subhead, Badge, Primary & Secondary CTAs, Hero Visual.
+   - Section 2: Signature Element Showcase -- Fully implementing "${plan.signatureElement?.name ?? "Signature Showcase"}" with visual depth.
+   - Section 3: Value Grid / Monograph Breakdown -- Multi-column editorial cards with detailed descriptions.
+   - Section 4: Material Specs / Social Proof / Key Statistics Grid.
+   - Section 5: Closing Statement (Peak-End design) & Footer with full navigation links and copyright.
+4. REAL UNSPLASH IMAGES: All <img> tags and background images MUST use valid high-resolution Unsplash URLs matching the topic (e.g. "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=80").
+5. AAA COLOR CONTRAST: Text MUST be high-contrast and legible (#F4F1EA on dark, #14221F on sand). NEVER render gray text on gray backgrounds!
+6. VERIFIED GOOGLE FONTS: Include real @import for Google Fonts (e.g., Cormorant Garamond, DM Sans, Plus Jakarta Sans, Playfair Display). NEVER invent fake font names!
+7. RESPONSIVE & ACCESSIBLE: Mobile-first responsive flex/grid, focus states, and prefers-reduced-motion media query.
 
 Framework Context: ${frameworkNote}
 
-Return ONLY a complete, standalone, production-grade working component/page code. No explanations.`;
+Return ONLY a complete, standalone, highly detailed, production-grade working code file (150+ lines of rich HTML/CSS). No markdown text outside code.`;
 
-  const userMessage = `Generate the complete production component for:
+  const userMessage = `Execute the complete design plan into production code for:
 Subject: ${analysis.subject}
 Primary Job: ${analysis.primaryJob}
 Audience: ${analysis.audience}

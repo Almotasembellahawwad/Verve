@@ -203,9 +203,17 @@ export async function POST(req: NextRequest) {
         // -- [05] Code Generation -----------------------------------------------
         send("stage_start", { id: "05", name: "Code Generation", module: "CodeGenerator" }, "05-start");
         elapsed = t("05");
+        const fullCodeInjectionContext = [
+          blocklistResult.systemPromptInjection,
+          competitiveAnalysis.systemPromptInjection,
+          archetypeContext,
+          animationContext,
+          materialContext,
+        ].filter(Boolean).join("\n\n");
+
         const generatedCode = await generateCode(
           briefAnalysis, designPlan,
-          [blocklistResult.systemPromptInjection, animationContext, materialContext].join("\n\n"),
+          fullCodeInjectionContext,
           framework
         );
         send("stage_done", { id: "05", name: "Code Generation", durationMs: elapsed(),
