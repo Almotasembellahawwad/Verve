@@ -28,6 +28,7 @@ import { fixPaletteContrast }              from "@/lib/engine/contrast-fixer";
 import { buildGrainCSS, getGrainCodeHint } from "@/lib/engine/grain-texture";
 import { selectFontsForArchetype }         from "@/lib/engine/fonts-intelligence";
 import { resetLLMAdapter }                 from "@/lib/llm-adapter";
+import { setRetryNotifier, clearRetryNotifier } from "@/lib/llm-adapter/openrouter";
 import type { Provider }                   from "@/lib/llm-adapter/types";
 import { z } from "zod";
 
@@ -91,6 +92,16 @@ export async function POST(req: NextRequest) {
         process.env.GOOGLE_AI_API_KEY  = provider === "gemini"     ? apiKey : (process.env.GOOGLE_AI_API_KEY  ?? "");
         process.env.OPENROUTER_API_KEY = provider === "openrouter" ? apiKey : (process.env.OPENROUTER_API_KEY ?? "");
         resetLLMAdapter();
+
+        // Wire retry notifier so 429 retries emit SSE events to the UI
+        setRetryNotifier((attempt, waitMs, model) => {
+          send("stage_retry", {
+            attempt,
+            waitSec: Math.round(waitMs / 1000),
+            model,
+            message: `OpenRouter rate limit -- retrying in ${Math.round(waitMs / 1000)}s (attempt ${attempt}/3)`,
+          });
+        });
 
         const pipelineStart = Date.now();
 
@@ -299,6 +310,7 @@ export async function POST(req: NextRequest) {
         console.error("[/api/generate/stream]", err);
         send("error", { message });
       } finally {
+        clearRetryNotifier();
         controller.close();
       }
     },

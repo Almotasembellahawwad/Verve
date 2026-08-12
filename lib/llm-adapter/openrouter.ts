@@ -19,8 +19,15 @@ import type { LLMAdapter, LLMMessage, LLMOptions } from "./types";
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 
 // Retry config for free tier rate limits
-const MAX_RETRIES   = 4;
-const BASE_DELAY_MS = 3000;  // 3s initial wait on 429
+const MAX_RETRIES   = 3;
+const BASE_DELAY_MS = 2000;  // 2s, 4s, 8s, 16s
+
+// Callback registered by the SSE route to send live retry notifications to UI
+type RetryNotifier = (attempt: number, waitMs: number, model: string) => void;
+let _retryNotifier: RetryNotifier | null = null;
+
+export function setRetryNotifier(fn: RetryNotifier): void  { _retryNotifier = fn; }
+export function clearRetryNotifier(): void                 { _retryNotifier = null; }
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -82,12 +89,14 @@ export class OpenRouterAdapter implements LLMAdapter {
         );
 
         if (is429 && attempt < MAX_RETRIES) {
-          // Exponential backoff: 3s, 6s, 12s, 24s
+          // Exponential backoff: 2s, 4s, 8s, 16s
           const waitMs = BASE_DELAY_MS * Math.pow(2, attempt);
           console.warn(
             `[OpenRouter] 429 rate limit on attempt ${attempt + 1}/${MAX_RETRIES + 1}. ` +
-            `Waiting ${waitMs / 1000}s before retry... (model: ${this.model})`
+            `Waiting ${waitMs / 1000}s... (model: ${this.model})`
           );
+          // Notify UI via SSE so it shows "retrying in Xs" instead of hanging
+          _retryNotifier?.(attempt + 1, waitMs, this.model);
           await sleep(waitMs);
           continue;
         }

@@ -185,6 +185,7 @@ export default function GeneratePanel() {
   const [missingKey, setMissingKey] = useState(false);
   const [stageStates, setStageStates] = useState<StageState[]>([]);
   const [stageExtras, setStageExtras] = useState<Record<string, string>>({});
+  const [retryMessage, setRetryMessage] = useState<string | null>(null);
   const [historyOpen,  setHistoryOpen]  = useState(false);
   const [certOpen,     setCertOpen]     = useState(false);
   const telemetryTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -273,6 +274,7 @@ export default function GeneratePanel() {
     setError(null);
     setMissingKey(false);
     setResult(null);
+    setRetryMessage(null);
     setStageExtras({});
     setStageStates(PIPELINE_STAGES.map(() => "waiting"));
 
@@ -329,13 +331,19 @@ export default function GeneratePanel() {
 
           if (eventType === "stage_start") {
             updateStage(payload.id as string, "running");
+            setRetryMessage(null); // clear retry banner when next stage begins
           } else if (eventType === "stage_done") {
             const extra = payload.extra as Record<string, unknown> | undefined;
             const hint  = extra ? Object.entries(extra).map(([k,v]) => `${k}: ${v}`).join(" · ") : undefined;
             updateStage(payload.id as string, "done", hint);
+            setRetryMessage(null);
+          } else if (eventType === "stage_retry") {
+            // OpenRouter 429 retry notification
+            setRetryMessage((payload as Record<string, string>).message ?? "Rate limit -- retrying...");
           } else if (eventType === "stage_flag") {
             updateStage(payload.id as string, "flagged", payload.reason as string);
           } else if (eventType === "result") {
+            setRetryMessage(null);
             stopTelemetry();
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const data = payload as any;
@@ -626,9 +634,28 @@ export default function GeneratePanel() {
         </button>
       </div>
 
-      {/* ── Live Telemetry Log (visible while loading) ────────────────────── */}
+      {/* -- Live Telemetry Log (visible while loading) -------------------- */}
       {loading && stageStates.length > 0 && (
-        <TelemetryLog stages={stageStates} extras={stageExtras} />
+        <>
+          {retryMessage && (
+            <div style={{
+              fontSize: "11px",
+              color: "rgba(251,191,36,0.85)",
+              background: "rgba(251,191,36,0.07)",
+              border: "0.5px solid rgba(251,191,36,0.25)",
+              padding: "8px 14px",
+              marginBottom: 4,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              animation: "pulse 1.5s ease-in-out infinite",
+            }}>
+              <span>&#9201;</span>
+              {retryMessage}
+            </div>
+          )}
+          <TelemetryLog stages={stageStates} extras={stageExtras} />
+        </>
       )}
 
       {/* ── Results ───────────────────────────────────────────────────────── */}
