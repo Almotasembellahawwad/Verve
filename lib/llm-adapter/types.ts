@@ -1,6 +1,6 @@
 // =========================================================
 // lib/llm-adapter/types.ts
-// Shared types for all LLM adapters
+// Shared types + model registry for all LLM providers
 // =========================================================
 
 export type LLMMessage = {
@@ -20,36 +20,39 @@ export interface LLMAdapter {
 
 export type Provider = "anthropic" | "openai" | "gemini" | "openrouter";
 
-// Model registry -- valid production model IDs per provider
+// ── Model Registry ───────────────────────────────────────────────────────────
+// IDs here are the EXACT strings sent to each provider API.
+// Keep in sync with README.md "Supported providers" table.
+// ─────────────────────────────────────────────────────────────────────────────
 export const PROVIDER_MODELS: Record<Provider, { id: string; label: string; description: string }[]> = {
   anthropic: [
-    { id: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet", description: "Best balance -- production default" },
-    { id: "claude-3-5-haiku-20241022",  label: "Claude 3.5 Haiku",  description: "Fastest -- cost-efficient" },
-    { id: "claude-3-opus-20240229",     label: "Claude 3 Opus",       description: "Maximum intelligence -- complex tasks" },
+    { id: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet", description: "Best balance — production default" },
+    { id: "claude-3-5-haiku-20241022",  label: "Claude 3.5 Haiku",  description: "Fastest — cost-efficient" },
+    { id: "claude-3-opus-20240229",     label: "Claude 3 Opus",     description: "Maximum intelligence — complex tasks" },
   ],
   openai: [
-    { id: "gpt-4o",      label: "GPT-4o",      description: "Flagship model -- fast & intelligent" },
-    { id: "gpt-4o-mini", label: "GPT-4o Mini", description: "Affordable, lightweight model" },
-    { id: "o3-mini",     label: "o3-mini",     description: "High reasoning -- technical tasks" },
+    { id: "gpt-5.6-terra", label: "GPT-5.6 Terra", description: "Balanced intelligence & cost — reasoning model" },
+    { id: "gpt-5.6-sol",   label: "GPT-5.6 Sol",   description: "Flagship reasoning — highest intelligence" },
+    { id: "gpt-4o-mini",   label: "GPT-4o Mini",   description: "Affordable, lightweight — fast tasks" },
   ],
   gemini: [
-    { id: "gemini-2.0-flash",      label: "Gemini 2.0 Flash",      description: "Fast & multimodal -- default" },
-    { id: "gemini-1.5-pro",       label: "Gemini 1.5 Pro",        description: "High reasoning & huge context" },
+    { id: "gemini-2.0-flash",      label: "Gemini 2.0 Flash",      description: "Fast & multimodal — default" },
+    { id: "gemini-1.5-pro",        label: "Gemini 1.5 Pro",        description: "High reasoning & huge context" },
     { id: "gemini-2.0-flash-lite", label: "Gemini 2.0 Flash Lite", description: "Ultra-fast, cost-effective" },
   ],
   openrouter: [
-    { id: "google/gemma-4-31b-it:free",                   label: "Gemma 4 31B (Free)",    description: "Google -- best overall free model" },
-    { id: "openai/gpt-oss-20b:free",                     label: "GPT OSS 20B (Free)",     description: "OpenAI open-source -- fast & capable" },
-    { id: "google/gemma-4-26b-a4b-it:free",              label: "Gemma 4 26B MoE (Free)", description: "Google MoE -- lighter, faster" },
-    { id: "nvidia/llama-3.1-nemotron-ultra-253b-v1:free", label: "Nemotron 253B (Free)",  description: "NVIDIA -- largest free model" },
+    { id: "google/gemma-4-31b-it:free",                   label: "Gemma 4 31B (Free)",    description: "Google — best overall free model" },
+    { id: "openai/gpt-oss-20b:free",                      label: "GPT OSS 20B (Free)",    description: "OpenAI open-source — fast & capable" },
+    { id: "google/gemma-4-26b-a4b-it:free",               label: "Gemma 4 26B MoE (Free)", description: "Google MoE — lighter, faster" },
+    { id: "nvidia/llama-3.1-nemotron-ultra-253b-v1:free",  label: "Nemotron 253B (Free)", description: "NVIDIA — largest free model" },
   ],
 };
 
 export const DEFAULT_MODEL: Record<Provider, string> = {
-  anthropic:   "claude-3-5-sonnet-20241022",
-  openai:      "gpt-4o",
-  gemini:      "gemini-2.0-flash",
-  openrouter:  "google/gemma-4-31b-it:free",
+  anthropic:  "claude-3-5-sonnet-20241022",
+  openai:     "gpt-5.6-terra",
+  gemini:     "gemini-2.0-flash",
+  openrouter: "google/gemma-4-31b-it:free",
 };
 
 export const PROVIDER_KEY_LABELS: Record<Provider, { label: string; placeholder: string; docsUrl: string }> = {
@@ -74,3 +77,14 @@ export const PROVIDER_KEY_LABELS: Record<Provider, { label: string; placeholder:
     docsUrl:     "https://openrouter.ai/keys",
   },
 };
+
+// Helper: detect if a model ID is a GPT-5.x or o-series reasoning model
+// These models use reasoning_effort instead of temperature
+export function isReasoningModel(modelId: string): boolean {
+  return (
+    modelId.startsWith("gpt-5.") ||
+    modelId.startsWith("o1") ||
+    modelId.startsWith("o3") ||
+    modelId.startsWith("o4")
+  );
+}

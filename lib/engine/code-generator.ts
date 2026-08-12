@@ -118,7 +118,7 @@ Framework: ${framework}`;
   const code = await llm.complete([{ role: "user", content: userMessage }], {
     systemPrompt,
     temperature: 0.5,
-    maxTokens: 8000,
+    maxTokens: 12000, // Rich full-page code: ~300-400 lines of HTML/CSS/JSX
   });
 
   // Extract component name from code

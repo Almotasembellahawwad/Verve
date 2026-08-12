@@ -1,11 +1,11 @@
 # Verve — Every AI website looks the same. Yours won't.
 
 [![MIT License](https://img.shields.io/badge/license-MIT-D49020?style=flat-square)](LICENSE)
-[![Next.js 16](https://img.shields.io/badge/Next.js-16-white?style=flat-square&logo=next.js)](https://nextjs.org)
+[![Next.js 15](https://img.shields.io/badge/Next.js-15-white?style=flat-square&logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript)](https://typescriptlang.org)
 [![Anthropic](https://img.shields.io/badge/Claude-3.5%20Sonnet-191919?style=flat-square)](https://anthropic.com)
-[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991?style=flat-square)](https://openai.com)
-[![Gemini](https://img.shields.io/badge/Google-Gemini-4285F4?style=flat-square)](https://ai.google.dev)
+[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--5.6%20Terra-412991?style=flat-square)](https://openai.com)
+[![Gemini](https://img.shields.io/badge/Google-Gemini%202.0%20Flash-4285F4?style=flat-square)](https://ai.google.dev)
 
 > **Verve** is an open-source design intelligence pipeline that sits between any LLM and its code output — forcing bold, non-generic, context-specific UI through 9 specialized modules instead of producing the median AI aesthetic.
 
@@ -226,11 +226,12 @@ The pipeline draws from established UX and cognitive psychology research:
 
 ## Supported providers
 
-| Provider | Models |
-|----------|--------|
-| **Anthropic** | claude-opus-4-5, claude-sonnet-4-5, claude-haiku-3-5 |
-| **OpenAI** | gpt-4o, gpt-4o-mini, o3-mini |
-| **Google** | gemini-2.5-pro, gemini-2.5-flash |
+| Provider | Models | Notes |
+|----------|--------|-------|
+| **Anthropic** | `claude-3-5-sonnet-20241022`, `claude-3-5-haiku-20241022`, `claude-3-opus-20240229` | Sonnet is the recommended default |
+| **OpenAI** | `gpt-5.6-terra`, `gpt-5.6-sol`, `gpt-4o-mini` | GPT-5.6 models are Reasoning Models (use `reasoning_effort`, not `temperature`) |
+| **Google** | `gemini-2.0-flash`, `gemini-1.5-pro`, `gemini-2.0-flash-lite` | Flash is the recommended default |
+| **OpenRouter** | `google/gemma-4-31b-it:free`, `openai/gpt-oss-20b:free`, `google/gemma-4-26b-a4b-it:free`, `nvidia/llama-3.1-nemotron-ultra-253b-v1:free` | Free-tier with auto-fallback chain |
 
 ---
 
