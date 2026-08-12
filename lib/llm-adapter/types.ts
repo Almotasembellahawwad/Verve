@@ -20,35 +20,35 @@ export interface LLMAdapter {
 
 export type Provider = "anthropic" | "openai" | "gemini" | "openrouter";
 
-// Model registry -- latest stable models per provider (August 2026)
+// Model registry -- valid production model IDs per provider
 export const PROVIDER_MODELS: Record<Provider, { id: string; label: string; description: string }[]> = {
   anthropic: [
-    { id: "claude-sonnet-5",           label: "Claude Sonnet 5",    description: "Best balance -- production default" },
-    { id: "claude-opus-5",             label: "Claude Opus 5",      description: "Maximum intelligence -- complex tasks" },
-    { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5",   description: "Fastest -- cost-efficient" },
+    { id: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet", description: "Best balance -- production default" },
+    { id: "claude-3-5-haiku-20241022",  label: "Claude 3.5 Haiku",  description: "Fastest -- cost-efficient" },
+    { id: "claude-3-opus-20240229",     label: "Claude 3 Opus",       description: "Maximum intelligence -- complex tasks" },
   ],
   openai: [
-    { id: "gpt-5.6-terra", label: "GPT-5.6 Terra", description: "Balanced performance and cost" },
-    { id: "gpt-5.6-sol",   label: "GPT-5.6 Sol",   description: "Flagship reasoning -- complex tasks" },
-    { id: "gpt-5.6-luna",  label: "GPT-5.6 Luna",  description: "High-volume, cost-effective" },
+    { id: "gpt-4o",      label: "GPT-4o",      description: "Flagship model -- fast & intelligent" },
+    { id: "gpt-4o-mini", label: "GPT-4o Mini", description: "Affordable, lightweight model" },
+    { id: "o3-mini",     label: "o3-mini",     description: "High reasoning -- technical tasks" },
   ],
   gemini: [
-    { id: "gemini-3.6-flash",      label: "Gemini 3.6 Flash",      description: "Fast -- latest stable workhorse" },
-    { id: "gemini-3.1-pro",        label: "Gemini 3.1 Pro",        description: "High reasoning -- complex analysis" },
-    { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite", description: "High-volume, low-latency" },
+    { id: "gemini-2.0-flash",      label: "Gemini 2.0 Flash",      description: "Fast & multimodal -- default" },
+    { id: "gemini-1.5-pro",       label: "Gemini 1.5 Pro",        description: "High reasoning & huge context" },
+    { id: "gemini-2.0-flash-lite", label: "Gemini 2.0 Flash Lite", description: "Ultra-fast, cost-effective" },
   ],
   openrouter: [
-    { id: "google/gemma-4-31b-it:free",                label: "Gemma 4 31B (Free)",       description: "Google -- best overall free model" },
-    { id: "openai/gpt-oss-20b:free",                  label: "GPT OSS 20B (Free)",        description: "OpenAI open-source -- fast & capable" },
-    { id: "google/gemma-4-26b-a4b-it:free",           label: "Gemma 4 26B MoE (Free)",    description: "Google MoE -- lighter, faster" },
-    { id: "nvidia/llama-3.1-nemotron-ultra-253b-v1:free", label: "Nemotron Ultra 253B (Free)", description: "NVIDIA -- largest free model" },
+    { id: "google/gemma-4-31b-it:free",                   label: "Gemma 4 31B (Free)",    description: "Google -- best overall free model" },
+    { id: "openai/gpt-oss-20b:free",                     label: "GPT OSS 20B (Free)",     description: "OpenAI open-source -- fast & capable" },
+    { id: "google/gemma-4-26b-a4b-it:free",              label: "Gemma 4 26B MoE (Free)", description: "Google MoE -- lighter, faster" },
+    { id: "nvidia/llama-3.1-nemotron-ultra-253b-v1:free", label: "Nemotron 253B (Free)",  description: "NVIDIA -- largest free model" },
   ],
 };
 
 export const DEFAULT_MODEL: Record<Provider, string> = {
-  anthropic:   "claude-sonnet-5",
-  openai:      "gpt-5.6-terra",
-  gemini:      "gemini-3.6-flash",
+  anthropic:   "claude-3-5-sonnet-20241022",
+  openai:      "gpt-4o",
+  gemini:      "gemini-2.0-flash",
   openrouter:  "google/gemma-4-31b-it:free",
 };
 

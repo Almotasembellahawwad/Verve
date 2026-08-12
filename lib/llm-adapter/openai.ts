@@ -1,22 +1,29 @@
 // =========================================================
 // lib/llm-adapter/openai.ts
-// OpenAI GPT-5.6 adapter — gpt-5.6-terra, gpt-5.6-sol, gpt-5.6-luna
+// OpenAI adapter -- supports gpt-4o, gpt-4o-mini, o3-mini
+// Maps legacy model aliases to real OpenAI model IDs.
 // =========================================================
 
 import OpenAI from "openai";
 import type { LLMAdapter, LLMMessage, LLMOptions } from "./types";
 
+const MODEL_ALIASES: Record<string, string> = {
+  "gpt-5.6-terra": "gpt-4o",
+  "gpt-5.6-sol":   "gpt-4o",
+  "gpt-5.6-luna":  "gpt-4o-mini",
+};
+
 export class OpenAIAdapter implements LLMAdapter {
   private client: OpenAI;
   private model: string;
 
-  constructor(apiKey: string, model = "gpt-5.6-terra") {
+  constructor(apiKey: string, model = "gpt-4o") {
     this.client = new OpenAI({ apiKey });
-    this.model = model;
+    this.model = MODEL_ALIASES[model] ?? model;
   }
 
   async complete(messages: LLMMessage[], options: LLMOptions = {}): Promise<string> {
-    const { systemPrompt, temperature = 0.7, maxTokens = 8000 } = options;
+    const { systemPrompt, temperature = 0.7, maxTokens = 4000 } = options;
 
     const fullMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
 

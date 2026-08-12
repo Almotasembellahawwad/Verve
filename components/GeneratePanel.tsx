@@ -367,9 +367,11 @@ export default function GeneratePanel() {
           "Alternatively, switch to a paid provider (Claude / GPT / Gemini) for unlimited generations.";
       } else if (raw.includes("No API key") || raw.includes("ANTHROPIC_API_KEY")) {
         friendly = "No API key set. Click \"Key set\" or \"Add key\" above to add your API key.";
-      } else if (raw.includes("401") || raw.includes("Unauthorized") || raw.includes("Invalid API key")) {
+      } else if (raw.includes("401") || raw.includes("Unauthorized") || raw.includes("Invalid API key") || raw.includes("incorrect API key")) {
         friendly = "Invalid API key. Please check your key in the settings and try again.";
-      } else if (raw.includes("context") || raw.includes("token") || raw.includes("length")) {
+      } else if (raw.includes("does not exist") || raw.includes("model_not_found") || raw.includes("unknown model")) {
+        friendly = "Selected model is unavailable. Please select a supported model in the settings panel.";
+      } else if (raw.includes("context_length") || raw.includes("maximum context") || raw.includes("prompt is too long") || raw.includes("too many tokens")) {
         friendly = "Input too long for this model. Try a shorter design brief or switch to a model with a larger context window.";
       }
       setError(friendly);
