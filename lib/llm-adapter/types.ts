@@ -38,10 +38,10 @@ export const PROVIDER_MODELS: Record<Provider, { id: string; label: string; desc
     { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite", description: "High-volume, low-latency" },
   ],
   openrouter: [
-    { id: "google/gemma-4-31b-it:free", label: "Gemma 4 31B (Free)",    description: "Google Gemma 4 -- no API key cost" },
-    { id: "openai/gpt-oss-20b:free",    label: "GPT OSS 20B (Free)",    description: "OpenAI OSS model -- no API key cost" },
-    { id: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B (Free)", description: "Meta Llama -- large open model" },
-    { id: "mistralai/mistral-small-3.2-24b-instruct:free", label: "Mistral Small 3.2 (Free)", description: "Mistral -- fast & capable" },
+    { id: "google/gemma-4-31b-it:free",                label: "Gemma 4 31B (Free)",       description: "Google -- best overall free model" },
+    { id: "openai/gpt-oss-20b:free",                  label: "GPT OSS 20B (Free)",        description: "OpenAI open-source -- fast & capable" },
+    { id: "google/gemma-4-26b-a4b-it:free",           label: "Gemma 4 26B MoE (Free)",    description: "Google MoE -- lighter, faster" },
+    { id: "nvidia/llama-3.1-nemotron-ultra-253b-v1:free", label: "Nemotron Ultra 253B (Free)", description: "NVIDIA -- largest free model" },
   ],
 };
 
