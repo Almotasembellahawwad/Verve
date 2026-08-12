@@ -67,8 +67,29 @@ export class OpenAIAdapter implements LLMAdapter {
 
     const response = await this.client.chat.completions.create(params);
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) throw new Error(`No content in OpenAI response (model: ${this.model})`);
+    const choice  = response.choices[0];
+    const message = choice?.message;
+
+    if (!message) {
+      throw new Error(`OpenAI returned no choices (model: ${this.model}). The request may have been blocked by safety filters.`);
+    }
+
+    // Reasoning models may return a refusal instead of content
+    if (message.refusal) {
+      throw new Error(`OpenAI refused the request (model: ${this.model}): ${message.refusal}`);
+    }
+
+    const content = message.content;
+    if (!content || content.trim() === "") {
+      // GPT-5.6 sometimes exhausts reasoning tokens before producing output.
+      // Throwing here triggers the OpenRouter-style fallback in the pipeline.
+      throw new Error(
+        `Empty response from ${this.model}. ` +
+        `This can happen when the model exhausts its reasoning token budget. ` +
+        `Try using a shorter system prompt or switching to gpt-5.6-luna for this task.`
+      );
+    }
+
     return content;
   }
 }

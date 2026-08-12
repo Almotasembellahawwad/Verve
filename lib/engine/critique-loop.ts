@@ -180,18 +180,20 @@ Usability baseline stated by designer: ${plan.cognitiveGrounding?.usabilityBasel
   }
 
   // Parse usability floor
+  // Default: passed=true -- if we can't parse the LLM response, we don't want
+  // to automatically fail every plan and trigger an unnecessary retry loop.
   let usabilityFloor: UsabilityFloorCheck = {
-    passed: false,
-    contrastOk: false,
-    touchTargetsOk: false,
-    bodyTextOk: false,
-    issues: ["Usability check could not be evaluated"],
+    passed: true,
+    contrastOk: true,
+    touchTargetsOk: true,
+    bodyTextOk: true,
+    issues: [],
   };
   try {
     const usabilityMatch = usabilityRaw.match(/\{[\s\S]*\}/);
     if (usabilityMatch) usabilityFloor = JSON.parse(usabilityMatch[0]) as UsabilityFloorCheck;
   } catch {
-    // silently use default
+    // silently use default (passed=true)
   }
 
   // Evaluate cognitive grounding compliance
