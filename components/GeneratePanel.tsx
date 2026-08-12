@@ -351,7 +351,20 @@ export default function GeneratePanel() {
 
     } catch (err) {
       stopTelemetry();
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      const raw = err instanceof Error ? err.message : "Something went wrong";
+      // Translate technical errors to user-friendly messages
+      let friendly = raw;
+      if (raw.includes("rate limit") || raw.includes("429") || raw.includes("Too Many Requests")) {
+        friendly = "Rate limit reached on free tier. Please wait 1-2 minutes and try again. " +
+          "Alternatively, switch to a paid provider (Claude / GPT / Gemini) for unlimited generations.";
+      } else if (raw.includes("No API key") || raw.includes("ANTHROPIC_API_KEY")) {
+        friendly = "No API key set. Click \"Key set\" or \"Add key\" above to add your API key.";
+      } else if (raw.includes("401") || raw.includes("Unauthorized") || raw.includes("Invalid API key")) {
+        friendly = "Invalid API key. Please check your key in the settings and try again.";
+      } else if (raw.includes("context") || raw.includes("token") || raw.includes("length")) {
+        friendly = "Input too long for this model. Try a shorter design brief or switch to a model with a larger context window.";
+      }
+      setError(friendly);
     } finally {
       setLoading(false);
       abortRef.current = null;
@@ -578,8 +591,17 @@ export default function GeneratePanel() {
         )}
 
         {error && (
-          <div className={styles.error} role="alert">
-            <span>⚠</span> {error}
+          <div
+            className={styles.error}
+            role="alert"
+            style={error.toLowerCase().includes("rate limit")
+              ? { borderColor: "rgba(251,191,36,0.4)", background: "rgba(251,191,36,0.05)", color: "rgba(251,191,36,0.85)" }
+              : undefined}
+          >
+            <span aria-hidden="true">
+              {error.toLowerCase().includes("rate limit") ? "⏳" : "⚠"}
+            </span>
+            {" "}{error}
           </div>
         )}
 
