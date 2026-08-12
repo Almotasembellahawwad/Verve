@@ -113,9 +113,10 @@ Respond ONLY in valid JSON with this exact schema:
   "colorPalette": [
     { "name": "string", "hex": "#XXXXXX", "role": "string — where/how it's used" }
   ],
+  /* COLOR RULE: Must ensure high contrast. Background MUST be deep (#0E0E0D / #14221F) or light (#FAF8F5 / #F4F1EA). Text MUST be high contrast (#F2EFE9 or #14221F). NEVER use gray on gray. */
   "typePairing": {
-    "display": "string — Google Font or system font name",
-    "body": "string — Google Font or system font name",
+    "display": "string — REAL valid Google Font name (e.g. Cormorant Garamond, Plus Jakarta Sans, Playfair Display, Space Grotesk, Syne, Outfit, DM Sans). NEVER invent fake font names!",
+    "body": "string — REAL valid Google Font name (e.g. DM Sans, Nunito Sans, IBM Plex Sans, Inter, Lato).",
     "rationale": "string — specific justification for this pairing for this brief"
   },
   "layoutConcept": "string — ASCII wireframe or detailed layout description (use \\n for newlines)",

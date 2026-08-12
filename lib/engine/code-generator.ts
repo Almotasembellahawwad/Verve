@@ -11,9 +11,9 @@ export type GeneratedCode = {
 };
 
 const FRAMEWORK_NOTES: Record<string, string> = {
-  nextjs: "Next.js 15 App Router component. Use 'use client' directive if you need interactivity. Import fonts from next/font/google.",
-  react: "React 18 functional component with TypeScript. Use standard CSS imports.",
-  html: "Pure HTML5 + CSS. No framework dependencies. Inline <style> tag for component styles.",
+  nextjs: "Next.js 15 App Router component. Use 'use client' directive if you need interactivity. Import fonts from next/font/google or load Google Fonts CDN.",
+  react: "React 18 functional component with TypeScript. Standard CSS modules or styled component.",
+  html: "Pure HTML5 + CSS. Include valid Google Fonts @import at top of <style> tag.",
 };
 
 export async function generateCode(
@@ -30,18 +30,17 @@ export async function generateCode(
     .map((c) => `  --color-${c.name.toLowerCase().replace(/\s+/g, "-")}: ${c.hex}; /* ${c.role} */`)
     .join("\n");
 
-  const systemPrompt = `You are a senior frontend developer implementing a design plan into production-quality code.
+  const systemPrompt = `You are a world-class award-winning creative technologist (Awwwards / FWA / Studio Freight standard) implementing a design plan into production-quality code.
 
 ${blocklistInjection}
 
-CRITICAL IMPLEMENTATION RULES:
-1. This code must be responsive (mobile-first) with no broken layouts below 375px
-2. All interactive elements must be keyboard-accessible (proper focus states, ARIA labels)
-3. Respect prefers-reduced-motion — all animations must have a motion-safe conditional
-4. No CSS specificity conflicts — use BEM-style class names or CSS variables, not utility-class collisions
-5. TypeScript strict mode — no 'any' types
-6. The signature element "${plan.signatureElement.name}" MUST appear prominently — it is the visual core of this design
-7. Do NOT default to generic patterns from the blocklist above
+CRITICAL PRODUCTION QUALITY RULES:
+1. IMAGES: Every <img> or background-image MUST use real, high-resolution Unsplash URLs matching the topic (e.g. "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=80"). NEVER use dead placeholders like "image.jpg", "large-image.jpg", or empty gray boxes!
+2. COLOR & CONTRAST: Ensure AAA contrast ratio between text and background. Primary text MUST be crisp and readable (#F4F1EA on dark canvas, #14221F on light canvas). NEVER use gray text on gray backgrounds!
+3. FONTS: Load ONLY real, verified Google Fonts via valid @import (e.g., Cormorant Garamond, DM Sans, Plus Jakarta Sans, Playfair Display, Space Grotesk). NEVER invent fake font names like "The Creator"!
+4. RESPONSIVE LAYOUT: Mobile-first responsive structure with grid/flexbox, rich spatial typography, and luxury editorial hierarchy.
+5. ACCESSIBILITY & MOTION: Keyboard focus states, ARIA labels, and prefers-reduced-motion media query wrapping all keyframes.
+6. SIGNATURE ELEMENT: The signature element "${plan.signatureElement.name}" MUST be fully built and rendered prominently.
 
 DESIGN TOKENS TO IMPLEMENT:
 CSS Variables:
@@ -57,17 +56,11 @@ Implementation: ${plan.signatureElement.implementation}
 Layout Concept:
 ${plan.layoutConcept}
 
-Framework: ${frameworkNote}
+Framework Context: ${frameworkNote}
 
-Output a COMPLETE, working component with:
-- Full HTML/JSX structure
-- All CSS (either CSS-in-JS, <style> tags, or Tailwind with explicit CSS variable support)
-- The signature element fully implemented, not stubbed
-- Proper semantic HTML and accessibility attributes
+Return ONLY a complete, standalone, production-grade working component/page code. No explanations.`;
 
-Return ONLY code. No explanation outside code comments.`;
-
-  const userMessage = `Generate the complete component for:
+  const userMessage = `Generate the complete production component for:
 Subject: ${analysis.subject}
 Primary Job: ${analysis.primaryJob}
 Audience: ${analysis.audience}
@@ -76,7 +69,7 @@ Framework: ${framework}`;
 
   const code = await llm.complete([{ role: "user", content: userMessage }], {
     systemPrompt,
-    temperature: 0.6,
+    temperature: 0.5,
     maxTokens: 8000,
   });
 
@@ -92,6 +85,6 @@ Framework: ${framework}`;
     framework,
     componentName,
     imports: importMatches,
-    setupNotes: `Font setup: Install ${plan.typePairing.display} and ${plan.typePairing.body} via next/font/google or Google Fonts CDN.`,
+    setupNotes: `Font setup: Uses ${plan.typePairing.display} and ${plan.typePairing.body} via Google Fonts CDN.`,
   };
 }
