@@ -42,6 +42,7 @@ export async function analyzeBrief(brief: string, existingCode?: string): Promis
     systemPrompt: SYSTEM_PROMPT,
     temperature: 0.3,
     maxTokens: 1000,
+    reasoningEffort: "low", // JSON extraction task — deep reasoning not needed
   });
 
   const jsonMatch = raw.match(/\{[\s\S]*\}/);

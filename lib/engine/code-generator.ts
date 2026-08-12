@@ -118,7 +118,8 @@ Framework: ${framework}`;
   const code = await llm.complete([{ role: "user", content: userMessage }], {
     systemPrompt,
     temperature: 0.5,
-    maxTokens: 12000, // Rich full-page code: ~300-400 lines of HTML/CSS/JSX
+    maxTokens: 12000, // actual output budget (adapter uses 20K total for reasoning models)
+    reasoningEffort: "medium", // Code generation benefits from medium-quality reasoning
   });
 
   // Extract component name from code

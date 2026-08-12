@@ -460,6 +460,7 @@ Identify the brand archetype.`;
     systemPrompt: ARCHETYPE_SYSTEM_PROMPT,
     temperature: 0.3,
     maxTokens: 800,
+    reasoningEffort: "low", // Classification from 12 options — no deep reasoning needed
   });
 
   const match = raw.match(/\{[\s\S]*\}/);

@@ -12,6 +12,11 @@ export type LLMOptions = {
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
+  // Per-call reasoning effort for GPT-5.6 / o-series reasoning models.
+  // Controls how many internal reasoning tokens are consumed before output.
+  // Use 'low' for short JSON tasks, 'medium' for planning, 'high' for code.
+  // If omitted, adapter defaults to 'medium'.
+  reasoningEffort?: "none" | "low" | "medium" | "high" | "xhigh" | "max";
 };
 
 export interface LLMAdapter {

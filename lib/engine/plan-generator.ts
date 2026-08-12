@@ -153,7 +153,8 @@ Generate the design plan now.`;
   const raw = await llm.complete([{ role: "user", content: userMessage }], {
     systemPrompt,
     temperature: 0.85,
-    maxTokens: 3000,
+    maxTokens: 3500,
+    reasoningEffort: "medium", // Creative design planning — medium reasoning for quality
   });
 
   const jsonMatch = raw.match(/\{[\s\S]*\}/);

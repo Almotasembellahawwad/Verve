@@ -108,7 +108,9 @@ Respond ONLY in valid JSON:
   "passed": boolean
 }`;
 
-const CRITIQUE_THRESHOLD = 3; // more than 3 high/medium flags → regenerate
+// Threshold: more than 4 high/medium flags → regenerate plan
+// (3 was too strict — the adversarial prompt reliably finds 3+ issues in any plan)
+const CRITIQUE_THRESHOLD = 4;
 
 // ── Main function ─────────────────────────────────────────────────────────────
 export async function runSelfCritique(
@@ -145,16 +147,19 @@ Usability baseline stated by designer: ${plan.cognitiveGrounding?.usabilityBasel
       systemPrompt: CRITIQUE_SYSTEM_PROMPT,
       temperature: 0.5,
       maxTokens: 2000,
+      reasoningEffort: "low", // JSON evaluation — low reasoning saves tokens
     }),
     llm.complete([{ role: "user", content: planForEndingCheck }], {
       systemPrompt: ENDING_CHECK_PROMPT,
       temperature: 0.3,
       maxTokens: 600,
+      reasoningEffort: "low",
     }),
     llm.complete([{ role: "user", content: planForUsability }], {
       systemPrompt: USABILITY_FLOOR_PROMPT,
       temperature: 0.2,
       maxTokens: 600,
+      reasoningEffort: "low",
     }),
   ]);
 

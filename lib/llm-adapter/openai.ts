@@ -2,10 +2,14 @@
 // lib/llm-adapter/openai.ts
 // OpenAI adapter -- supports GPT-5.6 Terra/Sol/Luna and GPT-4o mini
 //
-// GPT-5.6 family are Reasoning Models (Responses-compatible):
+// GPT-5.6 family are Reasoning Models:
 //   - Use max_completion_tokens (NOT max_tokens)
-//   - Use reasoning_effort (flat param in Chat Completions API)
-//   - Do NOT set temperature (ignored / causes errors)
+//   - Use reasoning_effort (per-call, from LLMOptions.reasoningEffort)
+//   - Do NOT set temperature (causes 400 error for reasoning models)
+//
+// IMPORTANT: max_completion_tokens includes BOTH reasoning tokens AND
+// output tokens. Set it high enough so the model has budget left for
+// actual output after internal reasoning.
 //
 // Source: https://developers.openai.com/api/docs/guides/upgrading-to-gpt-5p6-sol
 // =========================================================
@@ -14,14 +18,13 @@ import OpenAI from "openai";
 import type { LLMAdapter, LLMMessage, LLMOptions } from "./types";
 import { isReasoningModel } from "./types";
 
-// Per-model max completion tokens (balanced quality vs cost)
-// GPT-5.6 Terra/Sol/Luna: huge capacity — capped at 12K for code gen
-// (~$0.14/gen for Terra, ~$0.35/gen for Sol — very reasonable)
-// GPT-4o-mini: 16K max — cap at 8K
+// Per-model max_completion_tokens
+// These cover BOTH internal reasoning + actual output.
+// Set high so reasoning doesn't eat all the budget before output is written.
 const MODEL_MAX_COMPLETION_TOKENS: Record<string, number> = {
-  "gpt-5.6-terra": 12000,
-  "gpt-5.6-sol":   12000,
-  "gpt-5.6-luna":  8000,  // Luna = high-volume efficient tier
+  "gpt-5.6-terra": 20000, // reasoning ~5-8K + output ~8-12K = need 20K headroom
+  "gpt-5.6-sol":   20000,
+  "gpt-5.6-luna":  12000, // Luna is more efficient, less reasoning overhead
   "gpt-4o":        8000,
   "gpt-4o-mini":   8000,
 };
@@ -36,16 +39,21 @@ export class OpenAIAdapter implements LLMAdapter {
   }
 
   async complete(messages: LLMMessage[], options: LLMOptions = {}): Promise<string> {
-    const { systemPrompt, temperature = 0.7, maxTokens } = options;
+    const { systemPrompt, temperature = 0.7, maxTokens, reasoningEffort } = options;
 
     const modelCap = MODEL_MAX_COMPLETION_TOKENS[this.model] ?? 8000;
-    const effectiveTokens = maxTokens ? Math.min(maxTokens, modelCap) : modelCap;
+    const isReasoning = isReasoningModel(this.model);
+
+    // For reasoning models: always use full model cap so reasoning tokens
+    // don't consume the entire budget before actual output is written.
+    // For classic models: respect caller's maxTokens for cost control.
+    const effectiveTokens = isReasoning
+      ? modelCap
+      : Math.min(maxTokens ?? modelCap, modelCap);
 
     const fullMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
     if (systemPrompt) fullMessages.push({ role: "system", content: systemPrompt });
     for (const m of messages) fullMessages.push({ role: m.role, content: m.content });
-
-    const isReasoning = isReasoningModel(this.model);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const params: any = {
@@ -54,13 +62,12 @@ export class OpenAIAdapter implements LLMAdapter {
     };
 
     if (isReasoning) {
-      // GPT-5.6 / o-series: use max_completion_tokens (NOT max_tokens)
-      // and reasoning_effort instead of temperature
       params.max_completion_tokens = effectiveTokens;
-      params.reasoning_effort = "medium"; // none|low|medium|high|xhigh|max
-      // Do NOT set temperature for reasoning models — causes API 400 error
+      // Per-call reasoning effort from options (default: "medium")
+      // Pipeline stages that produce short JSON use "low" to save tokens
+      params.reasoning_effort = reasoningEffort ?? "medium";
+      // Do NOT set temperature -- causes API 400 for reasoning models
     } else {
-      // Classic models (gpt-4o-mini etc): use max_tokens + temperature
       params.max_tokens  = effectiveTokens;
       params.temperature = temperature;
     }
@@ -71,22 +78,19 @@ export class OpenAIAdapter implements LLMAdapter {
     const message = choice?.message;
 
     if (!message) {
-      throw new Error(`OpenAI returned no choices (model: ${this.model}). The request may have been blocked by safety filters.`);
+      throw new Error(`OpenAI returned no choices (model: ${this.model}). Request may have been blocked by safety filters.`);
     }
 
-    // Reasoning models may return a refusal instead of content
     if (message.refusal) {
       throw new Error(`OpenAI refused the request (model: ${this.model}): ${message.refusal}`);
     }
 
     const content = message.content;
     if (!content || content.trim() === "") {
-      // GPT-5.6 sometimes exhausts reasoning tokens before producing output.
-      // Throwing here triggers the OpenRouter-style fallback in the pipeline.
       throw new Error(
         `Empty response from ${this.model}. ` +
-        `This can happen when the model exhausts its reasoning token budget. ` +
-        `Try using a shorter system prompt or switching to gpt-5.6-luna for this task.`
+        `Internal reasoning consumed the entire token budget before producing output. ` +
+        `This is automatically resolved on retry.`
       );
     }
 
