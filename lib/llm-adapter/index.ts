@@ -31,23 +31,44 @@ export function createAdapter(provider: Provider, apiKey: string, model?: string
   }
 }
 
-// -- Legacy singleton (for backwards compatibility with old engine calls) ----
-// Engine modules that haven't been updated yet still call getLLMAdapter().
-// These will use the ANTHROPIC_API_KEY env variable as fallback.
-// New modules should call createAdapter() with the user's key instead.
+// -- Legacy singleton for engine modules that call getLLMAdapter() -----------
+// All engine modules (brief-analyzer, plan-generator, code-generator, etc.)
+// still call getLLMAdapter(). This function auto-detects whichever provider
+// key is currently set in env vars -- set by the SSE route before calling them.
+//
+// Priority: OPENROUTER -> ANTHROPIC -> OPENAI -> GEMINI
+// The SSE route calls resetLLMAdapter() + sets the right env var before running,
+// so this singleton will always pick up the user's chosen provider.
+
 let _legacyInstance: LLMAdapter | null = null;
 
 export function getLLMAdapter(): LLMAdapter {
   if (!_legacyInstance) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY environment variable is required for legacy mode");
-    _legacyInstance = new ClaudeAdapter(apiKey);
+    const openrouterKey = process.env.OPENROUTER_API_KEY;
+    const anthropicKey  = process.env.ANTHROPIC_API_KEY;
+    const openaiKey     = process.env.OPENAI_API_KEY;
+    const geminiKey     = process.env.GOOGLE_AI_API_KEY;
+
+    if (openrouterKey) {
+      _legacyInstance = new OpenRouterAdapter(openrouterKey);
+    } else if (anthropicKey) {
+      _legacyInstance = new ClaudeAdapter(anthropicKey);
+    } else if (openaiKey) {
+      _legacyInstance = new OpenAIAdapter(openaiKey);
+    } else if (geminiKey) {
+      _legacyInstance = new GeminiAdapter(geminiKey);
+    } else {
+      throw new Error(
+        "No API key found. Please set your key in the settings panel (Claude, GPT, Gemini, or OpenRouter)."
+      );
+    }
   }
   return _legacyInstance;
 }
 
 /**
- * Reset singleton (for testing or when API key changes)
+ * Reset singleton -- called by SSE route before each generation run
+ * so the next getLLMAdapter() call picks up the freshly-set env var.
  */
 export function resetLLMAdapter(): void {
   _legacyInstance = null;
