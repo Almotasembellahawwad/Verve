@@ -8,9 +8,10 @@
 //   google/gemma-4-26b-a4b-it:free     (fallback 2)
 //   nvidia/llama-3.1-nemotron-ultra-253b-v1:free (fallback 3)
 //
-// Auto-Fallback: if the selected model hits 429 after retries,
-// automatically tries the next model in the FREE_FALLBACK_CHAIN.
-// SSE notifier keeps the UI informed at each step.
+// Resilience rules:
+//   1. Exponential backoff on 429 rate limits.
+//   2. Fallback to next model on 429, empty response, or 5xx server errors.
+//   3. Supports reasoning/thinking fields in OpenRouter payload.
 // =========================================================
 
 import OpenAI from "openai";
@@ -18,11 +19,9 @@ import type { LLMAdapter, LLMMessage, LLMOptions } from "./types";
 
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 
-// Retry config per model
 const MAX_RETRIES_PER_MODEL = 2;     // retries before switching model
 const BASE_DELAY_MS         = 2000;  // 2s, 4s per model
 
-// Free model fallback chain (in order of preference)
 const FREE_FALLBACK_CHAIN = [
   "google/gemma-4-31b-it:free",
   "openai/gpt-oss-20b:free",
@@ -30,7 +29,6 @@ const FREE_FALLBACK_CHAIN = [
   "nvidia/llama-3.1-nemotron-ultra-253b-v1:free",
 ];
 
-// Callback registered by the SSE route to send live retry/fallback events to UI
 type RetryNotifier = (attempt: number, waitMs: number, model: string) => void;
 let _retryNotifier: RetryNotifier | null = null;
 
@@ -41,17 +39,25 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function is429(err: unknown): boolean {
+function isModelRetryableError(err: unknown): boolean {
   if (!err) return false;
   const e = err as { status?: number; message?: string };
+  const msg = typeof e.message === "string" ? e.message.toLowerCase() : "";
+  const status = e.status ?? 0;
+
   return (
-    e.status === 429 ||
-    (typeof e.message === "string" && (
-      e.message.includes("429") ||
-      e.message.toLowerCase().includes("rate limit") ||
-      e.message.toLowerCase().includes("too many requests") ||
-      e.message.toLowerCase().includes("provider returned error")
-    ))
+    status === 429 ||
+    status === 500 ||
+    status === 502 ||
+    status === 503 ||
+    status === 504 ||
+    msg.includes("429") ||
+    msg.includes("rate limit") ||
+    msg.includes("too many requests") ||
+    msg.includes("provider returned error") ||
+    msg.includes("empty response") ||
+    msg.includes("overloaded") ||
+    msg.includes("no content")
   );
 }
 
@@ -63,7 +69,7 @@ export class OpenRouterAdapter implements LLMAdapter {
     this.client = new OpenAI({
       apiKey,
       baseURL: OPENROUTER_BASE,
-      maxRetries: 0,  // we fully control retry/fallback logic
+      maxRetries: 0,
       defaultHeaders: {
         "HTTP-Referer": "https://verve-design.vercel.app",
         "X-Title":      "Verve Design Intelligence",
@@ -79,11 +85,10 @@ export class OpenRouterAdapter implements LLMAdapter {
     if (systemPrompt) fullMessages.push({ role: "system", content: systemPrompt });
     for (const m of messages) fullMessages.push({ role: m.role, content: m.content });
 
-    // Build the fallback chain starting from the selected primary model
     const isFreeModel = this.primaryModel.endsWith(":free");
     const chain = isFreeModel
       ? [this.primaryModel, ...FREE_FALLBACK_CHAIN.filter((m) => m !== this.primaryModel)]
-      : [this.primaryModel]; // paid/non-free models don't rotate
+      : [this.primaryModel];
 
     let lastError: Error = new Error("OpenRouter: no response");
     let globalAttempt = 0;
@@ -99,53 +104,58 @@ export class OpenRouterAdapter implements LLMAdapter {
             messages: fullMessages,
           });
 
-          const content = response.choices[0]?.message?.content;
-          if (!content) throw new Error(`Empty response from ${model}`);
+          const choice = response.choices[0];
+          // Extract content or fallback to reasoning fields if content is empty
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const msgAny = choice?.message as any;
+          const content = msgAny?.content ?? msgAny?.reasoning ?? msgAny?.reasoning_content;
 
-          // Log which model succeeded (helpful for debugging)
+          if (!content || typeof content !== "string" || !content.trim()) {
+            throw new Error(`Empty response from ${model}`);
+          }
+
           if (model !== this.primaryModel) {
-            console.info(`[OpenRouter] Fell back to ${model} (primary: ${this.primaryModel})`);
+            console.info(`[OpenRouter] Successfully used fallback model: ${model}`);
           }
           return content;
 
         } catch (err: unknown) {
           lastError = err instanceof Error ? err : new Error(String(err));
+          const isRetryable = isModelRetryableError(err);
 
-          if (is429(err) && retry < MAX_RETRIES_PER_MODEL) {
-            // Retry same model with backoff
+          if (isRetryable && retry < MAX_RETRIES_PER_MODEL) {
             const waitMs = BASE_DELAY_MS * Math.pow(2, retry);
-            console.warn(`[OpenRouter] 429 on ${model}, retry ${retry + 1}/${MAX_RETRIES_PER_MODEL}. Waiting ${waitMs / 1000}s`);
+            console.warn(`[OpenRouter] ${lastError.message} on ${model}, retry ${retry + 1}/${MAX_RETRIES_PER_MODEL}. Waiting ${waitMs / 1000}s`);
             _retryNotifier?.(globalAttempt, waitMs, model);
             await sleep(waitMs);
-            continue; // retry same model
+            continue;
           }
 
-          if (is429(err)) {
-            // Exhausted retries for this model — notify UI and try next model
+          if (isRetryable) {
             const nextModel = chain[chain.indexOf(model) + 1];
             if (nextModel) {
-              console.warn(`[OpenRouter] 429 exhausted on ${model}. Trying fallback: ${nextModel}`);
+              const shortNext = nextModel.split("/")[1]?.replace(":free", "") ?? nextModel;
+              console.warn(`[OpenRouter] Model ${model} failed (${lastError.message}). Switching to fallback: ${nextModel}`);
               _retryNotifier?.(
                 globalAttempt,
                 1500,
-                `${model} rate-limited \u2192 switching to ${nextModel.split("/")[1]?.replace(":free", "") ?? nextModel}`
+                `${model.split("/")[1]?.replace(":free", "") ?? model} unready \u2192 switching to ${shortNext}`
               );
-              await sleep(1500); // brief pause before switching
+              await sleep(1500);
             }
-            break; // exit retry loop, move to next model in chain
+            break; // Move to next model in fallback chain
           }
 
-          // Non-429 error (auth, model not found, etc.) — throw immediately
+          // Throw non-retryable errors (e.g. invalid API key) immediately
           throw lastError;
         }
       }
     }
 
-    // All models in chain exhausted
     throw new Error(
-      `All OpenRouter free models are rate-limited right now. ` +
-      `Tried: ${chain.join(", ")}. ` +
-      `Please wait a few minutes and try again, or switch to Claude / GPT / Gemini.`
+      `All OpenRouter free models are currently unavailable. ` +
+      `Tried: ${chain.map(m => m.split("/")[1] ?? m).join(", ")}. ` +
+      `Please wait a minute or switch to a paid provider.`
     );
   }
 }
