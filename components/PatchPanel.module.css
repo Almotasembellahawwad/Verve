@@ -1,0 +1,250 @@
+.patchPanel {
+  border-top: 1px solid var(--border);
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.patchHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.patchTitle {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.patchTitleDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+}
+
+.patchClear {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.2s, background 0.2s;
+}
+.patchClear:hover {
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+
+/* Chat history */
+.chatHistory {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 320px;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+  padding-right: 4px;
+}
+
+.chatHistory::-webkit-scrollbar { width: 4px; }
+.chatHistory::-webkit-scrollbar-track { background: transparent; }
+.chatHistory::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.chatBubble {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  animation: bubbleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes bubbleIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.bubbleUser {
+  flex-direction: row-reverse;
+}
+
+.bubbleAvatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.avatarUser {
+  background: var(--signal);
+  color: var(--bg-primary);
+}
+
+.avatarBot {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.bubbleText {
+  font-size: 0.82rem;
+  line-height: 1.55;
+  padding: 8px 12px;
+  border-radius: 10px;
+  max-width: 85%;
+}
+
+.bubbleUser .bubbleText {
+  background: rgba(var(--signal-rgb, 212, 144, 32), 0.12);
+  border: 1px solid rgba(var(--signal-rgb, 212, 144, 32), 0.2);
+  color: var(--text-primary);
+  border-bottom-right-radius: 3px;
+}
+
+.bubbleBot .bubbleText {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-bottom-left-radius: 3px;
+}
+
+/* Success / Error states */
+.bubbleSuccess .bubbleText {
+  color: var(--signal-green, #7EE2A8);
+  border-color: rgba(126, 226, 168, 0.2);
+  background: rgba(126, 226, 168, 0.05);
+}
+
+.bubbleError .bubbleText {
+  color: #FF7070;
+  border-color: rgba(255, 112, 112, 0.2);
+  background: rgba(255, 112, 112, 0.05);
+}
+
+/* Input row */
+.patchInputRow {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.patchInput {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.84rem;
+  font-family: inherit;
+  padding: 10px 12px;
+  resize: none;
+  outline: none;
+  line-height: 1.5;
+  min-height: 44px;
+  max-height: 120px;
+  transition: border-color 0.2s;
+  field-sizing: content;
+}
+
+.patchInput:focus {
+  border-color: var(--signal);
+}
+
+.patchInput::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.patchInput:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.patchSendBtn {
+  background: var(--signal);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: opacity 0.2s, transform 0.15s;
+  flex-shrink: 0;
+}
+
+.patchSendBtn:hover:not(:disabled) {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+
+.patchSendBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.patchSpinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(0,0,0,0.2);
+  border-top-color: var(--bg-primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Hint chips */
+.hintChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.hintChip {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+
+.hintChip:hover {
+  border-color: var(--signal);
+  color: var(--text-primary);
+}
+
+/* Cost badge */
+.costBadge {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.6;
+  text-align: right;
+  margin-top: 6px;
+}

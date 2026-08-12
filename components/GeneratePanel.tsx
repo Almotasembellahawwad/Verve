@@ -9,6 +9,7 @@ import type { HistoryEntry } from "@/lib/history";
 import { downloadCSS, downloadFigmaTokens, downloadREADME } from "@/lib/export";
 import HistoryDrawer from "./HistoryDrawer";
 import Certificate  from "./Certificate";
+import PatchPanel   from "./PatchPanel";
 
 const ANTHROPIC_KEY = "verve_anthropic_api_key";
 const getStorageKey = (p: Provider) => `verve_${p}_api_key`;
@@ -178,6 +179,7 @@ export default function GeneratePanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PipelineResult | null>(null);
+  const [patchedCode, setPatchedCode] = useState<string | null>(null); // live-edited code
   const [activeView, setActiveView] = useState<"plan" | "code" | "report">("plan");
   const [provider, setProvider] = useState<Provider>("anthropic");
   const [model, setModel] = useState<string>(DEFAULT_MODEL.anthropic);
@@ -274,6 +276,7 @@ export default function GeneratePanel() {
     setError(null);
     setMissingKey(false);
     setResult(null);
+    setPatchedCode(null); // reset patched code on new generation
     setRetryMessage(null);
     setStageExtras({});
     setStageStates(PIPELINE_STAGES.map(() => "waiting"));
@@ -712,7 +715,7 @@ export default function GeneratePanel() {
                 onClick={() => setActiveView(v)}
               >
                 {v === "plan" && "Design Plan"}
-                {v === "code" && "Code"}
+                {v === "code" && (patchedCode ? "Code ✎" : "Code")}
                 {v === "report" && "Critique Report"}
               </button>
             ))}
@@ -825,20 +828,50 @@ export default function GeneratePanel() {
               <div className={styles.codeHeader}>
                 <code className={styles.componentName}>{result.code.componentName}</code>
                 <span className={styles.frameworkBadge}>{result.code.framework}</span>
+                {patchedCode && (
+                  <span style={{ fontSize: "0.7rem", color: "var(--signal)", marginRight: "auto", marginLeft: 8 }}>✎ Edited</span>
+                )}
                 <button
                   className={styles.copyBtn}
-                  onClick={() => navigator.clipboard.writeText(result.code.code)}
+                  onClick={() => navigator.clipboard.writeText(patchedCode ?? result.code.code)}
                   aria-label="Copy code to clipboard"
                 >
                   Copy
                 </button>
+                {patchedCode && (
+                  <button
+                    className={styles.copyBtn}
+                    onClick={() => setPatchedCode(null)}
+                    title="Revert to original generated code"
+                    style={{ marginLeft: 4, opacity: 0.6 }}
+                  >
+                    ↩ Revert
+                  </button>
+                )}
               </div>
               <pre className={styles.codePre}>
-                <code>{result.code.code}</code>
+                <code>{patchedCode ?? result.code.code}</code>
               </pre>
               {result.code.setupNotes && (
                 <p className={styles.setupNotes}>{result.code.setupNotes}</p>
               )}
+
+              {/* Patch / Refine Panel */}
+              <PatchPanel
+                currentCode={patchedCode ?? result.code.code}
+                framework={result.code.framework}
+                brief={brief}
+                designPlan={JSON.stringify({
+                  colors:    (result.plan.colorPalette ?? []).map((c) => `${c.name}: ${c.hex} (${c.role})`),
+                  fonts:     result.plan.typePairing,
+                  signature: result.plan.signatureElement?.name,
+                  layout:    result.plan.layoutConcept?.slice(0, 200),
+                })}
+                provider={provider}
+                model={model}
+                apiKey={apiKey}
+                onCodePatched={setPatchedCode}
+              />
 
               {/* Export Panel */}
               <div className={styles.exportPanel}>
