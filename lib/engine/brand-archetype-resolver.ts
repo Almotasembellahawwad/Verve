@@ -442,6 +442,27 @@ export type ArchetypeResolution = {
   animationConstraints: string; // formatted for animation module
 };
 
+// Compact prompt for free/small OpenRouter models (Gemma, GPT-OSS, etc.)
+// Stays under ~250 output tokens to avoid truncation.
+const ARCHETYPE_PROMPT_COMPACT = `You are a brand strategist. Reply ONLY with this JSON (no extra text, no markdown):
+{"primaryArchetype":"ID","secondaryArchetype":null,"confidence":0.8,"reasoning":"brief reason","archetypeConflict":"avoid X","emotionalJob":"emotional job"}
+Valid IDs: ruler,creator,explorer,sage,hero,magician,lover,rebel,innocent,jester,everyman,caregiver`;
+
+/** Keyword-based archetype inference — used when all LLM calls fail or truncate */
+function inferFallbackArchetype(a: BriefAnalysis): ArchetypeId {
+  const t = `${a.subject} ${a.industry} ${a.tone} ${a.primaryJob}`.toLowerCase();
+  if (/law|legal|court|justice|firm|attorney/.test(t))      return "ruler";
+  if (/health|care|medical|wellness|nurtur/.test(t))        return "caregiver";
+  if (/tech|saas|software|data|ai|analytics/.test(t))       return "sage";
+  if (/luxury|skincare|beauty|fashion|perfum/.test(t))      return "lover";
+  if (/architect|design|art|creative|studio|craft/.test(t)) return "creator";
+  if (/sport|fitness|challenge|achieve/.test(t))            return "hero";
+  if (/travel|adventure|explore|outdoor/.test(t))           return "explorer";
+  if (/startup|disrupt|rebel|bold|alternative/.test(t))     return "rebel";
+  if (/family|community|local|neighbor/.test(t))            return "everyman";
+  return "creator";
+}
+
 export async function resolveArchetype(
   llm: LLMAdapter,
   analysis: BriefAnalysis
@@ -456,22 +477,57 @@ Industry: ${analysis.industry}
 Constraints: ${analysis.constraints.join(", ") || "none"}
 
 Identify the brand archetype.`;
-
-  const raw = await llm.complete([{ role: "user", content: prompt }], {
-    systemPrompt: ARCHETYPE_SYSTEM_PROMPT,
-    temperature: 0.3,
-    maxTokens: 800,
-    reasoningEffort: "low", // Classification from 12 options — no deep reasoning needed
-  });
-
-  const parsed = extractJSON<{
-    primaryArchetype: ArchetypeId;
+  type RawResult = {
+    primaryArchetype:   ArchetypeId;
     secondaryArchetype: ArchetypeId | null;
-    confidence: number;
-    reasoning: string;
-    archetypeConflict: string;
-    emotionalJob: string;
-  }>(raw, "Archetype Resolver");
+    confidence:         number;
+    reasoning:          string;
+    archetypeConflict:  string;
+    emotionalJob:       string;
+  };
+
+  let parsed: RawResult | null = null;
+
+  // Attempt 1: full system prompt
+  try {
+    const raw = await llm.complete([{ role: "user", content: prompt }], {
+      systemPrompt: ARCHETYPE_SYSTEM_PROMPT,
+      temperature: 0.3,
+      maxTokens: 800,
+      reasoningEffort: "low",
+    });
+    parsed = extractJSON<RawResult>(raw, "Archetype Resolver");
+  } catch {
+    // Free model truncated JSON — try compact prompt
+  }
+
+  // Attempt 2: compact inline prompt for small/free models
+  if (!parsed) {
+    try {
+      const raw2 = await llm.complete(
+        [{ role: "user", content: `${ARCHETYPE_PROMPT_COMPACT}\n\n${prompt}` }],
+        { temperature: 0.2, maxTokens: 250, reasoningEffort: "none" }
+      );
+      parsed = extractJSON<RawResult>(raw2, "Archetype Resolver (compact)");
+    } catch {
+      // Deterministic fallback
+    }
+  }
+
+  // Fallback: keyword inference
+  if (!parsed) {
+    const id = inferFallbackArchetype(analysis);
+    parsed = {
+      primaryArchetype: id, secondaryArchetype: null, confidence: 0.5,
+      reasoning: "Inferred from brief keywords (LLM response was truncated).",
+      archetypeConflict: "N/A", emotionalJob: analysis.primaryJob,
+    };
+  }
+
+  // Guard: validate IDs to prevent hallucinated names crashing downstream
+  const validIds = Object.keys(ARCHETYPES) as ArchetypeId[];
+  if (!validIds.includes(parsed.primaryArchetype))   parsed.primaryArchetype   = inferFallbackArchetype(analysis);
+  if (parsed.secondaryArchetype && !validIds.includes(parsed.secondaryArchetype)) parsed.secondaryArchetype = null;
 
   const primaryProfile   = ARCHETYPES[parsed.primaryArchetype] ?? ARCHETYPES.creator;
   const secondaryProfile = parsed.secondaryArchetype ? (ARCHETYPES[parsed.secondaryArchetype] ?? null) : null;
