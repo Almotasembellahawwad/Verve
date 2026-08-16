@@ -26,7 +26,7 @@ import { buildAnimationLanguage, formatAnimationForCodeGen, type AnimationLangua
 import { analyzeCompetitiveField, type CompetitiveAnalysis }           from "./competitive-field";
 import { runRestraintCheck, type RestraintResult }                     from "./restraint-check";  // Module N
 import { scoreEngineering, type EngineeringResult }                   from "./engineering-score"; // Dual Scoring
-import { createAdapter, resetLLMAdapter }                              from "../llm-adapter";
+import { createAdapter }                                              from "../llm-adapter";
 import type { Provider }                                               from "../llm-adapter/types";
 
 
@@ -78,20 +78,12 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     pexelsKey,
   } = input;
 
-  // -- API key injection ---------------------------------------------------
-  if (apiKey) {
-    process.env.ANTHROPIC_API_KEY   = provider === "anthropic"   ? apiKey : (process.env.ANTHROPIC_API_KEY  ?? "");
-    process.env.OPENAI_API_KEY      = provider === "openai"      ? apiKey : (process.env.OPENAI_API_KEY     ?? "");
-    process.env.GOOGLE_AI_API_KEY   = provider === "gemini"      ? apiKey : (process.env.GOOGLE_AI_API_KEY  ?? "");
-    process.env.OPENROUTER_API_KEY  = provider === "openrouter"  ? apiKey : (process.env.OPENROUTER_API_KEY ?? "");
-    resetLLMAdapter();
-  }
-
-  const _adapter = apiKey ? createAdapter(provider, apiKey, model) : null;
-  void _adapter;
+  // -- Create per-request LLM adapter (no singleton, no process.env leak) ----
+  if (!apiKey) throw new Error("API key is required");
+  const llm = createAdapter(provider, apiKey, model);
 
   // ── [01] Brief Analysis ──────────────────────────────────────────────────
-  const briefAnalysis = await analyzeBrief(brief, existingCode);
+  const briefAnalysis = await analyzeBrief(llm, brief, existingCode);
 
   // ── [02] Asset Sourcing + Blocklist + Competitive Field — parallel ─────────
   const [blocklistResult, assetBundle, competitiveAnalysis] = await Promise.all([
@@ -101,7 +93,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   ]);
 
   // ── [02.5] Brand Archetype Resolution (Module I) ─────────────────────────
-  const archetypeResolution = await resolveArchetype(briefAnalysis);
+  const archetypeResolution = await resolveArchetype(llm, briefAnalysis);
 
   // ── [02.6] Animation Language (Module K) — synchronous, no LLM call ──────
   const animationLanguage = buildAnimationLanguage(archetypeResolution);
@@ -112,11 +104,9 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
 
   const blocklistAndAssetContext = [
     blocklistResult.systemPromptInjection,
-    "",
     assetBundle.assetSummary,
-    "",
     competitiveAnalysis.systemPromptInjection,
-  ].join("\n");
+  ].filter(Boolean).join("\n\n");
 
   // ── [03] Design Plan + [04] Critique loop ────────────────────────────────
   let designPlan:      DesignPlan;
@@ -125,32 +115,42 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   let previousCritique: string | undefined;
 
   designPlan    = await generateDesignPlan(
+    llm,
     briefAnalysis,
     blocklistAndAssetContext,
     previousCritique,
     archetypeContext,
     animationContext
   );
-  finalCritique = await runSelfCritique(designPlan, briefAnalysis);
+  finalCritique = await runSelfCritique(llm, designPlan, briefAnalysis);
 
   while (!finalCritique.passed && revisionCount < maxRevisions) {
     revisionCount++;
     previousCritique = formatCritiqueForRegeneration(finalCritique);
     designPlan = await generateDesignPlan(
+      llm,
       briefAnalysis,
       blocklistAndAssetContext,
       previousCritique,
       archetypeContext,
       animationContext
     );
-    finalCritique = await runSelfCritique(designPlan, briefAnalysis);
+    finalCritique = await runSelfCritique(llm, designPlan, briefAnalysis);
   }
 
   // ── [05] Code Generation ─────────────────────────────────────────────────
+  const fullCodeContext = [
+    blocklistResult.systemPromptInjection,
+    assetBundle.assetSummary,
+    archetypeContext,
+    animationContext,
+  ].filter(Boolean).join("\n\n");
+
   const generatedCode = await generateCode(
+    llm,
     briefAnalysis,
     designPlan,
-    [blocklistResult.systemPromptInjection, animationContext].join("\n\n"),
+    fullCodeContext,
     framework
   );
 

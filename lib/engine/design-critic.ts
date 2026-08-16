@@ -1,4 +1,5 @@
-import { getLLMAdapter } from "../llm-adapter";
+import type { LLMAdapter } from "./llm-utils";
+import { extractJSON } from "./llm-utils";
 import { getAllCliches } from "./blocklist-filter";
 
 export type DesignCritique = {
@@ -12,12 +13,11 @@ export type DesignCritique = {
   summary: string;
 };
 
-export async function critiqueDesign(input: {
+export async function critiqueDesign(llm: LLMAdapter, input: {
   url?: string;
   code?: string;
   screenshot?: string; // base64 or description
 }): Promise<DesignCritique> {
-  const llm = getLLMAdapter();
   const clicheData = getAllCliches();
 
   const blocklistSummary = clicheData.cliches
@@ -67,10 +67,8 @@ Respond ONLY in valid JSON:
     systemPrompt,
     temperature: 0.4,
     maxTokens: 3000,
+    reasoningEffort: "low",
   });
 
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("Design critic returned invalid JSON");
-
-  return JSON.parse(jsonMatch[0]) as DesignCritique;
+  return extractJSON<DesignCritique>(raw, "Design Critic");
 }

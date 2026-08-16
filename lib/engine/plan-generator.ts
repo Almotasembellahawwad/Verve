@@ -1,4 +1,5 @@
-import { getLLMAdapter } from "../llm-adapter";
+import type { LLMAdapter } from "./llm-utils";
+import { extractJSON } from "./llm-utils";
 import type { BriefAnalysis } from "./brief-analyzer";
 import { buildCognitiveGroundingPrompt } from "./cognitive-principles";
 import refraw from "../../data/reference-library.json";
@@ -61,13 +62,13 @@ function getRelevantReferences(analysis: BriefAnalysis): RefEntry[] {
 }
 
 export async function generateDesignPlan(
+  llm: LLMAdapter,
   analysis: BriefAnalysis,
   blocklistInjection: string,
   previousCritique?: string,
   archetypeContext?: string,   // Module I injection
   animationContext?: string    // Module K injection
 ): Promise<DesignPlan> {
-  const llm = getLLMAdapter();
   const refs = getRelevantReferences(analysis);
 
   const refContext = refs
@@ -157,9 +158,6 @@ Generate the design plan now.`;
     reasoningEffort: "medium", // Creative design planning — medium reasoning for quality
   });
 
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("Plan generator returned invalid JSON");
-
-  const parsed = JSON.parse(jsonMatch[0]) as Omit<DesignPlan, "rawPlan">;
+  const parsed = extractJSON<Omit<DesignPlan, "rawPlan">>(raw, "Plan Generator");
   return { ...parsed, rawPlan: raw };
 }

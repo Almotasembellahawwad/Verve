@@ -142,24 +142,30 @@ export function enforceContrast(pairs: ColorPair[]): ContrastFixReport {
   let fixesApplied = 0;
 
   for (const pair of pairs) {
-    const ratio = contrastRatio(pair.textHex, pair.bgHex);
-    const fixedTextHex = fixContrastColor(pair.textHex, pair.bgHex);
-    const passesAA  = ratio >= 4.5;
-    const passesAAA = ratio >= 7.0;
+    // Capture BEFORE any mutation
+    const originalTextHex = pair.textHex;
+    const ratio           = contrastRatio(pair.textHex, pair.bgHex);
+    const passesAABefore  = ratio >= 4.5;
+    const passesAAA       = ratio >= 7.0;
+    const fixedTextHex    = fixContrastColor(pair.textHex, pair.bgHex);
+
+    let finalPassesAA = passesAABefore;
 
     if (fixedTextHex) {
       fixesApplied++;
-      // Apply fix in-place
-      pair.textHex = fixedTextHex;
+      pair.textHex  = fixedTextHex;
+      // Recalculate ratio with the fixed color for accurate allPass evaluation
+      const fixedRatio = contrastRatio(fixedTextHex, pair.bgHex);
+      finalPassesAA    = fixedRatio >= 4.5;
     }
 
     checked.push({
-      pair: pair.name,
-      ratio: Math.round(ratio * 100) / 100,
-      passesAA,
+      pair:            pair.name,
+      ratio:           Math.round(ratio * 100) / 100,
+      passesAA:        finalPassesAA,
       passesAAA,
       fixedTextHex,
-      originalTextHex: pair.textHex,
+      originalTextHex, // ← now correctly the PRE-fix value
     });
   }
 

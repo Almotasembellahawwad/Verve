@@ -1,4 +1,5 @@
-import { getLLMAdapter } from "../llm-adapter";
+import type { LLMAdapter } from "./llm-utils";
+import { extractJSON } from "./llm-utils";
 import type { DesignPlan } from "./plan-generator";
 import type { BriefAnalysis } from "./brief-analyzer";
 import { evaluateCognitiveCompliance } from "./cognitive-principles";
@@ -114,10 +115,10 @@ const CRITIQUE_THRESHOLD = 4;
 
 // ── Main function ─────────────────────────────────────────────────────────────
 export async function runSelfCritique(
+  llm: LLMAdapter,
   plan: DesignPlan,
   analysis: BriefAnalysis
 ): Promise<CritiqueResult> {
-  const llm = getLLMAdapter();
 
   const planSummary = `Brief context (do NOT use this to judge the plan differently — just for calibration):
 Subject: ${analysis.subject}
@@ -163,13 +164,11 @@ Usability baseline stated by designer: ${plan.cognitiveGrounding?.usabilityBasel
     }),
   ]);
 
-  // Parse main critique
-  const critiqueMatch = critiqueRaw.match(/\{[\s\S]*\}/);
-  if (!critiqueMatch) throw new Error("Critique returned invalid JSON");
-  const parsed = JSON.parse(critiqueMatch[0]) as Omit<
+  // Parse main critique — use extractJSON for robust extraction
+  const parsed = extractJSON<Omit<
     CritiqueResult,
     "passed" | "rawCritique" | "endingCheck" | "usabilityFloor" | "cognitiveScore" | "cognitiveFailures"
-  >;
+  >>(critiqueRaw, "Critique");
 
   // Parse ending check
   let endingCheck: EndingCheck = {
@@ -178,8 +177,7 @@ Usability baseline stated by designer: ${plan.cognitiveGrounding?.usabilityBasel
     recommendation: "Add a distinctive closing section",
   };
   try {
-    const endingMatch = endingRaw.match(/\{[\s\S]*\}/);
-    if (endingMatch) endingCheck = JSON.parse(endingMatch[0]) as EndingCheck;
+    endingCheck = extractJSON<EndingCheck>(endingRaw, "Ending Check");
   } catch {
     // silently use default
   }
@@ -195,8 +193,7 @@ Usability baseline stated by designer: ${plan.cognitiveGrounding?.usabilityBasel
     issues: [],
   };
   try {
-    const usabilityMatch = usabilityRaw.match(/\{[\s\S]*\}/);
-    if (usabilityMatch) usabilityFloor = JSON.parse(usabilityMatch[0]) as UsabilityFloorCheck;
+    usabilityFloor = extractJSON<UsabilityFloorCheck>(usabilityRaw, "Usability Floor");
   } catch {
     // silently use default (passed=true)
   }

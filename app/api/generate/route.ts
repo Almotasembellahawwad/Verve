@@ -9,7 +9,7 @@ const RequestSchema = z.object({
   existingCode: z.string().max(20000).optional(),
   framework:    z.enum(["nextjs", "react", "html"]).optional().default("nextjs"),
   apiKey:       z.string().optional(),
-  provider:     z.enum(["anthropic", "openai", "gemini"]).optional().default("anthropic"),
+  provider:     z.enum(["anthropic", "openai", "gemini", "openrouter"]).optional().default("anthropic"),
   model:        z.string().optional(),
   pexelsKey:    z.string().optional(),
 });

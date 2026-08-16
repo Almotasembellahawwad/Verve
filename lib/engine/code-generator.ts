@@ -1,4 +1,4 @@
-import { getLLMAdapter } from "../llm-adapter";
+import type { LLMAdapter } from "./llm-utils";
 import type { BriefAnalysis } from "./brief-analyzer";
 import type { DesignPlan } from "./plan-generator";
 
@@ -17,120 +17,101 @@ const FRAMEWORK_NOTES: Record<string, string> = {
 };
 
 export async function generateCode(
+  llm: LLMAdapter,
   analysis: BriefAnalysis,
   plan: DesignPlan,
-  blocklistInjection: string,
+  injectionContext: string,
   framework = "nextjs"
 ): Promise<GeneratedCode> {
-  const llm = getLLMAdapter();
-
   const frameworkNote = FRAMEWORK_NOTES[framework] ?? FRAMEWORK_NOTES.nextjs;
 
-  // Extract detailed color tokens with roles
-  const colorTokensDetailed = (plan.colorPalette ?? [])
-    .map((c) => `  --color-${c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}: ${c.hex}; /* Role: ${c.role} */`)
+  // Build compact, non-contradictory color tokens
+  const colorTokens = (plan.colorPalette ?? [])
+    .map((c) => `  --color-${c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}: ${c.hex}; /* ${c.role} */`)
     .join("\n");
 
-  // Extract Cognitive Grounding directives (Module G)
-  const cognitiveContext = plan.cognitiveGrounding
-    ? `
-COGNITIVE GROUNDING DIRECTIVES (Module G):
-• Von Restorff Visual Isolation: ${plan.cognitiveGrounding.vonRestorffCompliance ?? "N/A"}
-• Gutenberg Grid & POA/TA Anchoring: ${plan.cognitiveGrounding.gutenbergCompliance ?? "N/A"}
-• Peak-End Closing Section Treatment: ${plan.cognitiveGrounding.peakEndDesign ?? "N/A"}
-• Target Signal-to-Noise Ratio: ${plan.cognitiveGrounding.signalNoiseRatio ?? 0.8}
-• Usability Baseline: ${plan.cognitiveGrounding.usabilityBaseline ?? "N/A"}
-`
+  // Build compact cognitive context (if available)
+  const cognitiveBlock = plan.cognitiveGrounding
+    ? [
+        plan.cognitiveGrounding.vonRestorffCompliance ? `Von Restorff: ${plan.cognitiveGrounding.vonRestorffCompliance}` : "",
+        plan.cognitiveGrounding.gutenbergCompliance ? `Gutenberg: ${plan.cognitiveGrounding.gutenbergCompliance}` : "",
+        plan.cognitiveGrounding.peakEndDesign ? `Peak-End: ${plan.cognitiveGrounding.peakEndDesign}` : "",
+      ].filter(Boolean).join("\n")
     : "";
 
-  // Extract full Signature Element details
-  const signatureContext = plan.signatureElement
-    ? `
-SIGNATURE DESIGN ELEMENT (Visual Core):
-• Name: ${plan.signatureElement.name}
-• Description: ${plan.signatureElement.description ?? ""}
-• Implementation Guidelines: ${plan.signatureElement.implementation}
-• Strategic Justification: ${plan.signatureElement.justification ?? ""}
-`
+  // Signature element — the soul of the design
+  const signatureBlock = plan.signatureElement
+    ? `SIGNATURE ELEMENT: "${plan.signatureElement.name}"
+Description: ${plan.signatureElement.description ?? ""}
+Implementation: ${plan.signatureElement.implementation}
+Justification: ${plan.signatureElement.justification ?? ""}`
     : "";
 
-  // Extract raw plan text if available
-  const rawPlanBlock = plan.rawPlan
-    ? `
-RAW DESIGN PLAN SUMMARY:
-${plan.rawPlan}
-`
-    : "";
+  // ─── System prompt: focused, non-contradictory ─────────────────────────
+  // KEY CHANGE: Removed fixed 5-section template, forced Unsplash images,
+  // "150+ lines" requirement, and "Awwwards" buzzword soup.
+  // The prompt now tells the LLM to execute the PLAN, not a generic template.
+  const systemPrompt = `You are a senior frontend developer implementing a specific design plan into complete, working code.
 
-  const systemPrompt = `You are a world-class award-winning creative technologist (Awwwards / FWA / Studio Freight standard) executing a complete design plan into code.
+${injectionContext}
 
-${blocklistInjection}
+=== DESIGN PLAN TO IMPLEMENT ===
 
-=== COMPREHENSIVE DESIGN PLAN TO EXECUTE IN CODE ===
+COLOR PALETTE (use these as CSS custom properties):
+${colorTokens}
 
-COLOR PALETTE & CSS VARIABLES:
-${colorTokensDetailed}
-
-TYPOGRAPHY SPECIFICATION:
-• Display Font: ${plan.typePairing.display}
-• Body Font: ${plan.typePairing.body}
+TYPOGRAPHY:
+• Display: ${plan.typePairing.display}
+• Body: ${plan.typePairing.body}
 • Rationale: ${plan.typePairing.rationale}
 
-${signatureContext}
-${cognitiveContext}
+${signatureBlock}
 
-LAYOUT CONCEPT & STRUCTURE:
+${cognitiveBlock}
+
+LAYOUT CONCEPT:
 ${plan.layoutConcept}
 
-${rawPlanBlock}
+=== IMPLEMENTATION RULES ===
+1. EXECUTE THE PLAN ABOVE — not a generic template. The layout, sections, and structure MUST match what the plan describes.
+2. Use the EXACT color palette above as CSS custom properties. Text must be high-contrast and legible.
+3. Use ONLY real Google Fonts. Include @import at the top of <style>. If the plan specifies a non-Google font, use the closest Google Fonts equivalent.
+4. The "${plan.signatureElement?.name ?? "signature element"}" MUST be visually prominent and faithfully implemented as described above.
+5. Use modern CSS (Grid, clamp(), logical properties). Mobile-responsive. Include prefers-reduced-motion.
+6. Every section must have real, contextual copy — not lorem ipsum, not empty divs.
+7. Use images ONLY if the design concept calls for them. When used, use https://images.unsplash.com/photo-... with relevant search terms in the URL.
+8. Return ONLY the complete, standalone code file. No markdown wrapping, no explanations outside the code.
 
-CRITICAL DIRECTIVES FOR COMPLETE CODE TRANSLATION:
-1. FULL PLAN FAITHFULNESS: Every section, layout concept, and cognitive directive specified in the Design Plan above MUST be fully translated into actual HTML/CSS elements. Do NOT skip, summarize, or omit any section specified in the plan!
-2. NO EMPTY CONTAINERS OR STUBS: Never output empty <div> tags or stubbed sections (like <div class="image"></div>). Every element MUST have real copy, subheadings, rich paragraphs, specs, or populated images!
-3. MANDATORY 5-SECTION RICH PAGE ARCHITECTURE:
-   - Section 1: Hero -- Bold Editorial Headline, Subhead, Badge, Primary & Secondary CTAs, Hero Visual.
-   - Section 2: Signature Element Showcase -- Fully implementing "${plan.signatureElement?.name ?? "Signature Showcase"}" with visual depth.
-   - Section 3: Value Grid / Monograph Breakdown -- Multi-column editorial cards with detailed descriptions.
-   - Section 4: Material Specs / Social Proof / Key Statistics Grid.
-   - Section 5: Closing Statement (Peak-End design) & Footer with full navigation links and copyright.
-4. MANDATORY UNSPLASH IMAGES: You MUST include at least THREE real <img src="https://images.unsplash.com/photo-..."> elements in the layout with object-fit: cover. A layout without images is an automatic failure!
-5. AAA COLOR CONTRAST: Text MUST be high-contrast and legible (#F4F1EA on dark, #14221F on sand). NEVER render gray text on gray backgrounds!
-6. VERIFIED GOOGLE FONTS ONLY: Include real @import for Google Fonts (e.g., Cormorant Garamond, DM Sans, Plus Jakarta Sans, Playfair Display). If the plan asks for a non-Google font (like Zodiak or Satoshi), silently fall back to a Google Font equivalent (e.g., Playfair Display or Inter). NEVER invent fake font names!
+Framework: ${frameworkNote}`;
 
-AWWWARDS CSS ARCHITECTURE & DESIGN ENGINEERING:
-- Asymmetrical Layouts: Avoid boring center-aligned stacked blocks. Use CSS Grid to create dynamic, overlapping, or asymmetrical editorial layouts.
-- Luxury Spacing: Use massive padding/margins (e.g., padding: 12vh 8vw) to let elements breathe.
-- Display Typography: Use clamp() for massive responsive headlines (e.g., font-size: clamp(3rem, 8vw, 7rem)). Apply tight tracking to display headings (letter-spacing: -0.02em).
-- Depth & Physicality: Use subtle borders (rgba(255,255,255,0.1) or rgba(0,0,0,0.1)) and shadows to separate cards from the background.
-- Responsive & Accessible: Mobile-first responsive flex/grid, focus states, and prefers-reduced-motion media query.
-
-Framework Context: ${frameworkNote}
-
-Return ONLY a complete, standalone, highly detailed, production-grade working code file (150+ lines of rich HTML/CSS). No markdown text outside code.`;
-
-  const userMessage = `Execute the complete design plan into production code for:
+  const userMessage = `Implement the design plan above as a complete ${framework} page for:
 Subject: ${analysis.subject}
-Primary Job: ${analysis.primaryJob}
 Audience: ${analysis.audience}
-Tone: ${analysis.tone}
-Framework: ${framework}`;
+Primary Job: ${analysis.primaryJob}
+Tone: ${analysis.tone}`;
 
   const code = await llm.complete([{ role: "user", content: userMessage }], {
     systemPrompt,
     temperature: 0.5,
-    maxTokens: 12000, // actual output budget (adapter uses 20K total for reasoning models)
-    reasoningEffort: "medium", // Code generation benefits from medium-quality reasoning
+    maxTokens: 12000,
+    reasoningEffort: "medium",
   });
 
+  // Strip markdown code fences if present
+  const cleaned = code
+    .replace(/^```[\w]*\n?/m, "")
+    .replace(/\n?```\s*$/m, "")
+    .trim();
+
   // Extract component name from code
-  const nameMatch = code.match(/(?:function|const|export default function)\s+([A-Z][A-Za-z]+)/);
+  const nameMatch = cleaned.match(/(?:function|const|export default function)\s+([A-Z][A-Za-z]+)/);
   const componentName = nameMatch?.[1] ?? "VerveComponent";
 
   // Extract imports
-  const importMatches = code.match(/^import .+$/gm) ?? [];
+  const importMatches = cleaned.match(/^import .+$/gm) ?? [];
 
   return {
-    code,
+    code: cleaned,
     framework,
     componentName,
     imports: importMatches,

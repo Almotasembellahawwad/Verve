@@ -27,7 +27,7 @@ import { generateDistinctivenessReport }   from "@/lib/engine/scorer";
 import { fixPaletteContrast }              from "@/lib/engine/contrast-fixer";
 import { buildGrainCSS, getGrainCodeHint } from "@/lib/engine/grain-texture";
 import { selectFontsForArchetype }         from "@/lib/engine/fonts-intelligence";
-import { resetLLMAdapter }                 from "@/lib/llm-adapter";
+import { createAdapter }                   from "@/lib/llm-adapter";
 import { setRetryNotifier, clearRetryNotifier } from "@/lib/llm-adapter/openrouter";
 import type { Provider }                   from "@/lib/llm-adapter/types";
 import { z } from "zod";
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { brief, existingCode, framework = "nextjs", apiKey, provider = "anthropic", pexelsKey } = parsed.data;
+  const { brief, existingCode, framework = "nextjs", apiKey, provider = "anthropic", model, pexelsKey } = parsed.data;
 
   const encoder = new TextEncoder();
   let   eventSeq = 0;
@@ -87,18 +87,15 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        process.env.ANTHROPIC_API_KEY  = provider === "anthropic"  ? apiKey : (process.env.ANTHROPIC_API_KEY  ?? "");
-        process.env.OPENAI_API_KEY     = provider === "openai"     ? apiKey : (process.env.OPENAI_API_KEY     ?? "");
-        process.env.GOOGLE_AI_API_KEY  = provider === "gemini"     ? apiKey : (process.env.GOOGLE_AI_API_KEY  ?? "");
-        process.env.OPENROUTER_API_KEY = provider === "openrouter" ? apiKey : (process.env.OPENROUTER_API_KEY ?? "");
-        resetLLMAdapter();
+        // -- Create per-request adapter (no more singleton / process.env leak) ----
+        const llm = createAdapter(provider as Provider, apiKey, model);
 
         // Wire retry notifier so 429 retries emit SSE events to the UI
-        setRetryNotifier((attempt, waitMs, model) => {
+        setRetryNotifier((attempt, waitMs, retryModel) => {
           send("stage_retry", {
             attempt,
             waitSec: Math.round(waitMs / 1000),
-            model,
+            model: retryModel,
             message: `OpenRouter rate limit -- retrying in ${Math.round(waitMs / 1000)}s (attempt ${attempt}/3)`,
           });
         });
@@ -108,7 +105,7 @@ export async function POST(req: NextRequest) {
         // -- [01] Brief Analysis -------------------------------------------------
         send("stage_start", { id: "01", name: "Brief Analysis", module: "BriefAnalyzer" }, "01-start");
         let elapsed = t("01");
-        const briefAnalysis = await analyzeBrief(brief, existingCode);
+        const briefAnalysis = await analyzeBrief(llm, brief, existingCode);
         send("stage_done", { id: "01", name: "Brief Analysis", durationMs: elapsed() }, "01-done");
 
         // -- [02] Asset Sourcing + Blocklist + Competitive Field - parallel -------
@@ -124,7 +121,7 @@ export async function POST(req: NextRequest) {
         // -- [02.5] Brand Archetype ----------------------------------------------
         send("stage_start", { id: "02.5", name: "Brand Archetype Resolution", module: "Module I" }, "025-start");
         elapsed = t("02.5");
-        const archetypeResolution = await resolveArchetype(briefAnalysis);
+        const archetypeResolution = await resolveArchetype(llm, briefAnalysis);
         send("stage_done", { id: "02.5", name: "Brand Archetype", durationMs: elapsed(),
           extra: { archetype: archetypeResolution.primaryArchetype, confidence: archetypeResolution.confidence } }, "025-done");
 
@@ -171,8 +168,8 @@ export async function POST(req: NextRequest) {
 
         send("stage_start", { id: "03", name: "Design Plan Generation", module: "PlanGenerator + G" }, "03-start");
         elapsed = t("03");
-        designPlan    = await generateDesignPlan(briefAnalysis, blocklistAndAssets, previousCritique, archetypeContext, animationContext);
-        finalCritique = await runSelfCritique(designPlan, briefAnalysis);
+        designPlan    = await generateDesignPlan(llm, briefAnalysis, blocklistAndAssets, previousCritique, archetypeContext, animationContext);
+        finalCritique = await runSelfCritique(llm, designPlan, briefAnalysis);
         send("stage_done", { id: "03", name: "Design Plan", durationMs: elapsed(),
           extra: { signature: designPlan.signatureElement?.name } }, "03-done");
 
@@ -183,8 +180,8 @@ export async function POST(req: NextRequest) {
           send("stage_start", { id: `03.r${revisionCount}`, name: `Plan Revision ${revisionCount}`, module: "PlanGenerator" });
           elapsed = t(`03.r${revisionCount}`);
           previousCritique = formatCritiqueForRegeneration(finalCritique);
-          designPlan    = await generateDesignPlan(briefAnalysis, blocklistAndAssets, previousCritique, archetypeContext, animationContext);
-          finalCritique = await runSelfCritique(designPlan, briefAnalysis);
+          designPlan    = await generateDesignPlan(llm, briefAnalysis, blocklistAndAssets, previousCritique, archetypeContext, animationContext);
+          finalCritique = await runSelfCritique(llm, designPlan, briefAnalysis);
           send("stage_done", { id: `03.r${revisionCount}`, name: `Plan Revision ${revisionCount}`, durationMs: elapsed() });
         }
 
@@ -206,12 +203,14 @@ export async function POST(req: NextRequest) {
         const fullCodeInjectionContext = [
           blocklistResult.systemPromptInjection,
           competitiveAnalysis.systemPromptInjection,
+          assetBundle.assetSummary,
           archetypeContext,
           animationContext,
           materialContext,
         ].filter(Boolean).join("\n\n");
 
         const generatedCode = await generateCode(
+          llm,
           briefAnalysis, designPlan,
           fullCodeInjectionContext,
           framework

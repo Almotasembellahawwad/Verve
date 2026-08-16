@@ -15,7 +15,8 @@
 // [04] Plan Generator (receives archetype as constraint)
 // =========================================================
 
-import { getLLMAdapter } from "../llm-adapter";
+import type { LLMAdapter } from "./llm-utils";
+import { extractJSON } from "./llm-utils";
 import type { BriefAnalysis } from "./brief-analyzer";
 
 // ── The 12 Archetypes ────────────────────────────────────────────────────────
@@ -442,9 +443,9 @@ export type ArchetypeResolution = {
 };
 
 export async function resolveArchetype(
+  llm: LLMAdapter,
   analysis: BriefAnalysis
 ): Promise<ArchetypeResolution> {
-  const llm = getLLMAdapter();
 
   const prompt = `Brief to analyze:
 Subject: ${analysis.subject}
@@ -463,17 +464,14 @@ Identify the brand archetype.`;
     reasoningEffort: "low", // Classification from 12 options — no deep reasoning needed
   });
 
-  const match = raw.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error("Archetype resolver returned invalid JSON");
-
-  const parsed = JSON.parse(match[0]) as {
+  const parsed = extractJSON<{
     primaryArchetype: ArchetypeId;
     secondaryArchetype: ArchetypeId | null;
     confidence: number;
     reasoning: string;
     archetypeConflict: string;
     emotionalJob: string;
-  };
+  }>(raw, "Archetype Resolver");
 
   const primaryProfile   = ARCHETYPES[parsed.primaryArchetype] ?? ARCHETYPES.creator;
   const secondaryProfile = parsed.secondaryArchetype ? (ARCHETYPES[parsed.secondaryArchetype] ?? null) : null;

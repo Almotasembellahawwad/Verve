@@ -1,4 +1,5 @@
-import { getLLMAdapter } from "../llm-adapter";
+import type { LLMAdapter } from "./llm-utils";
+import { extractJSON } from "./llm-utils";
 
 export type BriefAnalysis = {
   subject: string;
@@ -31,9 +32,7 @@ Respond ONLY in valid JSON matching this exact schema:
   "constraints": ["array of any explicit technical/design constraints mentioned"]
 }`;
 
-export async function analyzeBrief(brief: string, existingCode?: string): Promise<BriefAnalysis> {
-  const llm = getLLMAdapter();
-
+export async function analyzeBrief(llm: LLMAdapter, brief: string, existingCode?: string): Promise<BriefAnalysis> {
   const userMessage = existingCode
     ? `Design brief:\n${brief}\n\nExisting code to redesign:\n\`\`\`\n${existingCode.slice(0, 3000)}\n\`\`\``
     : `Design brief:\n${brief}`;
@@ -42,12 +41,9 @@ export async function analyzeBrief(brief: string, existingCode?: string): Promis
     systemPrompt: SYSTEM_PROMPT,
     temperature: 0.3,
     maxTokens: 1000,
-    reasoningEffort: "low", // JSON extraction task — deep reasoning not needed
+    reasoningEffort: "low",
   });
 
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("Brief analyzer returned invalid JSON");
-
-  const parsed = JSON.parse(jsonMatch[0]) as Omit<BriefAnalysis, "rawBrief">;
+  const parsed = extractJSON<Omit<BriefAnalysis, "rawBrief">>(raw, "Brief Analyzer");
   return { ...parsed, rawBrief: brief };
 }
