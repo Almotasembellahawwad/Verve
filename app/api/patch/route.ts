@@ -12,7 +12,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdapter } from "@/lib/llm-adapter";
+import { checkRateLimit, acquireConcurrentSlot, ROUTE_LIMITS } from "@/lib/middleware/rate-limit";
+import { errorResponse } from "@/lib/middleware/error-handler";
 import type { Provider } from "@/lib/llm-adapter/types";
+import { v4 as uuidv4 } from "uuid";
 
 const PatchSchema = z.object({
   currentCode:  z.string().min(50).max(80000),
@@ -36,12 +39,18 @@ PATCH MODE RULES:
 6. Return ONLY the code — no markdown, no explanations.`;
 
 export async function POST(req: NextRequest) {
+  const rateLimited = checkRateLimit(req, ROUTE_LIMITS["patch"]!);
+  if (rateLimited) return rateLimited;
+
+  const requestId = uuidv4();
+  const release   = acquireConcurrentSlot(req, ROUTE_LIMITS["patch"]!);
+
   let parsed;
   try {
     const body = await req.json();
     parsed = PatchSchema.parse(body);
   } catch {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    return NextResponse.json({ error: "INVALID_REQUEST", requestId }, { status: 400 });
   }
 
   const { currentCode, instruction, designPlan, brief, framework, provider, model, apiKey } = parsed;
@@ -62,23 +71,19 @@ export async function POST(req: NextRequest) {
   try {
     const patchedCode = await adapter.complete(
       [{ role: "user", content: userMessage }],
-      {
-        systemPrompt: SYSTEM_PROMPT,
-        temperature:  0.3,   // Low temp = precise, conservative edits
-        maxTokens:    12000, // Same as code-generator — enough for full page
-      }
+      { systemPrompt: SYSTEM_PROMPT, temperature: 0.3, maxTokens: 12000 }
     );
 
-    // Strip markdown code fences if the model added them
     const cleaned = patchedCode
       .replace(/^```[\w]*\n?/m, "")
       .replace(/\n?```\s*$/m, "")
       .trim();
 
-    return NextResponse.json({ code: cleaned });
+    return NextResponse.json({ code: cleaned, requestId });
 
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Patch generation failed";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return errorResponse(err, "GENERATION_FAILED", 500, requestId);
+  } finally {
+    release();
   }
 }

@@ -1,13 +1,18 @@
 import type { LLMAdapter } from "./llm-utils";
 import { extractJSON } from "./llm-utils";
+import { z } from "zod";
 
-export type BriefAnalysis = {
-  subject: string;
-  audience: string;
-  primaryJob: string;
-  tone: string;
-  industry: string;
-  constraints: string[];
+// ── Schema ─────────────────────────────────────────────────────────────────────
+const BriefAnalysisSchema = z.object({
+  subject:     z.string().min(1),
+  audience:    z.string().min(1),
+  primaryJob:  z.string().min(1),
+  tone:        z.string().min(1),
+  industry:    z.string().min(1),
+  constraints: z.array(z.string()).default([]),
+});
+
+export type BriefAnalysis = z.infer<typeof BriefAnalysisSchema> & {
   rawBrief: string;
 };
 
@@ -37,13 +42,33 @@ export async function analyzeBrief(llm: LLMAdapter, brief: string, existingCode?
     ? `Design brief:\n${brief}\n\nExisting code to redesign:\n\`\`\`\n${existingCode.slice(0, 3000)}\n\`\`\``
     : `Design brief:\n${brief}`;
 
-  const raw = await llm.complete([{ role: "user", content: userMessage }], {
+  let raw = await llm.complete([{ role: "user", content: userMessage }], {
     systemPrompt: SYSTEM_PROMPT,
-    temperature: 0.3,
-    maxTokens: 1000,
+    temperature:  0.3,
+    maxTokens:    1000,
     reasoningEffort: "low",
   });
 
-  const parsed = extractJSON<Omit<BriefAnalysis, "rawBrief">>(raw, "Brief Analyzer");
+  // First attempt
+  let parsed = extractJSON<z.infer<typeof BriefAnalysisSchema>>(raw, "Brief Analyzer");
+  const result = BriefAnalysisSchema.safeParse(parsed);
+
+  if (!result.success) {
+    // One retry with explicit schema feedback
+    const issues = result.error.issues
+      .slice(0, 3)
+      .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
+      .join("\n");
+
+    const retryMsg = `${userMessage}\n\nYour previous response had schema issues:\n${issues}\n\nPlease fix and respond with ONLY valid JSON.`;
+    raw    = await llm.complete([{ role: "user", content: retryMsg }], {
+      systemPrompt:    SYSTEM_PROMPT,
+      temperature:     0.1,
+      maxTokens:       800,
+      reasoningEffort: "low",
+    });
+    parsed = extractJSON<z.infer<typeof BriefAnalysisSchema>>(raw, "Brief Analyzer");
+  }
+
   return { ...parsed, rawBrief: brief };
 }

@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities, react/jsx-no-comment-textnodes */
 import type { Metadata } from "next";
 import styles from "./showcase.module.css";
 import Link from "next/link";
@@ -14,7 +15,7 @@ export default function ShowcasePage() {
       {/* ── Back nav ─────────────────────────────────────────────────────── */}
       <nav className={styles.topNav}>
         <Link href="/" className={styles.backLink}>← Verve</Link>
-        <span className={styles.topNavLabel}>// showcase</span>
+        <span className={styles.topNavLabel}>{"// showcase"}</span>
       </nav>
 
       {/* ── Header ───────────────────────────────────────────────────────── */}

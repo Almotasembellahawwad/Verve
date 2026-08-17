@@ -30,7 +30,9 @@ import { selectFontsForArchetype }         from "@/lib/engine/fonts-intelligence
 import { createAdapter }                   from "@/lib/llm-adapter";
 import { setRetryNotifier, clearRetryNotifier } from "@/lib/llm-adapter/openrouter";
 import type { Provider }                   from "@/lib/llm-adapter/types";
+import { checkRateLimit, acquireConcurrentSlot, ROUTE_LIMITS } from "@/lib/middleware/rate-limit";
 import { z } from "zod";
+import { v4 as uuidv4 } from "uuid";
 
 export const maxDuration = 300;
 
@@ -45,6 +47,11 @@ const RequestSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  // -- Rate limiting -----------------------------------------------------------
+  const rateLimited = checkRateLimit(req, ROUTE_LIMITS["generate-stream"]!);
+  if (rateLimited) return rateLimited;
+
+  const requestId = uuidv4();
   const body   = await req.json();
   const parsed = RequestSchema.safeParse(body);
 
@@ -57,6 +64,7 @@ export async function POST(req: NextRequest) {
 
   const { brief, existingCode, framework = "nextjs", apiKey, provider = "anthropic", model, pexelsKey } = parsed.data;
 
+  const release = acquireConcurrentSlot(req, ROUTE_LIMITS["generate-stream"]!);
   const encoder = new TextEncoder();
   let   eventSeq = 0;
 
@@ -80,9 +88,9 @@ export async function POST(req: NextRequest) {
       };
 
       try {
-        // -- API key setup -------------------------------------------------------
+        // -- API key validation --------------------------------------------------
         if (!apiKey) {
-          send("error", { message: "No API key provided. Add your API key in the settings." });
+          send("error", { code: "NO_API_KEY", requestId });
           controller.close();
           return;
         }
@@ -313,10 +321,11 @@ export async function POST(req: NextRequest) {
         }, "result");
 
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Pipeline error";
-        console.error("[/api/generate/stream]", err);
-        send("error", { message });
+        // Log full error server-side — send only opaque code to client
+        console.error(`[/api/generate/stream] requestId=${requestId}`, err);
+        send("error", { code: "GENERATION_FAILED", requestId });
       } finally {
+        release(); // Free concurrent slot
         clearRetryNotifier();
         controller.close();
       }

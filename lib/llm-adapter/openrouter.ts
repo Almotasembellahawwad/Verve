@@ -1,6 +1,6 @@
 // =========================================================
 // lib/llm-adapter/openrouter.ts
-// OpenRouter adapter -- OpenAI-compatible API at openrouter.ai
+// OpenRouter adapter — with AbortSignal + global chain timeout
 //
 // Free model chain (confirmed available Aug 2026):
 //   google/gemma-4-31b-it:free         (primary)
@@ -10,17 +10,19 @@
 //
 // Resilience rules:
 //   1. Exponential backoff on 429 rate limits.
-//   2. Fallback to next model on 429, empty response, or 5xx server errors.
-//   3. Supports reasoning/thinking fields in OpenRouter payload.
+//   2. Fallback to next model on 429, empty response, or 5xx errors.
+//   3. Global 90s chain timeout across all retries + fallbacks.
+//   4. content=empty is a FAILED generation — never return reasoning traces.
 // =========================================================
 
 import OpenAI from "openai";
 import type { LLMAdapter, LLMMessage, LLMOptions } from "./types";
 
-const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
-
-const MAX_RETRIES_PER_MODEL = 2;     // retries before switching model
-const BASE_DELAY_MS         = 2000;  // 2s, 4s per model
+const OPENROUTER_BASE    = "https://openrouter.ai/api/v1";
+const MAX_RETRIES_PER_MODEL = 2;
+const BASE_DELAY_MS         = 2000;
+const CHAIN_TIMEOUT_MS      = 90_000; // 90s total across all retries + fallbacks
+const PER_CALL_TIMEOUT_MS   = 25_000; // 25s per individual API call
 
 const FREE_FALLBACK_CHAIN = [
   "google/gemma-4-31b-it:free",
@@ -35,40 +37,35 @@ let _retryNotifier: RetryNotifier | null = null;
 export function setRetryNotifier(fn: RetryNotifier): void  { _retryNotifier = fn; }
 export function clearRetryNotifier(): void                 { _retryNotifier = null; }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener("abort", () => { clearTimeout(timer); reject(signal.reason); });
+  });
 }
 
-function isModelRetryableError(err: unknown): boolean {
+function isRetryableError(err: unknown): boolean {
   if (!err) return false;
-  const e = err as { status?: number; message?: string };
+  const e   = err as { status?: number; message?: string };
   const msg = typeof e.message === "string" ? e.message.toLowerCase() : "";
-  const status = e.status ?? 0;
-
+  const s   = e.status ?? 0;
   return (
-    status === 429 ||
-    status === 500 ||
-    status === 502 ||
-    status === 503 ||
-    status === 504 ||
-    msg.includes("429") ||
-    msg.includes("rate limit") ||
-    msg.includes("too many requests") ||
-    msg.includes("provider returned error") ||
-    msg.includes("empty response") ||
-    msg.includes("overloaded") ||
-    msg.includes("no content")
+    s === 429 || s === 500 || s === 502 || s === 503 || s === 504 ||
+    msg.includes("429") || msg.includes("rate limit") || msg.includes("too many requests") ||
+    msg.includes("provider returned error") || msg.includes("empty response") ||
+    msg.includes("overloaded") || msg.includes("no content")
   );
 }
 
 export class OpenRouterAdapter implements LLMAdapter {
   private client: OpenAI;
   private primaryModel: string;
+  private signal?: AbortSignal;
 
-  constructor(apiKey: string, model = "google/gemma-4-31b-it:free") {
+  constructor(apiKey: string, model = "google/gemma-4-31b-it:free", signal?: AbortSignal) {
     this.client = new OpenAI({
       apiKey,
-      baseURL: OPENROUTER_BASE,
+      baseURL:    OPENROUTER_BASE,
       maxRetries: 0,
       defaultHeaders: {
         "HTTP-Referer": "https://verve-design.vercel.app",
@@ -76,6 +73,7 @@ export class OpenRouterAdapter implements LLMAdapter {
       },
     });
     this.primaryModel = model;
+    this.signal       = signal;
   }
 
   async complete(messages: LLMMessage[], options: LLMOptions = {}): Promise<string> {
@@ -90,72 +88,92 @@ export class OpenRouterAdapter implements LLMAdapter {
       ? [this.primaryModel, ...FREE_FALLBACK_CHAIN.filter((m) => m !== this.primaryModel)]
       : [this.primaryModel];
 
+    // Global chain timeout — prevents orphaned requests on hung free models
+    const chainCtrl = new AbortController();
+    const chainTimer = setTimeout(() => chainCtrl.abort(new Error("OpenRouter chain timeout")), CHAIN_TIMEOUT_MS);
+    const chainSignal = this.signal
+      ? AbortSignal.any([this.signal, chainCtrl.signal])
+      : chainCtrl.signal;
+
     let lastError: Error = new Error("OpenRouter: no response");
     let globalAttempt = 0;
 
-    for (const model of chain) {
-      for (let retry = 0; retry <= MAX_RETRIES_PER_MODEL; retry++) {
-        globalAttempt++;
-        try {
-          const response = await this.client.chat.completions.create({
-            model,
-            max_tokens: maxTokens,
-            temperature,
-            messages: fullMessages,
-          });
+    try {
+      for (const model of chain) {
+        for (let retry = 0; retry <= MAX_RETRIES_PER_MODEL; retry++) {
+          globalAttempt++;
 
-          const choice = response.choices[0];
-          // Extract content or fallback to reasoning fields if content is empty
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const msgAny = choice?.message as any;
-          const content = msgAny?.content ?? msgAny?.reasoning ?? msgAny?.reasoning_content;
+          // Check for early abort
+          if (chainSignal.aborted) throw chainSignal.reason;
 
-          if (!content || typeof content !== "string" || !content.trim()) {
-            throw new Error(`Empty response from ${model}`);
-          }
+          // Per-call timeout
+          const callCtrl  = new AbortController();
+          const callTimer = setTimeout(() => callCtrl.abort(new Error(`${model} call timeout`)), PER_CALL_TIMEOUT_MS);
+          const callSignal = AbortSignal.any([chainSignal, callCtrl.signal]);
 
-          if (model !== this.primaryModel) {
-            console.info(`[OpenRouter] Successfully used fallback model: ${model}`);
-          }
-          return content;
+          try {
+            const response = await this.client.chat.completions.create(
+              { model, max_tokens: maxTokens, temperature, messages: fullMessages },
+              { signal: callSignal }
+            );
 
-        } catch (err: unknown) {
-          lastError = err instanceof Error ? err : new Error(String(err));
-          const isRetryable = isModelRetryableError(err);
+            const choice = response.choices[0];
+            const msg    = choice?.message;
 
-          if (isRetryable && retry < MAX_RETRIES_PER_MODEL) {
-            const waitMs = BASE_DELAY_MS * Math.pow(2, retry);
-            console.warn(`[OpenRouter] ${lastError.message} on ${model}, retry ${retry + 1}/${MAX_RETRIES_PER_MODEL}. Waiting ${waitMs / 1000}s`);
-            _retryNotifier?.(globalAttempt, waitMs, model);
-            await sleep(waitMs);
-            continue;
-          }
+            // NEVER return reasoning_content — it may contain internal model instructions.
+            // Empty content = failed generation, not a fallback to reasoning.
+            const content = msg?.content;
 
-          if (isRetryable) {
-            const nextModel = chain[chain.indexOf(model) + 1];
-            if (nextModel) {
-              const shortNext = nextModel.split("/")[1]?.replace(":free", "") ?? nextModel;
-              console.warn(`[OpenRouter] Model ${model} failed (${lastError.message}). Switching to fallback: ${nextModel}`);
-              _retryNotifier?.(
-                globalAttempt,
-                1500,
-                `${model.split("/")[1]?.replace(":free", "") ?? model} unready \u2192 switching to ${shortNext}`
-              );
-              await sleep(1500);
+            if (!content || typeof content !== "string" || !content.trim()) {
+              throw new Error(`Empty response from ${model} (reasoning content withheld per policy)`);
             }
-            break; // Move to next model in fallback chain
-          }
 
-          // Throw non-retryable errors (e.g. invalid API key) immediately
-          throw lastError;
+            if (model !== this.primaryModel) {
+              console.info(`[OpenRouter] Fallback succeeded: ${model}`);
+            }
+            return content;
+
+          } catch (err: unknown) {
+            lastError = err instanceof Error ? err : new Error(String(err));
+
+            // Propagate abort immediately — don't retry on cancellation
+            if (chainSignal.aborted) throw lastError;
+
+            const retryable = isRetryableError(err);
+
+            if (retryable && retry < MAX_RETRIES_PER_MODEL) {
+              const waitMs = BASE_DELAY_MS * Math.pow(2, retry);
+              console.warn(`[OpenRouter] ${lastError.message} on ${model}, retry ${retry + 1}/${MAX_RETRIES_PER_MODEL}`);
+              _retryNotifier?.(globalAttempt, waitMs, model);
+              await sleep(waitMs, chainSignal);
+              continue;
+            }
+
+            if (retryable) {
+              const nextModel = chain[chain.indexOf(model) + 1];
+              if (nextModel) {
+                const shortNext = nextModel.split("/")[1]?.replace(":free", "") ?? nextModel;
+                console.warn(`[OpenRouter] ${model} exhausted → switching to ${nextModel}`);
+                _retryNotifier?.(globalAttempt, 1500, `switching to ${shortNext}`);
+                await sleep(1500, chainSignal);
+              }
+              break; // next model in chain
+            }
+
+            // Non-retryable (e.g. invalid API key) — fail immediately
+            throw lastError;
+
+          } finally {
+            clearTimeout(callTimer);
+          }
         }
       }
+    } finally {
+      clearTimeout(chainTimer);
     }
 
     throw new Error(
-      `All OpenRouter free models are currently unavailable. ` +
-      `Tried: ${chain.map(m => m.split("/")[1] ?? m).join(", ")}. ` +
-      `Please wait a minute or switch to a paid provider.`
+      `All OpenRouter models unavailable. Tried: ${chain.map((m) => m.split("/")[1] ?? m).join(", ")}.`
     );
   }
 }

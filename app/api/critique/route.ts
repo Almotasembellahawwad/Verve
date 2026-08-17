@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { critiqueDesign } from "@/lib/engine/design-critic";
 import { createAdapter } from "@/lib/llm-adapter";
+import { checkRateLimit, acquireConcurrentSlot, ROUTE_LIMITS } from "@/lib/middleware/rate-limit";
+import { errorResponse, classifyError } from "@/lib/middleware/error-handler";
 import { z } from "zod";
+import { v4 as uuidv4 } from "uuid";
 
 const RequestSchema = z.object({
   url:        z.string().url().optional(),
@@ -15,29 +18,32 @@ const RequestSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const rateLimited = checkRateLimit(req, ROUTE_LIMITS["critique"]!);
+  if (rateLimited) return rateLimited;
+
+  const requestId = uuidv4();
+  const release   = acquireConcurrentSlot(req, ROUTE_LIMITS["critique"]!);
+
   try {
     const body   = await req.json();
     const parsed = RequestSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid request", details: parsed.error.issues },
+        { error: "INVALID_REQUEST", requestId, details: parsed.error.issues },
         { status: 400 }
       );
     }
 
     const { apiKey, provider, model, ...input } = parsed.data;
-    const llm = createAdapter(provider, apiKey, model);
-
+    const llm     = createAdapter(provider, apiKey, model);
     const critique = await critiqueDesign(llm, input);
-    return NextResponse.json({ critique });
+    return NextResponse.json({ critique, requestId });
 
   } catch (err) {
-    console.error("[/api/critique]", err);
-    // Return a generic message — don't leak provider error details
-    return NextResponse.json(
-      { error: "Critique generation failed. Please try again." },
-      { status: 500 }
-    );
+    const { code, status } = classifyError(err);
+    return errorResponse(err, code, status, requestId);
+  } finally {
+    release();
   }
 }

@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities, react/jsx-no-comment-textnodes, @typescript-eslint/no-unused-vars */
 import type { Metadata } from "next";
 import Link from "next/link";
 import styles from "./docs.module.css";

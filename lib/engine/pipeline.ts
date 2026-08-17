@@ -26,6 +26,7 @@ import { buildAnimationLanguage, formatAnimationForCodeGen, type AnimationLangua
 import { analyzeCompetitiveField, type CompetitiveAnalysis }           from "./competitive-field";
 import { runRestraintCheck, type RestraintResult }                     from "./restraint-check";  // Module N
 import { scoreEngineering, type EngineeringResult }                   from "./engineering-score"; // Dual Scoring
+import { runCodeQualityLoop, type CodeQualityResult }             from "./code-quality-loop"; // Phase 3.5
 import { createAdapter }                                              from "../llm-adapter";
 import type { Provider }                                               from "../llm-adapter/types";
 
@@ -44,6 +45,7 @@ export type PipelineResult = {
   distinctivenessReport:  DistinctivenessReport;  // Module J (3-level Norman)
   restraintResult:        RestraintResult;        // Module N (Dieter Rams)
   engineeringResult:      EngineeringResult;      // Dual Scoring — Engineering axis
+  codeQualityResult:      CodeQualityResult;      // Phase 3.5: post-gen repair
   revisionCount:          number;
   durationMs:             number;
 };
@@ -154,6 +156,23 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     framework
   );
 
+  // -- [3.5] Code Quality Loop — strip fences, check structure, repair if needed
+  const signatureStr = designPlan.signatureElement
+    ? `${designPlan.signatureElement.name} ${designPlan.signatureElement.description ?? ""}`
+    : "";
+  const codeQualityResult = await runCodeQualityLoop(
+    llm,
+    generatedCode.code,
+    signatureStr,
+    framework
+  );
+
+  // Use quality-checked code from this point forward
+  const finalCode: typeof generatedCode = {
+    ...generatedCode,
+    code: codeQualityResult.code,
+  };
+
   // -- [N] Restraint Check (Dieter Rams) -- deterministic, no LLM call ------
   const restraintResult = runRestraintCheck({
     colorPalette:      designPlan.colorPalette,
@@ -165,7 +184,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
 
   // -- [ENG] Engineering Score -- deterministic, no LLM call ----------------
   const engineeringResult = scoreEngineering(
-    generatedCode.code,
+    finalCode.code,
     (framework as Parameters<typeof scoreEngineering>[1])
   );
 
@@ -187,7 +206,8 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     animationLanguage,
     designPlan,
     finalCritique,
-    generatedCode,
+    generatedCode:    finalCode,
+    codeQualityResult,
     distinctivenessReport,
     restraintResult,
     engineeringResult,

@@ -14,12 +14,19 @@ type Props = {
 
 export default function HistoryDrawer({ open, onClose, onRestore }: Props) {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
+  // Stable timestamp for timeAgo — updates every minute so labels refresh
+  const [now, setNow] = useState(() => Date.now());
 
-  const refresh = () => setEntries(getHistory());
-
+  // Sync entries from localStorage when drawer opens (external system read)
   useEffect(() => {
-    if (open) refresh();
+    if (open) { setEntries(getHistory()); } // eslint-disable-line react-hooks/set-state-in-effect
   }, [open]);
+
+  // Update 'now' every minute so relative timestamps stay fresh
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -39,8 +46,10 @@ export default function HistoryDrawer({ open, onClose, onRestore }: Props) {
     return map[grade] ?? "rgba(255,255,255,0.4)";
   };
 
+  const refresh = () => setEntries(getHistory());
+
   const timeAgo = (ts: number) => {
-    const diff = Date.now() - ts;
+    const diff = now - ts;
     const m = Math.floor(diff / 60000);
     const h = Math.floor(m / 60);
     const d = Math.floor(h / 24);

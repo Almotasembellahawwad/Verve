@@ -12,7 +12,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdapter } from "@/lib/llm-adapter";
 import { runPipeline } from "@/lib/engine/pipeline";
 import { runBlocklistFilter } from "@/lib/engine/blocklist-filter";
+import { checkRateLimit, acquireConcurrentSlot, ROUTE_LIMITS } from "@/lib/middleware/rate-limit";
+import { errorResponse, classifyError } from "@/lib/middleware/error-handler";
 import type { Provider } from "@/lib/llm-adapter/types";
+import { v4 as uuidv4 } from "uuid";
 
 export const maxDuration = 120;
 
@@ -54,6 +57,12 @@ async function scoreBaseline(code: string): Promise<{
 }
 
 export async function POST(req: NextRequest) {
+  const rateLimited = checkRateLimit(req, ROUTE_LIMITS["compare"]!);
+  if (rateLimited) return rateLimited;
+
+  const requestId = uuidv4();
+  const release   = acquireConcurrentSlot(req, ROUTE_LIMITS["compare"]!);
+
   try {
     const body = await req.json();
     const {
@@ -124,15 +133,16 @@ export async function POST(req: NextRequest) {
       };
     } else {
       verve = {
-        code: "// Verve pipeline failed",
-        score: 0,
-        grade: "D",
-        clichesAvoided: [],
+        code:            "// Verve pipeline failed",
+        score:           0,
+        grade:           "D",
+        clichesAvoided:  [],
         clichesDetected: [],
-        plan: null,
+        plan:            null,
         signatureElement: "",
-        revisionCount: 0,
-        error: verveResult.reason?.message ?? "Verve pipeline failed",
+        revisionCount:   0,
+        // Don't leak internal error message to client
+        error: "PIPELINE_FAILED",
       };
     }
 
@@ -149,10 +159,11 @@ export async function POST(req: NextRequest) {
           : "Both outputs scored similarly — this brief may already be specific enough to resist generic defaults.",
     };
 
-    return NextResponse.json({ baseline, verve, delta, provider, model: model ?? "default" });
+    return NextResponse.json({ baseline, verve, delta, provider, model: model ?? "default", requestId });
   } catch (err) {
-    console.error("[/api/compare]", err);
-    const message = err instanceof Error ? err.message : "Compare failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { code, status } = classifyError(err);
+    return errorResponse(err, code, status, requestId);
+  } finally {
+    release();
   }
 }

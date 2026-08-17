@@ -19,12 +19,10 @@ const PROVIDERS: { id: AnyProvider; label: string; description: string; color: s
 ];
 
 export function useApiKey() {
-  const [apiKey, setApiKeyState] = useState<string>("");
-
-  useEffect(() => {
-    const stored = localStorage.getItem(ANTHROPIC_KEY) ?? "";
-    setApiKeyState(stored);
-  }, []);
+  // Initialize from localStorage (lazy — avoids setState on mount)
+  const [apiKey, setApiKeyState] = useState<string>(
+    () => (typeof window !== "undefined" ? localStorage.getItem(ANTHROPIC_KEY) ?? "" : "")
+  );
 
   const saveApiKey = (key: string, provider: AnyProvider = "anthropic") => {
     if (key) {
@@ -58,7 +56,7 @@ export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
 
   useEffect(() => {
     if (isOpen) {
-      setValues({
+      setValues({ // eslint-disable-line react-hooks/set-state-in-effect
         anthropic:   localStorage.getItem(ANTHROPIC_KEY) ?? "",
         openai:      localStorage.getItem(getKey("openai")) ?? "",
         gemini:      localStorage.getItem(getKey("gemini")) ?? "",
@@ -113,7 +111,7 @@ export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
         <div className={styles.header}>
           <div>
             <h2 id="apikey-modal-title" className={styles.title}>API Keys</h2>
-            <p className={styles.titleSub}>Stored locally in your browser only. Never sent to Verve servers.</p>
+            <p className={styles.titleSub}>Stored in your browser. Sent per-request to your chosen provider — never logged or stored server-side.</p>
           </div>
           <button className={styles.closeBtn} onClick={onClose} aria-label="Close">&#215;</button>
         </div>
@@ -218,8 +216,8 @@ export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
 
             {/* Security note */}
             <p className={styles.securityNote}>
-              Keys are stored in <code>localStorage</code> and sent directly to the provider with each request.
-              Verve never logs or proxies them.
+              Keys are stored in <code>localStorage</code> and sent with each generation request to your chosen LLM provider.
+              They pass through the Verve server for that request only — never logged, stored, or shared.
             </p>
           </div>
         </div>

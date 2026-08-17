@@ -131,11 +131,12 @@ type PipelineResult = {
   durationMs: number;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- used as type source below
 const FRAMEWORKS = ["nextjs", "react", "html"] as const;
 type Framework = (typeof FRAMEWORKS)[number];
 
 // ─── Telemetry Log Component ──────────────────────────────────────────────────
-function TelemetryLog({ stages, extras }: { stages: StageState[]; extras: Record<string, string> }) {
+function TelemetryLog({ stages }: { stages: StageState[]; extras?: Record<string, string> }) {
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -147,7 +148,7 @@ function TelemetryLog({ stages, extras }: { stages: StageState[]; extras: Record
   return (
     <div className={styles.telemetry} ref={logRef} aria-live="polite" aria-label="Pipeline progress">
       <div className={styles.telemetryHeader}>
-        <span className={styles.telemetryTitle}>// VERVE PIPELINE — RUNNING</span>
+        <span className={styles.telemetryTitle}>{"// VERVE PIPELINE — RUNNING"}</span>
         <span className={styles.telemetryDot} aria-hidden="true" />
       </div>
       {PIPELINE_STAGES.map((stage, i) => {
@@ -172,18 +173,27 @@ function TelemetryLog({ stages, extras }: { stages: StageState[]; extras: Record
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function GeneratePanel() {
-  const [brief, setBrief] = useState("");
+  const [brief, setBrief] = useState(() => {
+    // Initialize from URL ?brief= param (set by Lab "Run in workspace" button)
+    if (typeof window === "undefined") return "";
+    return decodeURIComponent(new URLSearchParams(window.location.search).get("brief") ?? "");
+  });
   const [existingCode, setExistingCode] = useState("");
   const [framework, setFramework] = useState<Framework>("nextjs");
   const [showCode, setShowCode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PipelineResult | null>(null);
-  const [patchedCode, setPatchedCode] = useState<string | null>(null); // live-edited code
+  const [patchedCode, setPatchedCode] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<"plan" | "code" | "report">("plan");
   const [provider, setProvider] = useState<Provider>("anthropic");
   const [model, setModel] = useState<string>(DEFAULT_MODEL.anthropic);
-  const [apiKey, setApiKey] = useState("");
+  // Initialize apiKey from localStorage (lazy initializer avoids setState-in-effect)
+  const [apiKey, setApiKey] = useState(() =>
+    typeof window !== "undefined"
+      ? (localStorage.getItem(getStorageKey("anthropic")) ?? localStorage.getItem(ANTHROPIC_KEY) ?? "")
+      : ""
+  );
   const [missingKey, setMissingKey] = useState(false);
   const [stageStates, setStageStates] = useState<StageState[]>([]);
   const [stageExtras, setStageExtras] = useState<Record<string, string>>({});
@@ -193,21 +203,20 @@ export default function GeneratePanel() {
   const telemetryTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const abortRef = useRef<(() => void) | null>(null);
 
+  // Reload apiKey when provider changes — reads from localStorage (external system)
   useEffect(() => {
-    const stored = localStorage.getItem(getStorageKey(provider))
-      ?? localStorage.getItem(ANTHROPIC_KEY)
-      ?? "";
-    setApiKey(stored);
+    setApiKey( // eslint-disable-line react-hooks/set-state-in-effect
+      localStorage.getItem(getStorageKey(provider))
+        ?? localStorage.getItem(ANTHROPIC_KEY)
+        ?? ""
+    );
   }, [provider]);
 
-  // Pick up ?brief= query param (set by Lab "Run in workspace" button)
+  // Clean ?brief= from URL after initial render (no setState here)
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    const prefilled = params.get("brief");
-    if (prefilled) {
-      setBrief(decodeURIComponent(prefilled));
-      // Clean the URL without reload
+    if (params.has("brief")) {
       const url = new URL(window.location.href);
       url.searchParams.delete("brief");
       window.history.replaceState({}, "", url.toString());

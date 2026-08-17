@@ -1,7 +1,7 @@
 "use client";
 // app/lab/LabClient.tsx
 // Prompt Engineering Lab — client component
-// Shows all pipeline modules, their prompts, and the competitive intelligence dataset
+import Link from "next/link";
 
 import { useState } from "react";
 import { ARCHETYPES, type ArchetypeId } from "@/lib/engine/brand-archetype-resolver";
@@ -98,7 +98,7 @@ export default function LabClient() {
   const [activeArchetype, setActiveArchetype] = useState<ArchetypeId>("ruler");
   const [copiedBrief, setCopiedBrief] = useState<string | null>(null);
 
-  const module = PIPELINE_MODULES.find((m) => m.id === activeModule);
+  const activeModuleData = PIPELINE_MODULES.find((m) => m.id === activeModule);
   const archetype = ARCHETYPES[activeArchetype];
 
   const copyBrief = (brief: string, label: string) => {
@@ -117,7 +117,7 @@ export default function LabClient() {
       {/* Header */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
-          <a href="/" className={styles.backLink}>← Workspace</a>
+          <Link href="/" className={styles.backLink}>← Workspace</Link>
           <div>
             <h1 className={styles.title}>Prompt Engineering Lab</h1>
             <p className={styles.subtitle}>Pipeline internals · Module reference · Sample briefs · Live run</p>
@@ -150,24 +150,24 @@ export default function LabClient() {
             </nav>
 
             {/* Module detail */}
-            {module && (
+            {activeModuleData && (
               <div className={styles.moduleDetail}>
                 <div className={styles.detailHeader}>
-                  <span className={styles.detailId}>[{module.id}]</span>
-                  <h3 className={styles.detailName}>{module.name}</h3>
+                  <span className={styles.detailId}>[{activeModuleData.id}]</span>
+                  <h3 className={styles.detailName}>{activeModuleData.name}</h3>
                 </div>
-                <p className={styles.detailDesc}>{module.description}</p>
+                <p className={styles.detailDesc}>{activeModuleData.description}</p>
 
                 <div className={styles.detailSection}>
                   <div className={styles.detailLabel}>System Prompt (key excerpt)</div>
-                  <pre className={styles.promptBox}>{module.systemPromptHighlight}</pre>
+                  <pre className={styles.promptBox}>{activeModuleData.systemPromptHighlight}</pre>
                 </div>
 
                 <div className={styles.ioGrid}>
                   <div>
                     <div className={styles.detailLabel}>Inputs</div>
                     <ul className={styles.ioList}>
-                      {module.inputs.map((inp) => (
+                      {activeModuleData.inputs.map((inp) => (
                         <li key={inp} className={styles.ioItem}>{inp}</li>
                       ))}
                     </ul>
@@ -175,7 +175,7 @@ export default function LabClient() {
                   <div>
                     <div className={styles.detailLabel}>Outputs</div>
                     <ul className={styles.ioList}>
-                      {module.outputs.map((out) => (
+                      {activeModuleData.outputs.map((out) => (
                         <li key={out} className={styles.ioItemOut}>{out}</li>
                       ))}
                     </ul>

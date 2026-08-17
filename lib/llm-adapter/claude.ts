@@ -1,32 +1,28 @@
 // =========================================================
 // lib/llm-adapter/claude.ts
-// Anthropic Claude adapter
-// Supports: claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022,
-//           claude-3-opus-20240229
-//
-// Per-model token caps (balanced quality vs cost):
-//   claude-3-5-sonnet: 8192 max output
-//   claude-3-5-haiku:  8192 max output (cheap: ~$0.01/gen)
-//   claude-3-opus:     4096 max output (expensive: use conservatively)
+// Anthropic Claude adapter — with AbortSignal + timeout support
 // =========================================================
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { LLMAdapter, LLMMessage, LLMOptions } from "./types";
 
+const LLM_TIMEOUT_MS = 30_000; // 30s hard timeout per call
+
 const MODEL_MAX_TOKENS: Record<string, number> = {
   "claude-3-5-sonnet-20241022": 8000,
   "claude-3-5-haiku-20241022":  8000,
-  "claude-3-opus-20240229":     4000, // Opus is expensive — keep conservative
+  "claude-3-opus-20240229":     4000,
 };
 
 export class ClaudeAdapter implements LLMAdapter {
   private client: Anthropic;
   private model: string;
+  private signal?: AbortSignal;
 
-  constructor(apiKey: string, model = "claude-3-5-sonnet-20241022") {
+  constructor(apiKey: string, model = "claude-3-5-sonnet-20241022", signal?: AbortSignal) {
     this.client = new Anthropic({ apiKey });
-    // Use model ID as-is — no aliases needed (we use real IDs in types.ts)
-    this.model = model;
+    this.model  = model;
+    this.signal = signal;
   }
 
   async complete(messages: LLMMessage[], options: LLMOptions = {}): Promise<string> {
@@ -37,18 +33,32 @@ export class ClaudeAdapter implements LLMAdapter {
       MODEL_MAX_TOKENS[this.model] ?? 8192
     );
 
-    const response = await this.client.messages.create({
-      model:      this.model,
-      max_tokens: effectiveMaxTokens,
-      temperature,
-      system:     systemPrompt,
-      messages:   messages.map((m) => ({ role: m.role, content: m.content })),
-    });
+    // Combine request signal with our hard timeout
+    const timeoutCtrl = new AbortController();
+    const timer       = setTimeout(() => timeoutCtrl.abort(new Error("Claude timeout")), LLM_TIMEOUT_MS);
+    const combined    = this.signal
+      ? AbortSignal.any([this.signal, timeoutCtrl.signal])
+      : timeoutCtrl.signal;
 
-    const textBlock = response.content.find((b) => b.type === "text");
-    if (!textBlock || textBlock.type !== "text") {
-      throw new Error(`No text content in Claude response (model: ${this.model})`);
+    try {
+      const response = await this.client.messages.create(
+        {
+          model:      this.model,
+          max_tokens: effectiveMaxTokens,
+          temperature,
+          system:     systemPrompt,
+          messages:   messages.map((m) => ({ role: m.role, content: m.content })),
+        },
+        { signal: combined }
+      );
+
+      const textBlock = response.content.find((b) => b.type === "text");
+      if (!textBlock || textBlock.type !== "text") {
+        throw new Error(`No text content in Claude response (model: ${this.model})`);
+      }
+      return textBlock.text;
+    } finally {
+      clearTimeout(timer);
     }
-    return textBlock.text;
   }
 }

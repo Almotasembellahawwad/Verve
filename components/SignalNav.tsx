@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import styles from "./SignalNav.module.css";
 import { ApiKeyModal, useApiKey } from "./ApiKeyModal";
 
@@ -58,10 +59,10 @@ export function SignalNav() {
         aria-label="Main navigation"
       >
         <div className={styles.inner}>
-          <a href="/" className={styles.logo} aria-label="Verve home">
+          <Link href="/" className={styles.logo} aria-label="Verve home">
             <span className={styles.logoMark} aria-hidden="true">▋</span>
             Verve
-          </a>
+          </Link>
 
           {/* Desktop links */}
           <div className={styles.links} aria-label="Site sections">

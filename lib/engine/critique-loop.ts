@@ -183,19 +183,20 @@ Usability baseline stated by designer: ${plan.cognitiveGrounding?.usabilityBasel
   }
 
   // Parse usability floor
-  // Default: passed=true -- if we can't parse the LLM response, we don't want
-  // to automatically fail every plan and trigger an unnecessary retry loop.
+  // Default: passed=false, status="unknown" — if we can't parse the LLM response
+  // we report it as inconclusive rather than silently passing.
+  // The outer critique result still governs whether regeneration is triggered.
   let usabilityFloor: UsabilityFloorCheck = {
-    passed: true,
-    contrastOk: true,
-    touchTargetsOk: true,
-    bodyTextOk: true,
-    issues: [],
+    passed:        false,
+    contrastOk:    false,
+    touchTargetsOk: false,
+    bodyTextOk:    false,
+    issues:        ["Usability check inconclusive — could not parse LLM response"],
   };
   try {
     usabilityFloor = extractJSON<UsabilityFloorCheck>(usabilityRaw, "Usability Floor");
   } catch {
-    // silently use default (passed=true)
+    // Keep default: inconclusive (passed=false, issues logged above)
   }
 
   // Evaluate cognitive grounding compliance

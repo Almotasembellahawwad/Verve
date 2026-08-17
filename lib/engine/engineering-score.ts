@@ -127,9 +127,10 @@ const CSS_QUALITY_CHECKS = {
 
 // ── Main function ─────────────────────────────────────────────────────────────
 
+ 
 export function scoreEngineering(
   code: string,
-  framework: Framework = "nextjs"
+  _framework: Framework = "nextjs"
 ): EngineeringResult {
   const dims: EngineeringDimension[] = [
     scoreDimension("semantic",    "Semantic HTML",    0.15, code, SEMANTIC_HTML_CHECKS),

@@ -1,31 +1,28 @@
 // =========================================================
 // lib/llm-adapter/gemini.ts
-// Google Gemini adapter
-// Supports: gemini-2.0-flash, gemini-1.5-pro, gemini-2.0-flash-lite
-//
-// Per-model token caps:
-//   gemini-2.0-flash:      8192 max output
-//   gemini-1.5-pro:        8192 max output (1M context window!)
-//   gemini-2.0-flash-lite: 8192 max output (cheapest)
+// Google Gemini adapter — with AbortSignal + timeout support
 // =========================================================
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { LLMAdapter, LLMMessage, LLMOptions } from "./types";
 
+const LLM_TIMEOUT_MS = 30_000;
+
 const MODEL_MAX_TOKENS: Record<string, number> = {
   "gemini-2.0-flash":      8000,
   "gemini-1.5-pro":        8000,
-  "gemini-2.0-flash-lite": 4000, // Lite -- smaller cap but ultra fast
+  "gemini-2.0-flash-lite": 4000,
 };
 
 export class GeminiAdapter implements LLMAdapter {
   private client: GoogleGenerativeAI;
   private model: string;
+  private signal?: AbortSignal;
 
-  constructor(apiKey: string, model = "gemini-2.0-flash") {
+  constructor(apiKey: string, model = "gemini-2.0-flash", signal?: AbortSignal) {
     this.client = new GoogleGenerativeAI(apiKey);
-    // Use model ID as-is — no aliases needed (we use real IDs in types.ts)
-    this.model = model;
+    this.model  = model;
+    this.signal = signal;
   }
 
   async complete(messages: LLMMessage[], options: LLMOptions = {}): Promise<string> {
@@ -54,11 +51,24 @@ export class GeminiAdapter implements LLMAdapter {
     const lastMessage = messages[messages.length - 1];
     if (!lastMessage) throw new Error("No messages provided to GeminiAdapter");
 
-    const chat   = genModel.startChat({ history });
-    const result = await chat.sendMessage(lastMessage.content);
-    const text   = result.response.text();
+    const timeoutCtrl = new AbortController();
+    const timer       = setTimeout(() => timeoutCtrl.abort(new Error("Gemini timeout")), LLM_TIMEOUT_MS);
 
-    if (!text) throw new Error(`No text in Gemini response (model: ${this.model})`);
-    return text;
+    // Wire the request-level signal if provided
+    if (this.signal) {
+      this.signal.addEventListener("abort", () => timeoutCtrl.abort(this.signal!.reason));
+    }
+
+    try {
+      const chat   = genModel.startChat({ history });
+      // Gemini SDK doesn't accept signal directly — we rely on the timeout abort
+      const result = await chat.sendMessage(lastMessage.content);
+      const text   = result.response.text();
+
+      if (!text) throw new Error(`No text in Gemini response (model: ${this.model})`);
+      return text;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 }

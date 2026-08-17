@@ -1,11 +1,11 @@
 # Verve — Every AI website looks the same. Yours won't.
 
 [![MIT License](https://img.shields.io/badge/license-MIT-D49020?style=flat-square)](LICENSE)
-[![Next.js 15](https://img.shields.io/badge/Next.js-15-white?style=flat-square&logo=next.js)](https://nextjs.org)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-white?style=flat-square&logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript)](https://typescriptlang.org)
-[![Anthropic](https://img.shields.io/badge/Claude-3.5%20Sonnet-191919?style=flat-square)](https://anthropic.com)
+[![Anthropic](https://img.shields.io/badge/Claude-4.5%20Sonnet-191919?style=flat-square)](https://anthropic.com)
 [![OpenAI](https://img.shields.io/badge/OpenAI-GPT--5.6%20Terra-412991?style=flat-square)](https://openai.com)
-[![Gemini](https://img.shields.io/badge/Google-Gemini%202.0%20Flash-4285F4?style=flat-square)](https://ai.google.dev)
+[![Gemini](https://img.shields.io/badge/Google-Gemini%202.5%20Pro-4285F4?style=flat-square)](https://ai.google.dev)
 
 > **Verve** is an open-source design intelligence pipeline that sits between any LLM and its code output — forcing bold, non-generic, context-specific UI through 9 specialized modules instead of producing the median AI aesthetic.
 
@@ -63,9 +63,12 @@ User brief (+ optional existing code)
                              UsabilityFloor: contrast ratio, touch targets, body text minimum
                              Rejects + regenerates if flagged. Max 2 revision cycles.
         ↓
-[05] CODE GENERATION       → Full component code (Next.js 15 | React 18 | HTML+CSS)
+[05] CODE GENERATION       → Full component code (Next.js 16 | React 18 | HTML+CSS)
                              Animation tokens injected as CSS custom properties
                              Signature element implemented exactly as specified in plan
+        ↓
+[05.5] CODE QUALITY LOOP   → Strips fences, checks structural integrity, verifies
+                             signature element keywords in output, one repair pass if needed
         ↓
 [06] NORMAN 3-LEVEL SCORE  → Don Norman's 3-Level evaluation:
      (Module J)              Visceral (35%) — first impression, visual boldness
@@ -147,7 +150,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`. Enter your API key in the workspace — it's stored in `localStorage` only, never sent to any server except the LLM provider.
+Open `http://localhost:3000`. Enter your API key in the workspace — it is stored in `localStorage` only and sent per-request to your chosen LLM provider. Keys are **never logged or stored server-side**.
 
 ### Environment variables (optional)
 
@@ -155,9 +158,12 @@ Open `http://localhost:3000`. Enter your API key in the workspace — it's store
 # Only needed for server-side default keys — the UI accepts user-provided keys
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
-GOOGLE_AI_API_KEY=AIza...
+GEMINI_API_KEY=AIza...
+OPENROUTER_API_KEY=sk-or-...
 PEXELS_API_KEY=...
 ```
+
+See [`.env.example`](.env.example) for the full reference.
 
 ---
 
@@ -190,7 +196,7 @@ verve/
 └── lib/
     ├── engine/
     │   ├── pipeline.ts            — Main orchestrator
-    │   ├── brief-analyzer.ts      — [01] Brief parsing
+    │   ├── brief-analyzer.ts      — [01] Brief parsing + Zod validation
     │   ├── blocklist-filter.ts    — [02] Cliché blocking
     │   ├── asset-sourcer.ts       — [02] Image/font/icon sourcing
     │   ├── brand-archetype-resolver.ts — [I] 12 Jungian archetypes
@@ -199,6 +205,8 @@ verve/
     │   ├── plan-generator.ts      — [03] Design plan + cognitive module
     │   ├── critique-loop.ts       — [04] Adversarial 3-part critique
     │   ├── code-generator.ts      — [05] Code output
+    │   ├── code-quality-loop.ts   — [05.5] Post-gen structural checks + repair
+    │   ├── llm-schemas.ts         — Zod schemas for all LLM output types
     │   └── scorer.ts              — [J] Norman 3-Level scoring
     ├── history.ts                 — localStorage design history
     ├── export.ts                  — CSS / Figma / README export
@@ -228,9 +236,9 @@ The pipeline draws from established UX and cognitive psychology research:
 
 | Provider | Models | Notes |
 |----------|--------|-------|
-| **Anthropic** | `claude-3-5-sonnet-20241022`, `claude-3-5-haiku-20241022`, `claude-3-opus-20240229` | Sonnet is the recommended default |
+| **Anthropic** | `claude-sonnet-4-5`, `claude-opus-4-5`, `claude-haiku-4-5` | Sonnet 4-5 is the recommended default |
 | **OpenAI** | `gpt-5.6-terra`, `gpt-5.6-sol`, `gpt-4o-mini` | GPT-5.6 models are Reasoning Models (use `reasoning_effort`, not `temperature`) |
-| **Google** | `gemini-2.0-flash`, `gemini-1.5-pro`, `gemini-2.0-flash-lite` | Flash is the recommended default |
+| **Google** | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.0-flash` | 2.5 Pro is the recommended default |
 | **OpenRouter** | `google/gemma-4-31b-it:free`, `openai/gpt-oss-20b:free`, `google/gemma-4-26b-a4b-it:free`, `nvidia/llama-3.1-nemotron-ultra-253b-v1:free` | Free-tier with auto-fallback chain |
 
 ---
@@ -252,4 +260,4 @@ MIT — see [LICENSE](LICENSE)
 
 ---
 
-*Built with Next.js 15, TypeScript, Anthropic Claude, and a principled disdain for hero gradients.*
+*Built with Next.js 16, TypeScript, Anthropic Claude, and a principled disdain for hero gradients.*

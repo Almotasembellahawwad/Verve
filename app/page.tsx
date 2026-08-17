@@ -62,7 +62,7 @@ export default function Home() {
       <section className={styles.pipeline} id="how-it-works">
         <div className="container">
           <div className={styles.sectionLabel}>
-            <span className="muted-text">// how it works</span>
+            <span className="muted-text">{"// how it works"}</span>
           </div>
           <h2 className={styles.sectionHeading}>
             Six steps between your brief and something{" "}
@@ -76,7 +76,7 @@ export default function Home() {
       <section className={styles.workspace} id="workspace">
         <div className="container">
           <div className={styles.sectionLabel}>
-            <span className="muted-text">// workspace</span>
+            <span className="muted-text">{"// workspace"}</span>
           </div>
           <h2 className={styles.sectionHeading}>
             Generate or critique.{" "}
@@ -125,11 +125,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CLICHÃ‰ BLOCKLIST â€” Public + transparent */}
+      {/* CLICHÉ BLOCKLIST — Public + transparent */}
       <section className={styles.clicheSection} id="blocklist">
         <div className="container">
           <div className={styles.sectionLabel}>
-            <span className="muted-text">// clichÃ© blocklist â€” public, versioned, community-maintained</span>
+            <span className="muted-text">{"// cliché blocklist — public, versioned, community-maintained"}</span>
           </div>
           <h2 className={styles.sectionHeading}>
             What Verve is{" "}
