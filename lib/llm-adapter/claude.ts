@@ -6,12 +6,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { LLMAdapter, LLMMessage, LLMOptions } from "./types";
 
-const LLM_TIMEOUT_MS = 90_000; // 90s timeout per call
+const LLM_TIMEOUT_MS = 30_000; // 30s hard timeout per call
 
 const MODEL_MAX_TOKENS: Record<string, number> = {
   "claude-3-5-sonnet-20241022": 8000,
-  "claude-3-5-haiku-20241022":  8000,
-  "claude-3-opus-20240229":     4000,
+  "claude-3-5-haiku-20241022": 8000,
+  "claude-3-opus-20240229": 4000,
 };
 
 export class ClaudeAdapter implements LLMAdapter {
@@ -21,7 +21,7 @@ export class ClaudeAdapter implements LLMAdapter {
 
   constructor(apiKey: string, model = "claude-3-5-sonnet-20241022", signal?: AbortSignal) {
     this.client = new Anthropic({ apiKey });
-    this.model  = model;
+    this.model = model;
     this.signal = signal;
   }
 
@@ -35,19 +35,19 @@ export class ClaudeAdapter implements LLMAdapter {
 
     // Combine request signal with our hard timeout
     const timeoutCtrl = new AbortController();
-    const timer       = setTimeout(() => timeoutCtrl.abort(new Error(`Claude request timed out after ${LLM_TIMEOUT_MS / 1000}s (${this.model})`)), LLM_TIMEOUT_MS);
-    const combined    = this.signal
+    const timer = setTimeout(() => timeoutCtrl.abort(new Error("Claude timeout")), LLM_TIMEOUT_MS);
+    const combined = this.signal
       ? AbortSignal.any([this.signal, timeoutCtrl.signal])
       : timeoutCtrl.signal;
 
     try {
       const response = await this.client.messages.create(
         {
-          model:      this.model,
+          model: this.model,
           max_tokens: effectiveMaxTokens,
           temperature,
-          system:     systemPrompt,
-          messages:   messages.map((m) => ({ role: m.role, content: m.content })),
+          system: systemPrompt,
+          messages: messages.map((m) => ({ role: m.role, content: m.content })),
         },
         { signal: combined }
       );

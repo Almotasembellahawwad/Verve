@@ -148,7 +148,7 @@ export function ClicheList() {
           rel="noopener noreferrer"
           className={styles.contributeLink}
         >
-          Add a clichÃ© pattern â†’
+          Add a cliché pattern →
         </a>
       </div>
     </div>

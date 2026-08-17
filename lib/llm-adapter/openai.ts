@@ -19,11 +19,11 @@ const LLM_TIMEOUT_MS = 120_000; // 120s for reasoning models & code generation
 
 // Per-model caps: cover BOTH internal reasoning + actual output.
 const MODEL_MAX_COMPLETION_TOKENS: Record<string, number> = {
-  "gpt-5.6-terra": 25000,
-  "gpt-5.6-sol":   25000,
-  "gpt-5.6-luna":  16000,
-  "gpt-4o":        12000,
-  "gpt-4o-mini":   8000,
+  "gpt-5.6-terra": 30000,
+  "gpt-5.6-sol": 30000,
+  "gpt-5.6-luna": 20000,
+  "gpt-4o": 15000,
+  "gpt-4o-mini": 10000,
 };
 
 export class OpenAIAdapter implements LLMAdapter {
@@ -33,14 +33,14 @@ export class OpenAIAdapter implements LLMAdapter {
 
   constructor(apiKey: string, model = "gpt-5.6-terra", signal?: AbortSignal) {
     this.client = new OpenAI({ apiKey });
-    this.model  = model;
+    this.model = model;
     this.signal = signal;
   }
 
   async complete(messages: LLMMessage[], options: LLMOptions = {}): Promise<string> {
     const { systemPrompt, temperature = 0.7, maxTokens, reasoningEffort } = options;
 
-    const modelCap    = MODEL_MAX_COMPLETION_TOKENS[this.model] ?? 8000;
+    const modelCap = MODEL_MAX_COMPLETION_TOKENS[this.model] ?? 8000;
     const isReasoning = isReasoningModel(this.model);
 
     // For reasoning models: use full model cap so reasoning doesn't eat output budget.
@@ -58,23 +58,23 @@ export class OpenAIAdapter implements LLMAdapter {
 
     if (isReasoning) {
       params.max_completion_tokens = effectiveTokens;
-      params.reasoning_effort      = reasoningEffort ?? "medium";
+      params.reasoning_effort = reasoningEffort ?? "medium";
       // Do NOT set temperature — causes 400 for reasoning models
     } else {
-      params.max_tokens  = effectiveTokens;
+      params.max_tokens = effectiveTokens;
       params.temperature = temperature;
     }
 
     const timeoutCtrl = new AbortController();
-    const timer       = setTimeout(() => timeoutCtrl.abort(new Error(`OpenAI request timed out after ${LLM_TIMEOUT_MS / 1000}s (${this.model})`)), LLM_TIMEOUT_MS);
-    const combined    = this.signal
+    const timer = setTimeout(() => timeoutCtrl.abort(new Error(`OpenAI request timed out after ${LLM_TIMEOUT_MS / 1000}s (${this.model})`)), LLM_TIMEOUT_MS);
+    const combined = this.signal
       ? AbortSignal.any([this.signal, timeoutCtrl.signal])
       : timeoutCtrl.signal;
 
     try {
       const response = await this.client.chat.completions.create(params, { signal: combined });
 
-      const choice  = response.choices[0];
+      const choice = response.choices[0];
       const message = choice?.message;
 
       if (!message) {

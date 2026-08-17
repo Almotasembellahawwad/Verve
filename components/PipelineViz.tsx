@@ -12,7 +12,7 @@ const STEPS = [
   },
   {
     id: "02",
-    name: "ClichÃ© Blocklist",
+    name: "Cliché Blocklist",
     description: "Checks brief and existing code against 20+ known AI-design tells. Injects a blocklist into every downstream prompt.",
     module: "blocklist-filter.ts",
   },
@@ -37,7 +37,7 @@ const STEPS = [
   {
     id: "06",
     name: "Distinctiveness Score",
-    description: "Outputs a 0-100 score with grade, critique transcript, what was avoided, what remains â€” surfaced to you, not hidden.",
+    description: "Outputs a 0-100 score with grade, critique transcript, what was avoided, what remains — surfaced to you, not hidden.",
     module: "scorer.ts",
   },
 ];
@@ -85,13 +85,13 @@ export function PipelineViz() {
             </div>
             {i < STEPS.length - 1 && (
               <div className={styles.connector} aria-hidden="true">
-                {/* Glowing progress fill â€” amber travels down as steps activate */}
+                {/* Glowing progress fill — amber travels down as steps activate */}
                 <div className={styles.connectorLine}>
                   <div
                     className={`${styles.connectorFill} ${i < activeStep ? styles.connectorFillActive : ""}`}
                   />
                 </div>
-                <div className={`${styles.connectorArrow} ${i < activeStep ? styles.connectorArrowActive : ""}`}>â†“</div>
+                <div className={`${styles.connectorArrow} ${i < activeStep ? styles.connectorArrowActive : ""}`}>↓</div>
               </div>
             )}
           </div>
