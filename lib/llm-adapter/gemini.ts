@@ -6,7 +6,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { LLMAdapter, LLMMessage, LLMOptions } from "./types";
 
-const LLM_TIMEOUT_MS = 30_000;
+const LLM_TIMEOUT_MS = 90_000; // 90s timeout per call
 
 const MODEL_MAX_TOKENS: Record<string, number> = {
   "gemini-2.0-flash":      8000,
@@ -52,7 +52,7 @@ export class GeminiAdapter implements LLMAdapter {
     if (!lastMessage) throw new Error("No messages provided to GeminiAdapter");
 
     const timeoutCtrl = new AbortController();
-    const timer       = setTimeout(() => timeoutCtrl.abort(new Error("Gemini timeout")), LLM_TIMEOUT_MS);
+    const timer       = setTimeout(() => timeoutCtrl.abort(new Error(`Gemini request timed out after ${LLM_TIMEOUT_MS / 1000}s (${this.model})`)), LLM_TIMEOUT_MS);
 
     // Wire the request-level signal if provided
     if (this.signal) {

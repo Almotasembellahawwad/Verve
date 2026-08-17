@@ -6,7 +6,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { LLMAdapter, LLMMessage, LLMOptions } from "./types";
 
-const LLM_TIMEOUT_MS = 30_000; // 30s hard timeout per call
+const LLM_TIMEOUT_MS = 90_000; // 90s timeout per call
 
 const MODEL_MAX_TOKENS: Record<string, number> = {
   "claude-3-5-sonnet-20241022": 8000,
@@ -35,7 +35,7 @@ export class ClaudeAdapter implements LLMAdapter {
 
     // Combine request signal with our hard timeout
     const timeoutCtrl = new AbortController();
-    const timer       = setTimeout(() => timeoutCtrl.abort(new Error("Claude timeout")), LLM_TIMEOUT_MS);
+    const timer       = setTimeout(() => timeoutCtrl.abort(new Error(`Claude request timed out after ${LLM_TIMEOUT_MS / 1000}s (${this.model})`)), LLM_TIMEOUT_MS);
     const combined    = this.signal
       ? AbortSignal.any([this.signal, timeoutCtrl.signal])
       : timeoutCtrl.signal;

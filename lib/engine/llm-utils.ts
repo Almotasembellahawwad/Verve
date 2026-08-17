@@ -15,12 +15,23 @@ import type { LLMAdapter } from "../llm-adapter/types";
 // Re-export for convenience -- all engine modules import from here
 export type { LLMAdapter };
 
+function cleanJsonString(str: string): string {
+  return str
+    // Remove multi-line comments /* ... */
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    // Remove single-line comments // ...
+    .replace(/(^|[^\\:])\/\/.*$/gm, "$1")
+    // Remove trailing commas before } or ]
+    .replace(/,(\s*[}\]])/g, "$1")
+    .trim();
+}
+
 /**
  * Extract and parse the first valid JSON object from LLM output.
  *
  * LLMs often wrap JSON in markdown code fences, add explanatory text,
- * or include multiple JSON-like structures. This function handles all
- * common output formats.
+ * include comments (/* or //), trailing commas, or multiple JSON-like structures.
+ * This function handles all common output formats.
  *
  * @throws Error if no valid JSON object can be extracted
  */
@@ -30,7 +41,7 @@ export function extractJSON<T = unknown>(raw: string, context = "LLM"): T {
   const fenceMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
   if (fenceMatch) {
     try {
-      return JSON.parse(fenceMatch[1].trim()) as T;
+      return JSON.parse(cleanJsonString(fenceMatch[1])) as T;
     } catch {
       // fence content wasn't valid JSON, continue to other methods
     }
@@ -75,7 +86,7 @@ export function extractJSON<T = unknown>(raw: string, context = "LLM"): T {
       if (depth === 0) {
         const candidate = raw.slice(firstBrace, i + 1);
         try {
-          return JSON.parse(candidate) as T;
+          return JSON.parse(cleanJsonString(candidate)) as T;
         } catch (e) {
           // This complete brace-pair wasn't valid JSON
           // Try to find the next opening brace
@@ -88,8 +99,6 @@ export function extractJSON<T = unknown>(raw: string, context = "LLM"): T {
           }
           // Reset and continue searching from next brace
           depth = 0;
-          // We'll let the loop continue naturally since we just need to find the next {
-          // But we need to update firstBrace for the error context
         }
       }
     }

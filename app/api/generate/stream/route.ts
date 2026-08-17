@@ -31,6 +31,7 @@ import { createAdapter }                   from "@/lib/llm-adapter";
 import { setRetryNotifier, clearRetryNotifier } from "@/lib/llm-adapter/openrouter";
 import type { Provider }                   from "@/lib/llm-adapter/types";
 import { checkRateLimit, acquireConcurrentSlot, ROUTE_LIMITS } from "@/lib/middleware/rate-limit";
+import { classifyError } from "@/lib/middleware/error-handler";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 
@@ -321,9 +322,10 @@ export async function POST(req: NextRequest) {
         }, "result");
 
       } catch (err) {
-        // Log full error server-side — send only opaque code to client
         console.error(`[/api/generate/stream] requestId=${requestId}`, err);
-        send("error", { code: "GENERATION_FAILED", requestId });
+        const { code } = classifyError(err);
+        const rawMsg = err instanceof Error ? err.message : "Pipeline generation failed";
+        send("error", { code, message: rawMsg, requestId });
       } finally {
         release(); // Free concurrent slot
         clearRetryNotifier();

@@ -107,6 +107,7 @@ Rules:
 3. EXACTLY ONE signature element — a bold, specific, justifiable design risk. Not "use a unique gradient." Something that, if removed, would make the design generic.
 4. The layout concept must differ from the 4-card-grid, alternating-sections, centered-hero defaults.
 5. ALL archetype constraints above are HARD requirements — color, type, layout decisions must be coherent with the identified archetype.
+6. COLOR RULE: Must ensure high contrast. Background MUST be deep (#0E0E0D / #14221F) or light (#FAF8F5 / #F4F1EA). Text MUST be high contrast (#F2EFE9 or #14221F). NEVER use gray on gray.
 ${critiqueNote}
 
 Respond ONLY in valid JSON with this exact schema:
@@ -114,7 +115,6 @@ Respond ONLY in valid JSON with this exact schema:
   "colorPalette": [
     { "name": "string", "hex": "#XXXXXX", "role": "string — where/how it's used" }
   ],
-  /* COLOR RULE: Must ensure high contrast. Background MUST be deep (#0E0E0D / #14221F) or light (#FAF8F5 / #F4F1EA). Text MUST be high contrast (#F2EFE9 or #14221F). NEVER use gray on gray. */
   "typePairing": {
     "display": "string — REAL valid Google Font name (e.g. Cormorant Garamond, Plus Jakarta Sans, Playfair Display, Space Grotesk, Syne, Outfit, DM Sans). NEVER invent fake font names!",
     "body": "string — REAL valid Google Font name (e.g. DM Sans, Nunito Sans, IBM Plex Sans, Inter, Lato).",

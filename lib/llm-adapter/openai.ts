@@ -15,14 +15,14 @@ import OpenAI from "openai";
 import type { LLMAdapter, LLMMessage, LLMOptions } from "./types";
 import { isReasoningModel } from "./types";
 
-const LLM_TIMEOUT_MS = 30_000;
+const LLM_TIMEOUT_MS = 120_000; // 120s for reasoning models & code generation
 
 // Per-model caps: cover BOTH internal reasoning + actual output.
 const MODEL_MAX_COMPLETION_TOKENS: Record<string, number> = {
-  "gpt-5.6-terra": 20000,
-  "gpt-5.6-sol":   20000,
-  "gpt-5.6-luna":  12000,
-  "gpt-4o":        8000,
+  "gpt-5.6-terra": 25000,
+  "gpt-5.6-sol":   25000,
+  "gpt-5.6-luna":  16000,
+  "gpt-4o":        12000,
   "gpt-4o-mini":   8000,
 };
 
@@ -66,7 +66,7 @@ export class OpenAIAdapter implements LLMAdapter {
     }
 
     const timeoutCtrl = new AbortController();
-    const timer       = setTimeout(() => timeoutCtrl.abort(new Error("OpenAI timeout")), LLM_TIMEOUT_MS);
+    const timer       = setTimeout(() => timeoutCtrl.abort(new Error(`OpenAI request timed out after ${LLM_TIMEOUT_MS / 1000}s (${this.model})`)), LLM_TIMEOUT_MS);
     const combined    = this.signal
       ? AbortSignal.any([this.signal, timeoutCtrl.signal])
       : timeoutCtrl.signal;
@@ -81,14 +81,15 @@ export class OpenAIAdapter implements LLMAdapter {
         throw new Error(`OpenAI returned no choices (model: ${this.model}). May be blocked by safety filters.`);
       }
       if (message.refusal) {
-        throw new Error(`OpenAI refused request (model: ${this.model})`);
+        throw new Error(`OpenAI refused request (${this.model}): ${message.refusal}`);
       }
 
       const content = message.content;
       if (!content || content.trim() === "") {
-        // NEVER return reasoning_content as output — it may contain internal instructions.
-        // Treat empty content as a failed generation.
-        throw new Error(`Empty response from ${this.model}. Reasoning consumed entire token budget.`);
+        if (choice.finish_reason === "length") {
+          throw new Error(`Empty response from ${this.model}. The reasoning phase exhausted the max_completion_tokens budget before outputting text. Try choosing a model like gpt-5.6-luna or claude-3-5-sonnet.`);
+        }
+        throw new Error(`Empty response from ${this.model} (finish_reason: ${choice.finish_reason ?? "unknown"}).`);
       }
 
       return content;

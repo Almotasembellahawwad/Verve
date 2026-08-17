@@ -364,7 +364,9 @@ export default function GeneratePanel() {
             // ── Save to history ──────────────────────────────────────────
             try { addHistory(entryFromResult(brief, data)); } catch {}
           } else if (eventType === "error") {
-            throw new Error((payload as Record<string, string>).message ?? "Pipeline error");
+            const errPayload = payload as Record<string, string>;
+            const msg = errPayload.message || errPayload.error || errPayload.code || "Pipeline error";
+            throw new Error(msg);
           }
         }
       }
@@ -374,13 +376,18 @@ export default function GeneratePanel() {
       const raw = err instanceof Error ? err.message : "Something went wrong";
       // Translate technical errors to user-friendly messages
       let friendly = raw;
-      if (raw.includes("rate limit") || raw.includes("429") || raw.includes("Too Many Requests")) {
-        friendly = "Rate limit reached on free tier. Please wait 1-2 minutes and try again. " +
-          "Alternatively, switch to a paid provider (Claude / GPT / Gemini) for unlimited generations.";
-      } else if (raw.includes("No API key") || raw.includes("ANTHROPIC_API_KEY")) {
+      if (raw.includes("rate limit") || raw.includes("429") || raw.includes("Too Many Requests") || raw === "RATE_LIMITED") {
+        friendly = "Rate limit reached. Please wait a moment and try again, or switch to a model with higher limits.";
+      } else if (raw.includes("No API key") || raw.includes("ANTHROPIC_API_KEY") || raw === "NO_API_KEY") {
         friendly = "No API key set. Click \"Key set\" or \"Add key\" above to add your API key.";
       } else if (raw.includes("401") || raw.includes("Unauthorized") || raw.includes("Invalid API key") || raw.includes("incorrect API key")) {
         friendly = "Invalid API key. Please check your key in the settings and try again.";
+      } else if (raw.includes("insufficient_quota") || raw.includes("quota") || raw.includes("billing")) {
+        friendly = "Account quota/billing limit exceeded on your AI provider. Please check your API credits/billing.";
+      } else if (raw.includes("timed out") || raw.includes("timeout") || raw.includes("AbortError") || raw === "TIMEOUT") {
+        friendly = "Request timed out while generating. Reasoning models can take longer — try GPT-5.6 Luna or Claude 3.5 Sonnet.";
+      } else if (raw.includes("reasoning") || raw.includes("reasoning_content") || raw.includes("token budget")) {
+        friendly = "The reasoning model consumed its token budget before completing output. Try GPT-5.6 Luna or Claude 3.5 Sonnet.";
       } else if (raw.includes("does not exist") || raw.includes("model_not_found") || raw.includes("unknown model")) {
         friendly = "Selected model is unavailable. Please select a supported model in the settings panel.";
       } else if (raw.includes("context_length") || raw.includes("maximum context") || raw.includes("prompt is too long") || raw.includes("too many tokens")) {
