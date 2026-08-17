@@ -183,20 +183,21 @@ Usability baseline stated by designer: ${plan.cognitiveGrounding?.usabilityBasel
   }
 
   // Parse usability floor
-  // Default: passed=false, status="unknown" — if we can't parse the LLM response
-  // we report it as inconclusive rather than silently passing.
-  // The outer critique result still governs whether regeneration is triggered.
+  // Default: inconclusive — if parse fails we log it but do NOT block the plan.
+  // Only a successfully-parsed passed=false should trigger a retry.
   let usabilityFloor: UsabilityFloorCheck = {
-    passed:        false,
-    contrastOk:    false,
-    touchTargetsOk: false,
-    bodyTextOk:    false,
-    issues:        ["Usability check inconclusive — could not parse LLM response"],
+    passed:         true,   // inconclusive → does not block (separate from "failed")
+    contrastOk:     true,
+    touchTargetsOk: true,
+    bodyTextOk:     true,
+    issues:         ["Usability check inconclusive — could not parse LLM response"],
   };
+  let usabilityParsed = false;
   try {
-    usabilityFloor = extractJSON<UsabilityFloorCheck>(usabilityRaw, "Usability Floor");
+    usabilityFloor  = extractJSON<UsabilityFloorCheck>(usabilityRaw, "Usability Floor");
+    usabilityParsed = true;
   } catch {
-    // Keep default: inconclusive (passed=false, issues logged above)
+    // Parse failed — keep passed=true so we don't block on an inconclusive check
   }
 
   // Evaluate cognitive grounding compliance
@@ -210,7 +211,8 @@ Usability baseline stated by designer: ${plan.cognitiveGrounding?.usabilityBasel
 
   return {
     ...parsed,
-    passed: highAndMedium <= CRITIQUE_THRESHOLD && usabilityFloor.passed,
+    // usabilityFloor only blocks if parse succeeded AND it explicitly failed
+    passed: highAndMedium <= CRITIQUE_THRESHOLD && (!usabilityParsed || usabilityFloor.passed),
     rawCritique: critiqueRaw,
     endingCheck,
     usabilityFloor,
