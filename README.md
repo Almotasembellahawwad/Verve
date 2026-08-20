@@ -1,4 +1,4 @@
-![Verve — Design intelligence pipeline](docs/brand-cover.png)
+![Verve design intelligence pipeline interface](docs/product-preview.png)
 
 # Verve — Every AI website looks the same. Yours won't.
 
@@ -13,7 +13,7 @@
 
 > **Verve** is an open-source design intelligence pipeline that sits between any LLM and its code output — forcing bold, non-generic, context-specific UI through 9 specialized modules instead of producing the median AI aesthetic.
 
-[**Try it live →**](https://verve-design.vercel.app) · [Prompt Engineering Lab →](/lab) · [Docs →](/docs)
+[**Development preview →**](https://verve-dev.vercel.app/) · [Prompt Engineering Lab →](/lab) · [Docs →](/docs)
 
 ---
 
