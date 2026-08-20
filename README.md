@@ -144,7 +144,7 @@ A single prompt asking the model to "be distinctive" doesn't work because the mo
 ### Local development
 
 ```bash
-git clone https://github.com/mohasbks/Verve.git
+git clone https://github.com/Almotasembellahawwad/Verve.git
 cd Verve
 npm install
 npm run dev
