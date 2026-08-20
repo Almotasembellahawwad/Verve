@@ -1,4 +1,8 @@
+![Verve — Design intelligence pipeline](docs/brand-cover.png)
+
 # Verve — Every AI website looks the same. Yours won't.
+
+> **Status:** In active development. APIs, module boundaries and documentation may change before the first stable release.
 
 [![MIT License](https://img.shields.io/badge/license-MIT-D49020?style=flat-square)](LICENSE)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-white?style=flat-square&logo=next.js)](https://nextjs.org)
