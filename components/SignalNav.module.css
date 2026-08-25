@@ -48,6 +48,58 @@
   animation: cursor-blink 1.2s step-end infinite;
 }
 
+/* Verve 2.0 editorial masthead */
+.nav {
+  padding-inline: 32px;
+}
+
+.scrolled {
+  background: rgba(11, 13, 12, 0.9);
+  border-bottom-color: rgba(255,255,255,0.08);
+}
+
+.inner {
+  max-width: 1220px;
+  height: 66px;
+}
+
+.logo {
+  gap: 10px;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+}
+
+.logoMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: var(--brand);
+  color: var(--text-inverse);
+  font: 700 13px/1 var(--font-display);
+  animation: none;
+}
+
+.links {
+  gap: 20px;
+}
+
+.link {
+  font-size: 9px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.apiKeyBtn {
+  border-color: rgba(255,90,54,0.32);
+}
+
+@media (max-width: 720px) {
+  .nav { padding-inline: 14px; }
+  .inner { height: 58px; }
+}
+
 @keyframes cursor-blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
@@ -193,10 +245,15 @@
   .apiKeyLabel span:last-child {
     display: none;
   }
+  .githubLink {
+    display: none;
+  }
 }
 
 @media (max-width: 480px) {
   .readmeBtn { display: none; }
+  .apiKeyLabel { display: none; }
+  .apiKeyBtn { padding: 7px; }
 }
 
 /* ── Hamburger button — mobile only ──────────────────────── */

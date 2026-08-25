@@ -15,6 +15,7 @@
 
 import type { BriefAnalysis } from "./brief-analyzer";
 import { scorePhotoAgainstBlocklist, getContextualIcons } from "./asset-blocklist";
+import { getPalette } from "colorthief";
 
 const PEXELS_TIMEOUT_MS = 8_000;
 
@@ -96,15 +97,11 @@ async function extractPaletteFromUrl(
 
     const buf = Buffer.from(await res.arrayBuffer());
 
-    // colorthief expects a DOM Image — in Node.js we use it with a Buffer approach
-    // Since colorthief v3 added Node.js support via jimp internals:
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const ColorThief = require("colorthief");
-    const palette: [number, number, number][] = await ColorThief.getPalette(buf, 5);
+    const palette = await getPalette(buf, { colorCount: 5 });
 
     const roles = ["primary", "secondary", "accent", "neutral", "background"];
-    return palette.map(([r, g, b], i) => ({
-      hex:  `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`,
+    return (palette ?? []).map((color, i) => ({
+      hex: color.hex(),
       role: roles[i] ?? `color-${i + 1}`,
     }));
   } catch {

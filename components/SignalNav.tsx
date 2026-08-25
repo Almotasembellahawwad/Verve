@@ -6,11 +6,11 @@ import styles from "./SignalNav.module.css";
 import { ApiKeyModal, useApiKey } from "./ApiKeyModal";
 
 const NAV_LINKS = [
-  { href: "#how-it-works", label: "How it works" },
-  { href: "#workspace",    label: "Try it" },
-  { href: "/showcase",     label: "Showcase" },
-  { href: "/lab",          label: "Lab" },
-  { href: "/docs",         label: "Docs" },
+  { href: "#how-it-works", label: "01 / Process" },
+  { href: "#workspace",    label: "02 / Workbench" },
+  { href: "/showcase",     label: "03 / Evidence" },
+  { href: "/lab",          label: "04 / Lab" },
+  { href: "/docs",         label: "05 / Docs" },
 ] as const;
 
 export function SignalNav() {
@@ -60,8 +60,8 @@ export function SignalNav() {
       >
         <div className={styles.inner}>
           <Link href="/" className={styles.logo} aria-label="Verve home">
-            <span className={styles.logoMark} aria-hidden="true">▋</span>
-            Verve
+            <span className={styles.logoMark} aria-hidden="true">V/</span>
+            VERVE
           </Link>
 
           {/* Desktop links */}

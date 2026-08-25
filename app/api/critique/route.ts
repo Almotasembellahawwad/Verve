@@ -7,12 +7,12 @@ import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 
 const RequestSchema = z.object({
-  url:        z.string().url().optional(),
+  url:        z.string().url().max(2048).optional(),
   code:       z.string().max(20000).optional(),
   screenshot: z.string().max(10000).optional(),
-  apiKey:     z.string().min(1),
+  apiKey:     z.string().min(1).max(500),
   provider:   z.enum(["anthropic", "openai", "gemini", "openrouter"]).optional().default("anthropic"),
-  model:      z.string().optional(),
+  model:      z.string().max(100).optional(),
 }).refine((d) => d.url ?? d.code ?? d.screenshot, {
   message: "At least one of url, code, or screenshot is required",
 });

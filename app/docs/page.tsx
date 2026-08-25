@@ -74,17 +74,20 @@ function DocsContent() {
         <section id="architecture" className={styles.section}>
           <h2 className={styles.sectionTitle}>Architecture</h2>
           <p className={styles.sectionLead}>
-            Verve is a linear pipeline of 6 pure functions, each wrapping a single LLM call. The pipeline is deterministic in structure — every brief goes through every step in the same order. Distinctiveness comes from what those steps force, not from randomness.
+            Verve exposes nine ordered milestones. Generative stages use a request-scoped LLM adapter; asset, contrast, validation, and scoring stages are deterministic. Distinctiveness comes from the constraints and review loop, not arbitrary randomness.
           </p>
 
           <div className={styles.pipeline}>
             {[
               { id: "01", name: "Brief Analyzer",       file: "brief-analyzer.ts",   desc: "Extracts subject, audience, primary job, tone, industry, and hard constraints from the brief. Forces specificity before any design decision is made." },
-              { id: "02", name: "Cliché Blocklist",     file: "blocklist-filter.ts", desc: "Scans the brief and any existing code against 20+ documented AI-design clichés. Produces a system prompt injection that blocks detected patterns in all downstream calls." },
-              { id: "03", name: "Design Plan",           file: "plan-generator.ts",  desc: "Generates a full design token system: 4-6 colors derived from subject matter (not trends), a type pairing with written justification, a layout concept, and exactly ONE named signature element." },
-              { id: "04", name: "Adversarial Critique",  file: "critique-loop.ts",   desc: "A second, isolated LLM call that acts as an adversarial reviewer: 'Would a generic prompt produce this same plan?' If >3 elements are flagged as defaults, the plan is rejected and regenerated. Capped at 2 revision cycles." },
+              { id: "02", name: "Context Field",         file: "assets + blocklist + competitive", desc: "Sources assets, scans 21 cliché families with 67 concrete signals, and maps dominant industry patterns in parallel." },
+              { id: "02.5", name: "Brand Archetype",     file: "brand-archetype-resolver.ts", desc: "Resolves the emotional job, primary archetype, and explicit design prohibitions." },
+              { id: "02.6", name: "Motion Language",     file: "animation-language.ts", desc: "Derives duration and easing tokens from the chosen archetype, including reduced-motion behavior." },
+              { id: "03", name: "Plan + Critique",       file: "plan-generator.ts + critique-loop.ts",  desc: "Builds the design thesis and one signature element, then rejects and revises plans that remain generic." },
+              { id: "04", name: "Contrast Enforcement", file: "contrast-fixer.ts",   desc: "Checks intended text/background pairs and applies one stable WCAG AA correction per text token." },
               { id: "05", name: "Code Generation",       file: "code-generator.ts",  desc: "Generates full component code — responsive, accessible, prefers-reduced-motion aware. Output only produced after plan passes critique. Supports Next.js, React, and HTML+CSS." },
-              { id: "06", name: "Distinctiveness Score", file: "scorer.ts",          desc: "Computes a 0-100 score and letter grade (S/A/B/C/D) from blocklist matches, critique flags, positive elements, and revision count. The full transcript is surfaced to the user — transparency is the product." },
+              { id: "05.5", name: "Syntax + Repair",     file: "code-quality-loop.ts", desc: "Parses TSX with TypeScript, verifies structure and the signature element, and performs one bounded repair pass." },
+              { id: "06", name: "Dual Score",            file: "scorer.ts + engineering-score.ts", desc: "Scores the delivered code across Norman's three levels and a separate engineering axis; full evidence remains visible." },
             ].map((step, i, arr) => (
               <div key={step.id} className={styles.pipelineStep}>
                 <div className={styles.pipelineLeft}>
@@ -108,23 +111,24 @@ function DocsContent() {
             </div>
             <pre className={styles.code}>{`// Simplified — see lib/engine/pipeline.ts for full implementation
 export async function runPipeline(input: PipelineInput): Promise<PipelineResult> {
-  const briefAnalysis    = await analyzeBrief(input.brief, input.existingCode);
-  const blocklistResult  = runBlocklistFilter(input.brief, input.existingCode);
+  const llm = createAdapter(input.provider, input.apiKey, input.model, input.signal);
+  const briefAnalysis = await analyzeBrief(llm, input.brief, input.existingCode);
+  const inputBlocklist = runBlocklistFilter(input.brief, input.existingCode);
   
-  // Steps 3+4: plan + adversarial critique loop (max 2 revisions)
-  let designPlan    = await generateDesignPlan(briefAnalysis, blocklistResult.systemPromptInjection);
-  let finalCritique = await runSelfCritique(designPlan, briefAnalysis);
+  let designPlan = await generateDesignPlan(llm, briefAnalysis, inputBlocklist.systemPromptInjection);
+  let finalCritique = await runSelfCritique(llm, designPlan, briefAnalysis);
   
   while (!finalCritique.passed && revisionCount < maxRevisions) {
     revisionCount++;
-    designPlan    = await generateDesignPlan(briefAnalysis, blocklistResult.systemPromptInjection, previousCritique);
-    finalCritique = await runSelfCritique(designPlan, briefAnalysis);
+    designPlan = await generateDesignPlan(llm, briefAnalysis, inputBlocklist.systemPromptInjection, previousCritique);
+    finalCritique = await runSelfCritique(llm, designPlan, briefAnalysis);
   }
   
-  const generatedCode          = await generateCode(briefAnalysis, designPlan, ...);
-  const distinctivenessReport  = generateDistinctivenessReport(blocklistResult, designPlan, finalCritique, revisionCount);
-  
-  return { briefAnalysis, blocklistResult, designPlan, finalCritique, generatedCode, distinctivenessReport };
+  designPlan.colorPalette = fixPaletteContrast(designPlan.colorPalette).fixedPalette;
+  const generatedCode = await generateCode(llm, briefAnalysis, designPlan, ...);
+  const quality = await runCodeQualityLoop(llm, generatedCode.code, ...);
+  const finalBlocklist = runBlocklistFilter(quality.code);
+  return scoreAndSerialize({ briefAnalysis, designPlan, finalCritique, quality, finalBlocklist });
 }`}</pre>
           </div>
         </section>
@@ -133,13 +137,13 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
         <section id="api" className={styles.section}>
           <h2 className={styles.sectionTitle}>API Reference</h2>
           <p className={styles.sectionLead}>
-            All endpoints are available without authentication in Phase 1. Your Anthropic API key is passed in the request body — it is never stored server-side.
+            Endpoints use BYOK without accounts. The selected provider key is passed in the request body, used for that request, and never stored server-side.
           </p>
 
           {[
             {
               method: "POST", path: "/api/generate",
-              desc: "Run the full 6-step pipeline. Returns the complete result including design plan, critique, generated code, and distinctiveness report.",
+              desc: "Run the full nine-stage pipeline. Returns the plan, critique, validated code, contrast report, and both scoring axes.",
               request: `{
   "brief": "A landing page for a carbon accounting SaaS targeting manufacturing CFOs.",
   "existingCode": "<optional — HTML/JSX/CSS to redesign>",

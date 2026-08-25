@@ -3,6 +3,7 @@ import { extractJSON } from "./llm-utils";
 import type { BriefAnalysis } from "./brief-analyzer";
 import { buildCognitiveGroundingPrompt } from "./cognitive-principles";
 import refraw from "../../data/reference-library.json";
+import { z } from "zod";
 
 type RefEntry = {
   id: string;
@@ -42,6 +43,34 @@ export type DesignPlan = {
   };
   rawPlan: string;
 };
+
+const DesignPlanOutputSchema = z.object({
+  colorPalette: z.array(z.object({
+    name: z.string().min(1),
+    hex: z.string().regex(/^#[0-9a-f]{6}$/i),
+    role: z.string().min(1),
+  })).min(3).max(8),
+  typePairing: z.object({
+    display: z.string().min(1),
+    body: z.string().min(1),
+    rationale: z.string().min(10),
+  }),
+  layoutConcept: z.string().min(20),
+  signatureElement: z.object({
+    name: z.string().min(2),
+    description: z.string().min(10),
+    implementation: z.string().min(10),
+    justification: z.string().min(10),
+  }),
+  referencesSampled: z.array(z.string()).default([]),
+  cognitiveGrounding: z.object({
+    vonRestorffCompliance: z.string().min(1),
+    gutenbergCompliance: z.string().min(1),
+    signalNoiseRatio: z.number().min(0).max(1),
+    peakEndDesign: z.string().min(1),
+    usabilityBaseline: z.string().min(1),
+  }),
+});
 
 function getRelevantReferences(analysis: BriefAnalysis): RefEntry[] {
   const scored = refData.entries.map((ref) => {
@@ -116,8 +145,8 @@ Respond ONLY in valid JSON with this exact schema:
     { "name": "string", "hex": "#XXXXXX", "role": "string — where/how it's used" }
   ],
   "typePairing": {
-    "display": "string — REAL valid Google Font name (e.g. Cormorant Garamond, Plus Jakarta Sans, Playfair Display, Space Grotesk, Syne, Outfit, DM Sans). NEVER invent fake font names!",
-    "body": "string — REAL valid Google Font name (e.g. DM Sans, Nunito Sans, IBM Plex Sans, Inter, Lato).",
+    "display": "string — a REAL font name explicitly listed in AVAILABLE ASSETS, or a deliberate system font stack. Never invent a font name or URL.",
+    "body": "string — a REAL font name explicitly listed in AVAILABLE ASSETS, or a readable system font stack.",
     "rationale": "string — specific justification for this pairing for this brief"
   },
   "layoutConcept": "string — ASCII wireframe or detailed layout description (use \\n for newlines)",
@@ -151,13 +180,29 @@ Constraints: ${analysis.constraints.join(", ") || "none stated"}
 
 Generate the design plan now.`;
 
-  const raw = await llm.complete([{ role: "user", content: userMessage }], {
+  let raw = await llm.complete([{ role: "user", content: userMessage }], {
     systemPrompt,
     temperature: 0.85,
     maxTokens: 3500,
     reasoningEffort: "medium", // Creative design planning — medium reasoning for quality
   });
 
-  const parsed = extractJSON<Omit<DesignPlan, "rawPlan">>(raw, "Plan Generator");
-  return { ...parsed, rawPlan: raw };
+  let result = DesignPlanOutputSchema.safeParse(extractJSON<unknown>(raw, "Plan Generator"));
+  if (!result.success) {
+    const feedback = result.error.issues.slice(0, 6)
+      .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+      .join("\n");
+    raw = await llm.complete([{
+      role: "user",
+      content: `${userMessage}\n\nYour previous JSON failed validation:\n${feedback}\nReturn the complete corrected JSON only.`,
+    }], {
+      systemPrompt,
+      temperature: 0.3,
+      maxTokens: 3500,
+      reasoningEffort: "low",
+    });
+    result = DesignPlanOutputSchema.safeParse(extractJSON<unknown>(raw, "Plan Generator retry"));
+  }
+  if (!result.success) throw new Error(`Plan Generator returned invalid structured output: ${result.error.issues[0]?.message ?? "unknown schema error"}`);
+  return { ...result.data, rawPlan: raw };
 }

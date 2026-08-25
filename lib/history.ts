@@ -40,7 +40,12 @@ function save(entries: HistoryEntry[]): void {
   } catch {
     // localStorage full — evict oldest and retry
     const trimmed = entries.slice(-10);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed));
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed));
+    } catch {
+      // Storage can be disabled or unavailable (private mode / strict policy).
+      // History is optional, so generation must continue without persistence.
+    }
   }
 }
 

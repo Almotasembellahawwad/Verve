@@ -31,9 +31,9 @@ export type Provider = "anthropic" | "openai" | "gemini" | "openrouter";
 // ─────────────────────────────────────────────────────────────────────────────
 export const PROVIDER_MODELS: Record<Provider, { id: string; label: string; description: string }[]> = {
   anthropic: [
-    { id: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet", description: "Best balance — production default" },
-    { id: "claude-3-5-haiku-20241022",  label: "Claude 3.5 Haiku",  description: "Fastest — cost-efficient" },
-    { id: "claude-3-opus-20240229",     label: "Claude 3 Opus",     description: "Maximum intelligence — complex tasks" },
+    { id: "claude-sonnet-4-6",         label: "Claude Sonnet 4.6", description: "Best balance — production default" },
+    { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", description: "Fast and cost-efficient" },
+    { id: "claude-opus-4-8",           label: "Claude Opus 4.8",  description: "Maximum intelligence — complex tasks" },
   ],
   openai: [
     { id: "gpt-5.6-terra", label: "GPT-5.6 Terra", description: "Balanced intelligence & cost — reasoning model" },
@@ -42,23 +42,21 @@ export const PROVIDER_MODELS: Record<Provider, { id: string; label: string; desc
     { id: "gpt-4o-mini",   label: "GPT-4o Mini",   description: "Affordable, lightweight — fast tasks" },
   ],
   gemini: [
-    { id: "gemini-2.0-flash",      label: "Gemini 2.0 Flash",      description: "Fast & multimodal — default" },
-    { id: "gemini-1.5-pro",        label: "Gemini 1.5 Pro",        description: "High reasoning & huge context" },
-    { id: "gemini-2.0-flash-lite", label: "Gemini 2.0 Flash Lite", description: "Ultra-fast, cost-effective" },
+    { id: "gemini-3.7-flash",       label: "Gemini 3.7 Flash",       description: "Fast, capable — production default" },
+    { id: "gemini-3.5-flash",       label: "Gemini 3.5 Flash",       description: "Efficient general-purpose model" },
+    { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro Preview", description: "Advanced reasoning — preview" },
   ],
   openrouter: [
-    { id: "google/gemma-4-31b-it:free",                   label: "Gemma 4 31B (Free)",    description: "Google — best overall free model" },
-    { id: "openai/gpt-oss-20b:free",                      label: "GPT OSS 20B (Free)",    description: "OpenAI open-source — fast & capable" },
-    { id: "google/gemma-4-26b-a4b-it:free",               label: "Gemma 4 26B MoE (Free)", description: "Google MoE — lighter, faster" },
-    { id: "nvidia/llama-3.1-nemotron-ultra-253b-v1:free",  label: "Nemotron 253B (Free)", description: "NVIDIA — largest free model" },
+    { id: "openrouter/free",          label: "OpenRouter Free Router", description: "Automatically selects an available free model" },
+    { id: "openai/gpt-oss-20b:free", label: "GPT OSS 20B (Free)",     description: "Fast open-weight fallback" },
   ],
 };
 
 export const DEFAULT_MODEL: Record<Provider, string> = {
-  anthropic:  "claude-3-5-sonnet-20241022",
+  anthropic:  "claude-sonnet-4-6",
   openai:     "gpt-5.6-terra",
-  gemini:     "gemini-2.0-flash",
-  openrouter: "google/gemma-4-31b-it:free",
+  gemini:     "gemini-3.7-flash",
+  openrouter: "openrouter/free",
 };
 
 export const PROVIDER_KEY_LABELS: Record<Provider, { label: string; placeholder: string; docsUrl: string }> = {

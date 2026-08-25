@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import styles from "./ComparePanel.module.css";
 import type { Provider } from "@/lib/llm-adapter/types";
 import { PROVIDER_MODELS, DEFAULT_MODEL, PROVIDER_KEY_LABELS } from "@/lib/llm-adapter/types";
+import { getLocalApiKey, setLocalApiKey } from "@/lib/client/key-storage";
 
 // ── Telemetry stages for both pipelines ─────────────────────────
 const BASELINE_STAGES = [
@@ -74,7 +75,7 @@ export default function ComparePanel() {
   const [provider, setProvider] = useState<Provider>("anthropic");
   const [model, setModel] = useState<string>(DEFAULT_MODEL.anthropic);
   const [apiKey, setApiKey] = useState(() =>
-    typeof window !== "undefined" ? localStorage.getItem("verve_anthropic_api_key") ?? "" : ""
+    typeof window !== "undefined" ? getLocalApiKey("anthropic") : ""
   );
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CompareResult | null>(null);
@@ -89,17 +90,13 @@ export default function ComparePanel() {
     setProvider(p);
     setModel(DEFAULT_MODEL[p]);
     // Load stored key for this provider
-    const key = localStorage.getItem(`verve_${p}_api_key`) ?? "";
+    const key = getLocalApiKey(p);
     setApiKey(key);
   };
 
   const saveApiKey = (key: string) => {
     setApiKey(key);
-    localStorage.setItem(`verve_${provider}_api_key`, key);
-    // Also save as primary key for backward compat with anthropic
-    if (provider === "anthropic") {
-      localStorage.setItem("verve_anthropic_api_key", key);
-    }
+    setLocalApiKey(provider, key);
   };
 
   const startTelemetry = () => {
@@ -319,7 +316,7 @@ export default function ComparePanel() {
           <div className={styles.telemetryBox}>
             <div className={styles.telemetryBoxHeader}>
               <span className={styles.telemetryBoxBadge} data-side="verve">WITH VERVE</span>
-              <span className={styles.telemetryBoxModel}>6-step pipeline</span>
+              <span className={styles.telemetryBoxModel}>9-stage pipeline</span>
             </div>
             {VERVE_STAGES.map((s, i) => (
               <div key={s.id} className={`${styles.tlLine} ${styles[`tl-${verveStages[i] ?? "waiting"}`]}`}>

@@ -34,7 +34,8 @@ export function createAdapter(
   provider: Provider,
   apiKey: string,
   model?: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onRetry?: (attempt: number, waitMs: number, model: string) => void
 ): LLMAdapter {
   // Validate model against registry — reject unknown model IDs
   const knownModels = PROVIDER_MODELS[provider]?.map((m) => m.id) ?? [];
@@ -50,7 +51,7 @@ export function createAdapter(
     case "anthropic":   return new ClaudeAdapter(apiKey, resolvedModel, signal);
     case "openai":      return new OpenAIAdapter(apiKey, resolvedModel, signal);
     case "gemini":      return new GeminiAdapter(apiKey, resolvedModel, signal);
-    case "openrouter":  return new OpenRouterAdapter(apiKey, resolvedModel, signal);
+    case "openrouter":  return new OpenRouterAdapter(apiKey, resolvedModel, signal, onRetry);
     default:            throw new Error(`Unknown provider: ${provider}`);
   }
 }

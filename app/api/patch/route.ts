@@ -25,7 +25,7 @@ const PatchSchema = z.object({
   framework:    z.enum(["nextjs", "react", "html"]).optional().default("html"),
   provider:     z.enum(["anthropic", "openai", "gemini", "openrouter"]).optional().default("anthropic"),
   model:        z.string().optional(),
-  apiKey:       z.string().min(1),
+  apiKey:       z.string().min(1).max(500),
 });
 
 const SYSTEM_PROMPT = `You are a senior frontend developer applying precise, minimal edits to existing code.
@@ -43,7 +43,6 @@ export async function POST(req: NextRequest) {
   if (rateLimited) return rateLimited;
 
   const requestId = uuidv4();
-  const release   = acquireConcurrentSlot(req, ROUTE_LIMITS["patch"]!);
 
   let parsed;
   try {
@@ -53,6 +52,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "INVALID_REQUEST", requestId }, { status: 400 });
   }
 
+  // Only reserve a concurrent slot after malformed requests have been rejected.
+  const release = acquireConcurrentSlot(req, ROUTE_LIMITS["patch"]!);
   const { currentCode, instruction, designPlan, brief, framework, provider, model, apiKey } = parsed;
 
   const adapter = createAdapter(provider as Provider, apiKey, model);

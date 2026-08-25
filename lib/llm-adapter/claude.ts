@@ -9,9 +9,9 @@ import type { LLMAdapter, LLMMessage, LLMOptions } from "./types";
 const LLM_TIMEOUT_MS = 30_000; // 30s hard timeout per call
 
 const MODEL_MAX_TOKENS: Record<string, number> = {
-  "claude-3-5-sonnet-20241022": 8000,
-  "claude-3-5-haiku-20241022": 8000,
-  "claude-3-opus-20240229": 4000,
+  "claude-sonnet-4-6": 16_000,
+  "claude-haiku-4-5-20251001": 16_000,
+  "claude-opus-4-8": 16_000,
 };
 
 export class ClaudeAdapter implements LLMAdapter {
@@ -19,7 +19,7 @@ export class ClaudeAdapter implements LLMAdapter {
   private model: string;
   private signal?: AbortSignal;
 
-  constructor(apiKey: string, model = "claude-3-5-sonnet-20241022", signal?: AbortSignal) {
+  constructor(apiKey: string, model = "claude-sonnet-4-6", signal?: AbortSignal) {
     this.client = new Anthropic({ apiKey });
     this.model = model;
     this.signal = signal;
@@ -41,14 +41,16 @@ export class ClaudeAdapter implements LLMAdapter {
       : timeoutCtrl.signal;
 
     try {
-      const response = await this.client.messages.create(
-        {
+      const request: Anthropic.MessageCreateParamsNonStreaming = {
           model: this.model,
           max_tokens: effectiveMaxTokens,
-          temperature,
           system: systemPrompt,
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
-        },
+      };
+      if (!this.model.startsWith("claude-opus-4-")) request.temperature = temperature;
+
+      const response = await this.client.messages.create(
+        request,
         { signal: combined }
       );
 

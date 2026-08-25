@@ -51,61 +51,44 @@ export function extractJSON<T = unknown>(raw: string, context = "LLM"): T {
   //   This avoids the greedy regex problem where /\{[\s\S]*\}/ captures
   //   everything from first { to LAST }, including non-JSON text between
   //   multiple objects.
-  const firstBrace = raw.indexOf("{");
-  if (firstBrace === -1) {
+  let start = raw.indexOf("{");
+  if (start === -1) {
     throw new Error(`${context} returned no JSON object. Raw output starts with: "${raw.slice(0, 200)}"`);
   }
 
-  let depth = 0;
-  let inString = false;
-  let escape = false;
+  let lastParseError: unknown;
+  while (start !== -1) {
+    let depth = 0;
+    let inString = false;
+    let escape = false;
 
-  for (let i = firstBrace; i < raw.length; i++) {
-    const ch = raw[i];
+    for (let i = start; i < raw.length; i++) {
+      const ch = raw[i];
+      if (inString && escape) { escape = false; continue; }
+      if (inString && ch === "\\") { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
 
-    if (escape) {
-      escape = false;
-      continue;
-    }
-
-    if (ch === "\\") {
-      escape = true;
-      continue;
-    }
-
-    if (ch === '"' && !escape) {
-      inString = !inString;
-      continue;
-    }
-
-    if (inString) continue;
-
-    if (ch === "{") depth++;
-    if (ch === "}") {
-      depth--;
-      if (depth === 0) {
-        const candidate = raw.slice(firstBrace, i + 1);
-        try {
-          return JSON.parse(cleanJsonString(candidate)) as T;
-        } catch (e) {
-          // This complete brace-pair wasn't valid JSON
-          // Try to find the next opening brace
-          const nextBrace = raw.indexOf("{", i + 1);
-          if (nextBrace === -1) {
-            throw new Error(
-              `${context} returned malformed JSON. Parse error: ${e instanceof Error ? e.message : String(e)}. ` +
-              `Raw output (first 300 chars): "${raw.slice(0, 300)}"`
-            );
+      if (ch === "{") depth++;
+      if (ch === "}") {
+        depth--;
+        if (depth === 0) {
+          try {
+            return JSON.parse(cleanJsonString(raw.slice(start, i + 1))) as T;
+          } catch (error) {
+            lastParseError = error;
+            start = raw.indexOf("{", i + 1);
+            break;
           }
-          // Reset and continue searching from next brace
-          depth = 0;
         }
       }
     }
+
+    if (depth > 0 || inString) break;
   }
 
   throw new Error(
-    `${context} returned incomplete JSON (unmatched braces). ` +
+    `${context} returned malformed or incomplete JSON${lastParseError instanceof Error ? ` (${lastParseError.message})` : ""}. ` +
     `Raw output (first 300 chars): "${raw.slice(0, 300)}"`
   );
 }

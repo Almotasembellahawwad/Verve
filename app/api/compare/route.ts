@@ -4,7 +4,7 @@
 //
 // The baseline call sends a simple, unenhanced prompt to the same model
 // the user chose — this is exactly what they'd get from ChatGPT/Claude
-// without Verve. The Verve call runs the full 6-step pipeline.
+// without Verve. The Verve call runs the full nine-stage pipeline.
 // Both run in parallel via Promise.allSettled for resilience.
 // =========================================================
 
@@ -14,10 +14,18 @@ import { runPipeline } from "@/lib/engine/pipeline";
 import { runBlocklistFilter } from "@/lib/engine/blocklist-filter";
 import { checkRateLimit, acquireConcurrentSlot, ROUTE_LIMITS } from "@/lib/middleware/rate-limit";
 import { errorResponse, classifyError } from "@/lib/middleware/error-handler";
-import type { Provider } from "@/lib/llm-adapter/types";
 import { v4 as uuidv4 } from "uuid";
+import { z } from "zod";
 
 export const maxDuration = 120;
+
+const RequestSchema = z.object({
+  brief: z.string().min(10).max(5000),
+  framework: z.enum(["nextjs", "react", "html"]).default("nextjs"),
+  provider: z.enum(["anthropic", "openai", "gemini", "openrouter"]).default("anthropic"),
+  apiKey: z.string().min(1).max(500),
+  model: z.string().max(100).optional(),
+});
 
 // ── Baseline prompt: exactly what any user would send to a generic AI ────────
 const BASELINE_SYSTEM = `You are a UI/UX designer. Generate a complete, production-ready landing page component based on the brief provided.`;
@@ -64,27 +72,11 @@ export async function POST(req: NextRequest) {
   const release   = acquireConcurrentSlot(req, ROUTE_LIMITS["compare"]!);
 
   try {
-    const body = await req.json();
-    const {
-      brief,
-      framework = "nextjs",
-      provider = "anthropic",
-      apiKey,
-      model,
-    } = body as {
-      brief: string;
-      framework: string;
-      provider: Provider;
-      apiKey: string;
-      model?: string;
-    };
-
-    if (!apiKey) {
-      return NextResponse.json({ error: "API key required", code: "NO_API_KEY" }, { status: 401 });
+    const parsed = RequestSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: "INVALID_REQUEST", requestId, details: parsed.error.issues }, { status: 400 });
     }
-    if (!brief?.trim() || brief.length < 10) {
-      return NextResponse.json({ error: "Brief too short" }, { status: 400 });
-    }
+    const { brief, framework, provider, apiKey, model } = parsed.data;
 
     const adapter = createAdapter(provider, apiKey, model);
 
@@ -96,7 +88,7 @@ export async function POST(req: NextRequest) {
         { systemPrompt: BASELINE_SYSTEM, temperature: 0.8, maxTokens: 4000 }
       ),
 
-      // 2. Verve: full 6-step pipeline
+      // 2. Verve: full nine-stage pipeline
       runPipeline({ brief, framework, apiKey, provider, model }),
     ]);
 
@@ -112,7 +104,7 @@ export async function POST(req: NextRequest) {
         score: 0,
         grade: "D",
         clichesDetected: [],
-        error: baselineResult.reason?.message ?? "Baseline failed",
+        error: "BASELINE_FAILED",
       };
     }
 

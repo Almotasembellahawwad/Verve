@@ -9,9 +9,9 @@ import type { LLMAdapter, LLMMessage, LLMOptions } from "./types";
 const LLM_TIMEOUT_MS = 90_000; // 90s timeout per call
 
 const MODEL_MAX_TOKENS: Record<string, number> = {
-  "gemini-2.0-flash":      8000,
-  "gemini-1.5-pro":        8000,
-  "gemini-2.0-flash-lite": 4000,
+  "gemini-3.7-flash":       16_000,
+  "gemini-3.5-flash":       16_000,
+  "gemini-3.1-pro-preview": 16_000,
 };
 
 export class GeminiAdapter implements LLMAdapter {
@@ -19,7 +19,7 @@ export class GeminiAdapter implements LLMAdapter {
   private model: string;
   private signal?: AbortSignal;
 
-  constructor(apiKey: string, model = "gemini-2.0-flash", signal?: AbortSignal) {
+  constructor(apiKey: string, model = "gemini-3.7-flash", signal?: AbortSignal) {
     this.client = new GoogleGenerativeAI(apiKey);
     this.model  = model;
     this.signal = signal;
@@ -33,13 +33,14 @@ export class GeminiAdapter implements LLMAdapter {
       MODEL_MAX_TOKENS[this.model] ?? 8192
     );
 
+    const generationConfig = {
+      maxOutputTokens: effectiveMaxTokens,
+      ...(!this.model.startsWith("gemini-3.7") ? { temperature } : {}),
+    };
     const genModel = this.client.getGenerativeModel({
       model: this.model,
       systemInstruction: systemPrompt,
-      generationConfig: {
-        temperature,
-        maxOutputTokens: effectiveMaxTokens,
-      },
+      generationConfig,
     });
 
     // Gemini uses "user"/"model" roles (not "assistant")
@@ -51,24 +52,25 @@ export class GeminiAdapter implements LLMAdapter {
     const lastMessage = messages[messages.length - 1];
     if (!lastMessage) throw new Error("No messages provided to GeminiAdapter");
 
-    const timeoutCtrl = new AbortController();
-    const timer       = setTimeout(() => timeoutCtrl.abort(new Error(`Gemini request timed out after ${LLM_TIMEOUT_MS / 1000}s (${this.model})`)), LLM_TIMEOUT_MS);
-
-    // Wire the request-level signal if provided
-    if (this.signal) {
-      this.signal.addEventListener("abort", () => timeoutCtrl.abort(this.signal!.reason));
-    }
+    let rejectAbort: ((reason?: unknown) => void) | undefined;
+    const abortPromise = new Promise<never>((_, reject) => { rejectAbort = reject; });
+    const abort = () => rejectAbort?.(this.signal?.reason ?? new Error("Gemini request cancelled"));
+    this.signal?.addEventListener("abort", abort, { once: true });
+    const timer = setTimeout(
+      () => rejectAbort?.(new Error(`Gemini request timed out after ${LLM_TIMEOUT_MS / 1000}s (${this.model})`)),
+      LLM_TIMEOUT_MS
+    );
 
     try {
       const chat   = genModel.startChat({ history });
-      // Gemini SDK doesn't accept signal directly — we rely on the timeout abort
-      const result = await chat.sendMessage(lastMessage.content);
+      const result = await Promise.race([chat.sendMessage(lastMessage.content), abortPromise]);
       const text   = result.response.text();
 
       if (!text) throw new Error(`No text in Gemini response (model: ${this.model})`);
       return text;
     } finally {
       clearTimeout(timer);
+      this.signal?.removeEventListener("abort", abort);
     }
   }
 }

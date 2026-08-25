@@ -11,9 +11,9 @@ export type GeneratedCode = {
 };
 
 const FRAMEWORK_NOTES: Record<string, string> = {
-  nextjs: "Next.js 15 App Router component. Use 'use client' directive if you need interactivity. Import fonts from next/font/google or load Google Fonts CDN.",
-  react: "React 18 functional component with TypeScript. Standard CSS modules or styled component.",
-  html: "Pure HTML5 + CSS. Include valid Google Fonts @import at top of <style> tag.",
+  nextjs: "Next.js 16 App Router component on React 19. Add 'use client' only when browser state, effects, or event handlers require it.",
+  react: "React 19 functional component with TypeScript and accessible semantic markup.",
+  html: "Pure valid HTML5 + CSS with no build step.",
 };
 
 export async function generateCode(
@@ -75,11 +75,11 @@ ${plan.layoutConcept}
 === IMPLEMENTATION RULES ===
 1. EXECUTE THE PLAN ABOVE — not a generic template. The layout, sections, and structure MUST match what the plan describes.
 2. Use the EXACT color palette above as CSS custom properties. Text must be high-contrast and legible.
-3. Use ONLY real Google Fonts. Include @import at the top of <style>. If the plan specifies a non-Google font, use the closest Google Fonts equivalent.
+3. Use the exact sourced font from AVAILABLE ASSETS when one is provided. Otherwise use a deliberate system stack; never invent a font URL.
 4. The "${plan.signatureElement?.name ?? "signature element"}" MUST be visually prominent and faithfully implemented as described above.
 5. Use modern CSS (Grid, clamp(), logical properties). Mobile-responsive. Include prefers-reduced-motion.
 6. Every section must have real, contextual copy — not lorem ipsum, not empty divs.
-7. Use images ONLY if the design concept calls for them. When used, use https://images.unsplash.com/photo-... with relevant search terms in the URL.
+7. Use images ONLY if the design concept calls for them and ONLY use exact URLs listed in AVAILABLE ASSETS. Otherwise create a CSS-only treatment.
 8. Return ONLY the complete, standalone code file. No markdown wrapping, no explanations outside the code.
 
 Framework: ${frameworkNote}`;
@@ -115,6 +115,6 @@ Tone: ${analysis.tone}`;
     framework,
     componentName,
     imports: importMatches,
-    setupNotes: `Font setup: Uses ${plan.typePairing.display} and ${plan.typePairing.body} via Google Fonts CDN.`,
+    setupNotes: `Typography: ${plan.typePairing.display} for display and ${plan.typePairing.body} for body. Follow the imports embedded in the generated file.`,
   };
 }

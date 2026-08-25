@@ -95,8 +95,7 @@ function toGrade(s: number): "S" | "A" | "B" | "C" | "D" {
 function scoreVisceral(
   blocklistResult: BlocklistResult,
   plan: DesignPlan,
-  finalCritique: CritiqueResult,
-  revisionCount: number
+  finalCritique: CritiqueResult
 ): NormanLevelScore {
   let score = 100;
   const improvements: string[] = [];
@@ -121,9 +120,6 @@ function scoreVisceral(
 
   // Bonus for positive critique elements
   score += Math.min(finalCritique.positiveElements.length * 3, 12);
-
-  // Bonus for revision (showed system caught and improved it)
-  if (revisionCount > 0) score += revisionCount * 4;
 
   // Bonus for strong signature element (non-empty name ≠ "None")
   if (plan.signatureElement.name && plan.signatureElement.name !== "None") score += 6;
@@ -286,7 +282,7 @@ export function generateDistinctivenessReport(
 ): DistinctivenessReport {
 
   // ── Don Norman 3 levels ───────────────────────────────────────────────────
-  const visceral   = scoreVisceral(blocklistResult, plan, finalCritique, revisionCount);
+  const visceral   = scoreVisceral(blocklistResult, plan, finalCritique);
   const behavioral = scoreBehavioral(plan, finalCritique);
   const reflective = scoreReflective(plan, finalCritique, archetypeResolution);
 

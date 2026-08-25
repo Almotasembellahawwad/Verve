@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local browser profiles and visual-audit captures are not application code.
+    ".edge-*/**",
+    "verve-home-*.png",
   ]),
 ]);
 

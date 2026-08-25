@@ -10,9 +10,7 @@ import { downloadCSS, downloadFigmaTokens, downloadREADME } from "@/lib/export";
 import HistoryDrawer from "./HistoryDrawer";
 import Certificate  from "./Certificate";
 import PatchPanel   from "./PatchPanel";
-
-const ANTHROPIC_KEY = "verve_anthropic_api_key";
-const getStorageKey = (p: Provider) => `verve_${p}_api_key`;
+import { getLocalApiKey, LOCAL_KEYS_CHANGED_EVENT } from "@/lib/client/key-storage";
 
 const PROVIDERS: { id: Provider; label: string; icon: string; color: string }[] = [
   { id: "anthropic",  label: "Claude",      icon: "◆", color: "#D49020" },
@@ -27,9 +25,10 @@ const PIPELINE_STAGES = [
   { id: "02",   name: "ASSETS + BLOCKLIST + L",  module: "H+Blocklist+L",       status: "SCANNING"    },
   { id: "02.5", name: "BRAND ARCHETYPE",         module: "Module I",            status: "RESOLVING"   },
   { id: "02.6", name: "ANIMATION LANGUAGE",      module: "Module K",            status: "DERIVING"    },
-  { id: "03",   name: "DESIGN PLAN + COGNITIVE", module: "plan-generator.ts",   status: "GENERATING"  },
-  { id: "04",   name: "ADVERSARIAL CRITIQUE",    module: "critique-loop.ts",    status: "CRITIQUING"  },
+  { id: "03",   name: "PLAN + ADVERSARIAL REVIEW", module: "PlanGenerator + G", status: "CRITIQUING"  },
+  { id: "04",   name: "CONTRAST AUTO-FIX",       module: "Module O",            status: "VERIFYING"   },
   { id: "05",   name: "CODE GENERATION",         module: "code-generator.ts",   status: "COMPILING"   },
+  { id: "05.5", name: "CODE VALIDATION",         module: "CodeQualityLoop",     status: "REPAIRING"    },
   { id: "06",   name: "NORMAN 3-LEVEL SCORE",    module: "scorer.ts",           status: "SCORING"     },
 ] as const;
 
@@ -136,7 +135,7 @@ const FRAMEWORKS = ["nextjs", "react", "html"] as const;
 type Framework = (typeof FRAMEWORKS)[number];
 
 // ─── Telemetry Log Component ──────────────────────────────────────────────────
-function TelemetryLog({ stages }: { stages: StageState[]; extras?: Record<string, string> }) {
+function TelemetryLog({ stages, extras = {} }: { stages: StageState[]; extras?: Record<string, string> }) {
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -161,7 +160,7 @@ function TelemetryLog({ stages }: { stages: StageState[]; extras?: Record<string
             <span className={styles.tlStatus}>
               {state === "waiting" && <span className={styles.tlWaiting}>waiting...</span>}
               {state === "running" && <span className={styles.tlRunning}>{stage.status}<span className={styles.tlDots} /></span>}
-              {state === "done" && <span className={styles.tlDone}>✓ DONE</span>}
+              {state === "done" && <span className={styles.tlDone}>✓ DONE{extras[stage.id] ? ` · ${extras[stage.id]}` : ""}</span>}
               {state === "flagged" && <span className={styles.tlFlagged}>⚑ FLAGGED → RETRY</span>}
             </span>
           </div>
@@ -191,7 +190,7 @@ export default function GeneratePanel() {
   // Initialize apiKey from localStorage (lazy initializer avoids setState-in-effect)
   const [apiKey, setApiKey] = useState(() =>
     typeof window !== "undefined"
-      ? (localStorage.getItem(getStorageKey("anthropic")) ?? localStorage.getItem(ANTHROPIC_KEY) ?? "")
+      ? getLocalApiKey("anthropic")
       : ""
   );
   const [missingKey, setMissingKey] = useState(false);
@@ -201,14 +200,12 @@ export default function GeneratePanel() {
   const [historyOpen,  setHistoryOpen]  = useState(false);
   const [certOpen,     setCertOpen]     = useState(false);
   const telemetryTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const abortRef = useRef<(() => void) | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   // Reload apiKey when provider changes — reads from localStorage (external system)
   useEffect(() => {
     setApiKey( // eslint-disable-line react-hooks/set-state-in-effect
-      localStorage.getItem(getStorageKey(provider))
-        ?? localStorage.getItem(ANTHROPIC_KEY)
-        ?? ""
+      getLocalApiKey(provider)
     );
   }, [provider]);
 
@@ -225,22 +222,22 @@ export default function GeneratePanel() {
 
   useEffect(() => {
     const onStorageChange = () => {
-      const stored = localStorage.getItem(getStorageKey(provider)) ?? "";
+      const stored = getLocalApiKey(provider);
       setApiKey(stored);
       if (stored) setMissingKey(false);
     };
     window.addEventListener("storage", onStorageChange);
-    window.addEventListener("verve:api-key-saved", onStorageChange);
+    window.addEventListener(LOCAL_KEYS_CHANGED_EVENT, onStorageChange);
     return () => {
       window.removeEventListener("storage", onStorageChange);
-      window.removeEventListener("verve:api-key-saved", onStorageChange);
+      window.removeEventListener(LOCAL_KEYS_CHANGED_EVENT, onStorageChange);
     };
   }, [provider]);
 
   const handleProviderChange = (p: Provider) => {
     setProvider(p);
     setModel(DEFAULT_MODEL[p]);
-    const stored = localStorage.getItem(getStorageKey(p)) ?? "";
+    const stored = getLocalApiKey(p);
     setApiKey(stored);
     setMissingKey(false);
   };
@@ -251,15 +248,16 @@ export default function GeneratePanel() {
 
   // ── SSE-based telemetry: update stage from real events ──────────────────
   const updateStage = (stageId: string, state: StageState, extra?: string) => {
+    const normalizedStageId = stageId.startsWith("03.r") ? "03" : stageId;
     setStageStates((prev) => {
-      const idx = PIPELINE_STAGES.findIndex((s) => s.id === stageId);
+      const idx = PIPELINE_STAGES.findIndex((s) => s.id === normalizedStageId);
       if (idx < 0) return prev;
       const next = [...prev];
       next[idx] = state;
       return next;
     });
     if (extra) {
-      setStageExtras((prev) => ({ ...prev, [stageId]: extra }));
+      setStageExtras((prev) => ({ ...prev, [normalizedStageId]: extra }));
     }
   };
 
@@ -274,7 +272,7 @@ export default function GeneratePanel() {
       return;
     }
 
-    const currentKey = localStorage.getItem(getStorageKey(provider)) ?? apiKey;
+    const currentKey = getLocalApiKey(provider) || apiKey;
     if (!currentKey) {
       setMissingKey(true);
       setError(null);
@@ -291,13 +289,14 @@ export default function GeneratePanel() {
     setStageStates(PIPELINE_STAGES.map(() => "waiting"));
 
     // ── SSE streaming via fetch + ReadableStream ─────────────────────────
-    let aborted = false;
-    abortRef.current = () => { aborted = true; };
+    const requestController = new AbortController();
+    abortRef.current = requestController;
 
     try {
       const res = await fetch("/api/generate/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: requestController.signal,
         body: JSON.stringify({
           brief,
           existingCode: existingCode || undefined,
@@ -305,7 +304,7 @@ export default function GeneratePanel() {
           apiKey: currentKey,
           provider,
           model,
-          pexelsKey: localStorage.getItem("verve_pexels_api_key") || undefined,
+          pexelsKey: getLocalApiKey("pexels") || undefined,
         }),
       });
 
@@ -319,7 +318,7 @@ export default function GeneratePanel() {
       const decoder = new TextDecoder();
       let   buffer  = "";
 
-      while (!aborted) {
+      while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
@@ -350,8 +349,10 @@ export default function GeneratePanel() {
             updateStage(payload.id as string, "done", hint);
             setRetryMessage(null);
           } else if (eventType === "stage_retry") {
-            // OpenRouter 429 retry notification
-            setRetryMessage((payload as Record<string, string>).message ?? "Rate limit -- retrying...");
+            const attempt = String(payload.attempt ?? "");
+            const retryModel = String(payload.model ?? "provider");
+            const waitSeconds = Math.ceil(Number(payload.waitMs ?? 0) / 1000);
+            setRetryMessage(`Attempt ${attempt} · ${retryModel} · retrying in ${waitSeconds}s`);
           } else if (eventType === "stage_flag") {
             updateStage(payload.id as string, "flagged", payload.reason as string);
           } else if (eventType === "result") {
@@ -372,10 +373,11 @@ export default function GeneratePanel() {
       }
 
     } catch (err) {
-      stopTelemetry();
+      const wasCancelled = err instanceof DOMException && err.name === "AbortError";
+      if (!wasCancelled) stopTelemetry();
       const raw = err instanceof Error ? err.message : "Something went wrong";
       // Translate technical errors to user-friendly messages
-      let friendly = raw;
+      let friendly = wasCancelled ? "Generation cancelled." : raw;
       if (raw.includes("rate limit") || raw.includes("429") || raw.includes("Too Many Requests") || raw === "RATE_LIMITED") {
         friendly = "Rate limit reached. Please wait a moment and try again, or switch to a model with higher limits.";
       } else if (raw.includes("No API key") || raw.includes("ANTHROPIC_API_KEY") || raw === "NO_API_KEY") {
@@ -385,9 +387,9 @@ export default function GeneratePanel() {
       } else if (raw.includes("insufficient_quota") || raw.includes("quota") || raw.includes("billing")) {
         friendly = "Account quota/billing limit exceeded on your AI provider. Please check your API credits/billing.";
       } else if (raw.includes("timed out") || raw.includes("timeout") || raw.includes("AbortError") || raw === "TIMEOUT") {
-        friendly = "Request timed out while generating. Reasoning models can take longer — try GPT-5.6 Luna or Claude 3.5 Sonnet.";
+        friendly = "Request timed out while generating. Reasoning models can take longer — try GPT-5.6 Luna or Claude Sonnet 4.6.";
       } else if (raw.includes("reasoning") || raw.includes("reasoning_content") || raw.includes("token budget")) {
-        friendly = "The reasoning model consumed its token budget before completing output. Try GPT-5.6 Luna or Claude 3.5 Sonnet.";
+        friendly = "The reasoning model consumed its token budget before completing output. Try GPT-5.6 Luna or Claude Sonnet 4.6.";
       } else if (raw.includes("does not exist") || raw.includes("model_not_found") || raw.includes("unknown model")) {
         friendly = "Selected model is unavailable. Please select a supported model in the settings panel.";
       } else if (raw.includes("context_length") || raw.includes("maximum context") || raw.includes("prompt is too long") || raw.includes("too many tokens")) {
@@ -396,7 +398,7 @@ export default function GeneratePanel() {
       setError(friendly);
     } finally {
       setLoading(false);
-      abortRef.current = null;
+      if (abortRef.current === requestController) abortRef.current = null;
     }
   };
 
@@ -442,6 +444,13 @@ export default function GeneratePanel() {
       )}
 
       <div className={styles.panel}>
+        <div className={styles.workbenchHeader}>
+          <div>
+            <span>WORKBENCH / 02</span>
+            <h3>Turn a brief into a visual thesis.</h3>
+          </div>
+          <p>Keys remain in this browser. Every pipeline decision stays inspectable.</p>
+        </div>
         {/* ── Top toolbar ─────────────────────────────────────────── */}
         <div className={styles.panelToolbar}>
           <button
@@ -559,8 +568,8 @@ export default function GeneratePanel() {
               onChange={(e) => setFramework(e.target.value as Framework)}
               disabled={loading}
             >
-              <option value="nextjs">Next.js 15</option>
-              <option value="react">React 18</option>
+              <option value="nextjs">Next.js 16</option>
+              <option value="react">React 19</option>
               <option value="html">HTML + CSS</option>
             </select>
           </div>
@@ -597,7 +606,7 @@ export default function GeneratePanel() {
           <div className={styles.apiKeyBanner} role="alert">
             <div className={styles.apiKeyBannerIcon} aria-hidden="true">⚿</div>
             <div className={styles.apiKeyBannerText}>
-              <strong>API key required.</strong> Verve runs on your own Anthropic API key —
+              <strong>API key required.</strong> Verve runs on your own {PROVIDERS.find((item) => item.id === provider)?.label} API key —
               it&apos;s never stored server-side.
               <br />
               <a
@@ -635,16 +644,16 @@ export default function GeneratePanel() {
         )}
 
         <button
-          className={styles.generateBtn}
-          onClick={handleGenerate}
-          disabled={loading || !brief.trim()}
+          className={`${styles.generateBtn} ${loading ? styles.cancelBtn : ""}`}
+          onClick={loading ? () => abortRef.current?.abort() : handleGenerate}
+          disabled={!loading && !brief.trim()}
           id="generate-submit"
           aria-busy={loading}
         >
           {loading ? (
             <>
-              <span className={styles.spinner} aria-hidden="true" />
-              Running pipeline
+              <span aria-hidden="true">■</span>
+              Cancel generation
             </>
           ) : (
             <>

@@ -24,18 +24,9 @@ const BASE_DELAY_MS         = 2000;
 const CHAIN_TIMEOUT_MS      = 90_000; // 90s total across all retries + fallbacks
 const PER_CALL_TIMEOUT_MS   = 25_000; // 25s per individual API call
 
-const FREE_FALLBACK_CHAIN = [
-  "google/gemma-4-31b-it:free",
-  "openai/gpt-oss-20b:free",
-  "google/gemma-4-26b-a4b-it:free",
-  "nvidia/llama-3.1-nemotron-ultra-253b-v1:free",
-];
+const FREE_FALLBACK_CHAIN = ["openrouter/free", "openai/gpt-oss-20b:free"];
 
-type RetryNotifier = (attempt: number, waitMs: number, model: string) => void;
-let _retryNotifier: RetryNotifier | null = null;
-
-export function setRetryNotifier(fn: RetryNotifier): void  { _retryNotifier = fn; }
-export function clearRetryNotifier(): void                 { _retryNotifier = null; }
+export type RetryNotifier = (attempt: number, waitMs: number, model: string) => void;
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -61,8 +52,9 @@ export class OpenRouterAdapter implements LLMAdapter {
   private client: OpenAI;
   private primaryModel: string;
   private signal?: AbortSignal;
+  private onRetry?: RetryNotifier;
 
-  constructor(apiKey: string, model = "google/gemma-4-31b-it:free", signal?: AbortSignal) {
+  constructor(apiKey: string, model = "openrouter/free", signal?: AbortSignal, onRetry?: RetryNotifier) {
     this.client = new OpenAI({
       apiKey,
       baseURL:    OPENROUTER_BASE,
@@ -74,6 +66,7 @@ export class OpenRouterAdapter implements LLMAdapter {
     });
     this.primaryModel = model;
     this.signal       = signal;
+    this.onRetry      = onRetry;
   }
 
   async complete(messages: LLMMessage[], options: LLMOptions = {}): Promise<string> {
@@ -83,7 +76,7 @@ export class OpenRouterAdapter implements LLMAdapter {
     if (systemPrompt) fullMessages.push({ role: "system", content: systemPrompt });
     for (const m of messages) fullMessages.push({ role: m.role, content: m.content });
 
-    const isFreeModel = this.primaryModel.endsWith(":free");
+    const isFreeModel = this.primaryModel === "openrouter/free" || this.primaryModel.endsWith(":free");
     const chain = isFreeModel
       ? [this.primaryModel, ...FREE_FALLBACK_CHAIN.filter((m) => m !== this.primaryModel)]
       : [this.primaryModel];
@@ -144,7 +137,7 @@ export class OpenRouterAdapter implements LLMAdapter {
             if (retryable && retry < MAX_RETRIES_PER_MODEL) {
               const waitMs = BASE_DELAY_MS * Math.pow(2, retry);
               console.warn(`[OpenRouter] ${lastError.message} on ${model}, retry ${retry + 1}/${MAX_RETRIES_PER_MODEL}`);
-              _retryNotifier?.(globalAttempt, waitMs, model);
+              this.onRetry?.(globalAttempt, waitMs, model);
               await sleep(waitMs, chainSignal);
               continue;
             }
@@ -154,7 +147,7 @@ export class OpenRouterAdapter implements LLMAdapter {
               if (nextModel) {
                 const shortNext = nextModel.split("/")[1]?.replace(":free", "") ?? nextModel;
                 console.warn(`[OpenRouter] ${model} exhausted → switching to ${nextModel}`);
-                _retryNotifier?.(globalAttempt, 1500, `switching to ${shortNext}`);
+                this.onRetry?.(globalAttempt, 1500, `switching to ${shortNext}`);
                 await sleep(1500, chainSignal);
               }
               break; // next model in chain

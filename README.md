@@ -7,9 +7,9 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-D49020?style=flat-square)](LICENSE)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-white?style=flat-square&logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript)](https://typescriptlang.org)
-[![Anthropic](https://img.shields.io/badge/Claude-4.5%20Sonnet-191919?style=flat-square)](https://anthropic.com)
+[![Anthropic](https://img.shields.io/badge/Claude-Sonnet%204.6-191919?style=flat-square)](https://anthropic.com)
 [![OpenAI](https://img.shields.io/badge/OpenAI-GPT--5.6%20Terra-412991?style=flat-square)](https://openai.com)
-[![Gemini](https://img.shields.io/badge/Google-Gemini%202.5%20Pro-4285F4?style=flat-square)](https://ai.google.dev)
+[![Gemini](https://img.shields.io/badge/Google-Gemini%203.7%20Flash-4285F4?style=flat-square)](https://ai.google.dev)
 
 > **Verve** is an open-source design intelligence pipeline that sits between any LLM and its code output — forcing bold, non-generic, context-specific UI through 9 specialized modules instead of producing the median AI aesthetic.
 
@@ -24,7 +24,7 @@ AI-generated interfaces converge on the same visual defaults:
 | What every model produces | Why |
 |---|---|
 | Inter or Roboto, 700 weight | Most common font in training data |
-| Blue-to-purple hero gradients | Appears in ~40% of SaaS landing pages |
+| Blue-to-purple hero gradients | A high-frequency SaaS visual default |
 | `rgba(0,0,0,0.08)` soft shadow cards | Default box-shadow in every CSS framework |
 | "Build faster. Boost productivity." copy | Highest-frequency hero copy pattern |
 | 4-card feature grid | Most common layout after hero |
@@ -43,7 +43,7 @@ User brief (+ optional existing code)
 [01] BRIEF ANALYZER        → subject, audience, primaryJob (JTBD), tone, industry
         ↓
 [02] ASSETS + BLOCKLIST + COMPETITIVE FIELD (parallel)
-     • Cliché Blocklist    → 300+ known AI-design tells blocked at system prompt level
+     • Cliché Blocklist    → 21 curated pattern families / 67 concrete signals
      • Asset Sourcer       → Pexels photos (12-item cliché image blocklist), Fontshare fonts, Lucide icons
      • Competitive Field   → 21-industry dataset of dominant visual patterns — injected as negative constraints
         ↓
@@ -61,20 +61,22 @@ User brief (+ optional existing code)
                              5 cognitive layers: Von Restorff, Gutenberg, Signal-Noise,
                              Peak-End Rule, Aesthetic-Usability Effect
         ↓
-[04] ADVERSARIAL CRITIQUE  → 3-part parallel evaluation:
+[03] ADVERSARIAL CRITIQUE  → 3-part parallel evaluation inside the plan loop:
                              DesignCritic: "Would a generic prompt produce this?"
                              EndingCheck: Peak-End Rule — is the closing section filler?
                              UsabilityFloor: contrast ratio, touch targets, body text minimum
                              Rejects + regenerates if flagged. Max 2 revision cycles.
         ↓
-[05] CODE GENERATION       → Full component code (Next.js 16 | React 18 | HTML+CSS)
+[04] CONTRAST ENFORCEMENT  → Deterministic WCAG pair checks and stable palette correction
+        ↓
+[05] CODE GENERATION       → Full component code (Next.js 16 | React 19 | HTML+CSS)
                              Animation tokens injected as CSS custom properties
                              Signature element implemented exactly as specified in plan
         ↓
-[05.5] CODE QUALITY LOOP   → Strips fences, checks structural integrity, verifies
-                             signature element keywords in output, one repair pass if needed
+[05.5] CODE QUALITY LOOP   → Strips fences, parses TSX with TypeScript, checks structure,
+                             verifies the signature element, and performs one repair pass
         ↓
-[06] NORMAN 3-LEVEL SCORE  → Don Norman's 3-Level evaluation:
+[06] DUAL SCORE            → Don Norman's 3-Level evaluation plus engineering quality:
      (Module J)              Visceral (35%) — first impression, visual boldness
                              Behavioral (40%) — usability, evaluated BLIND to aesthetics
                              Reflective (25%) — shareability, archetype coherence
@@ -117,7 +119,7 @@ A single prompt asking the model to "be distinctive" doesn't work because the mo
 - **9-module orchestration** running in parallel where possible
 - **SSE Streaming** — real-time per-stage progress events (no fake timer)
 - **Adversarial critique** with up to 2 revision cycles
-- **Framework support**: Next.js 15, React 18, HTML+CSS
+- **Framework support**: Next.js 16, React 19, HTML+CSS
 
 ### Intelligence Modules
 - **Brand Archetype Resolver** (Module I) — 12 Jungian archetypes with design token mappings
@@ -134,14 +136,14 @@ A single prompt asking the model to "be distinctive" doesn't work because the mo
 - **Export** — CSS Variables, Figma Tokens (Style Dictionary JSON), README setup guide
 - **Prompt Engineering Lab** (`/lab`) — inspect module system prompts, archetype reference, sample briefs
 - **First-run Onboarding** — 3-slide introduction to the pipeline philosophy
-- **Multi-provider** — Claude (Anthropic), GPT-4o (OpenAI), Gemini (Google)
+- **Multi-provider** — Claude, GPT-5.6, Gemini, and OpenRouter free routing
 
 ---
 
 ## Getting started
 
 ### Prerequisites
-- Node.js 18+
+- Node.js 20.9+
 - An API key from [Anthropic](https://console.anthropic.com/account/keys), [OpenAI](https://platform.openai.com/api-keys), or [Google AI Studio](https://aistudio.google.com)
 - (Optional) A [Pexels API key](https://www.pexels.com/api/) for contextual photography
 
@@ -156,18 +158,7 @@ npm run dev
 
 Open `http://localhost:3000`. Enter your API key in the workspace — it is stored in `localStorage` only and sent per-request to your chosen LLM provider. Keys are **never logged or stored server-side**.
 
-### Environment variables (optional)
-
-```env
-# Only needed for server-side default keys — the UI accepts user-provided keys
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
-GEMINI_API_KEY=AIza...
-OPENROUTER_API_KEY=sk-or-...
-PEXELS_API_KEY=...
-```
-
-See [`.env.example`](.env.example) for the full reference.
+No database or server-managed provider key is required. Provider and Pexels keys are configured in the UI and retained in browser `localStorage`.
 
 ---
 
@@ -210,7 +201,6 @@ verve/
     │   ├── critique-loop.ts       — [04] Adversarial 3-part critique
     │   ├── code-generator.ts      — [05] Code output
     │   ├── code-quality-loop.ts   — [05.5] Post-gen structural checks + repair
-    │   ├── llm-schemas.ts         — Zod schemas for all LLM output types
     │   └── scorer.ts              — [J] Norman 3-Level scoring
     ├── history.ts                 — localStorage design history
     ├── export.ts                  — CSS / Figma / README export
@@ -240,10 +230,10 @@ The pipeline draws from established UX and cognitive psychology research:
 
 | Provider | Models | Notes |
 |----------|--------|-------|
-| **Anthropic** | `claude-sonnet-4-5`, `claude-opus-4-5`, `claude-haiku-4-5` | Sonnet 4-5 is the recommended default |
-| **OpenAI** | `gpt-5.6-terra`, `gpt-5.6-sol`, `gpt-4o-mini` | GPT-5.6 models are Reasoning Models (use `reasoning_effort`, not `temperature`) |
-| **Google** | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.0-flash` | 2.5 Pro is the recommended default |
-| **OpenRouter** | `google/gemma-4-31b-it:free`, `openai/gpt-oss-20b:free`, `google/gemma-4-26b-a4b-it:free`, `nvidia/llama-3.1-nemotron-ultra-253b-v1:free` | Free-tier with auto-fallback chain |
+| **Anthropic** | `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`, `claude-opus-4-8` | Sonnet 4.6 is the default |
+| **OpenAI** | `gpt-5.6-terra`, `gpt-5.6-sol`, `gpt-5.6-luna`, `gpt-4o-mini` | Reasoning budgets are bounded per stage |
+| **Google** | `gemini-3.7-flash`, `gemini-3.5-flash`, `gemini-3.1-pro-preview` | Gemini 3.7 Flash is the default |
+| **OpenRouter** | `openrouter/free`, `openai/gpt-oss-20b:free` | Automatic free router with a direct free fallback |
 
 ---
 

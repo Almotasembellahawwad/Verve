@@ -1,40 +1,41 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import styles from "./ApiKeyModal.module.css";
 import type { Provider } from "@/lib/llm-adapter/types";
 import { PROVIDER_KEY_LABELS } from "@/lib/llm-adapter/types";
+import {
+  clearLocalApiKeys,
+  getLocalApiKey,
+  hasAnyLocalApiKey,
+  setLocalApiKey,
+  type LocalKeyProvider,
+} from "@/lib/client/key-storage";
 
-const getKey = (p: Provider | "pexels") => `verve_${p}_api_key`;
-const ANTHROPIC_KEY = "verve_anthropic_api_key";
-
-type AnyProvider = Provider | "pexels";
+type AnyProvider = LocalKeyProvider;
 
 const PROVIDERS: { id: AnyProvider; label: string; description: string; color: string; keyPrefix: string }[] = [
   { id: "anthropic",   label: "Anthropic / Claude",    description: "Claude Sonnet, Opus, Haiku",        color: "#D49020", keyPrefix: "sk-ant-" },
   { id: "openai",      label: "OpenAI / GPT",           description: "GPT-5.6 Terra, Sol, Luna",          color: "#74B87E", keyPrefix: "sk-"     },
-  { id: "gemini",      label: "Google / Gemini",         description: "Gemini 2.5 Pro & Flash",            color: "#6B9FE4", keyPrefix: "AIza"    },
-  { id: "openrouter",  label: "OpenRouter",              description: "Free models: Gemma, GPT OSS, Llama", color: "#9A6FF0", keyPrefix: "sk-or-"  },
+  { id: "gemini",      label: "Google / Gemini",         description: "Gemini 3.7, 3.5 & Pro Preview",      color: "#6B9FE4", keyPrefix: "AIza"    },
+  { id: "openrouter",  label: "OpenRouter",              description: "Automatic free-model router",        color: "#9A6FF0", keyPrefix: "sk-or-"  },
   { id: "pexels",      label: "Pexels",                  description: "Contextual photography",             color: "#05A081", keyPrefix: ""        },
 ];
 
 export function useApiKey() {
   // Initialize from localStorage (lazy — avoids setState on mount)
   const [apiKey, setApiKeyState] = useState<string>(
-    () => (typeof window !== "undefined" ? localStorage.getItem(ANTHROPIC_KEY) ?? "" : "")
+    () => getLocalApiKey("anthropic")
   );
 
   const saveApiKey = (key: string, provider: AnyProvider = "anthropic") => {
     if (key) {
-      localStorage.setItem(getKey(provider), key);
-      if (provider === "anthropic") localStorage.setItem(ANTHROPIC_KEY, key);
+      setLocalApiKey(provider, key);
     } else {
-      localStorage.removeItem(getKey(provider));
-      if (provider === "anthropic") localStorage.removeItem(ANTHROPIC_KEY);
+      setLocalApiKey(provider, "");
     }
-    const anyKey = PROVIDERS.some((p) => !!localStorage.getItem(getKey(p.id)));
+    const anyKey = hasAnyLocalApiKey();
     setApiKeyState(anyKey ? key : "");
-    window.dispatchEvent(new CustomEvent("verve:api-key-saved"));
   };
 
   return { apiKey, saveApiKey };
@@ -53,18 +54,42 @@ export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
     anthropic: "", openai: "", gemini: "", openrouter: "", pexels: "",
   });
   const [visible, setVisible] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
       setValues({ // eslint-disable-line react-hooks/set-state-in-effect
-        anthropic:   localStorage.getItem(ANTHROPIC_KEY) ?? "",
-        openai:      localStorage.getItem(getKey("openai")) ?? "",
-        gemini:      localStorage.getItem(getKey("gemini")) ?? "",
-        openrouter:  localStorage.getItem(getKey("openrouter")) ?? "",
-        pexels:      localStorage.getItem(getKey("pexels")) ?? "",
+        anthropic: getLocalApiKey("anthropic"),
+        openai: getLocalApiKey("openai"),
+        gemini: getLocalApiKey("gemini"),
+        openrouter: getLocalApiKey("openrouter"),
+        pexels: getLocalApiKey("pexels"),
       });
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const frame = requestAnimationFrame(() => inputRef.current?.focus());
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+      if (event.key !== "Tab" || !modalRef.current) return;
+      const focusable = Array.from(modalRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])'
+      ));
+      if (focusable.length === 0) return;
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -79,18 +104,14 @@ export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
   const handleSave = () => {
     PROVIDERS.forEach((p) => {
       const v = values[p.id];
-      if (v) {
-        localStorage.setItem(getKey(p.id), v);
-        if (p.id === "anthropic") localStorage.setItem(ANTHROPIC_KEY, v);
-      }
+      setLocalApiKey(p.id, v);
     });
     onSave(currentValue.trim(), activeProvider);
     onClose();
   };
 
   const handleRemove = () => {
-    PROVIDERS.forEach((p) => { localStorage.removeItem(getKey(p.id)); });
-    localStorage.removeItem(ANTHROPIC_KEY);
+    clearLocalApiKeys();
     onSave("", activeProvider);
     onClose();
   };
@@ -105,7 +126,7 @@ export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
       aria-modal="true"
       aria-labelledby="apikey-modal-title"
     >
-      <div className={styles.modal}>
+      <div className={styles.modal} ref={modalRef}>
 
         {/* ---- Header ---- */}
         <div className={styles.header}>
@@ -168,8 +189,8 @@ export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
             {/* OpenRouter note */}
             {activeProvider === "openrouter" && (
               <div className={styles.openrouterNote}>
-                <strong>Free models included:</strong> Gemma 4 31B, GPT OSS 20B, Llama 3.3 70B, Mistral Small 3.2.
-                No billing required for free tier models. Rate limits apply (20 req/min on free tier).
+                <strong>Free routing included:</strong> OpenRouter selects an available free model automatically,
+                with GPT OSS 20B as a direct fallback. Provider-side rate limits still apply.
                 Get your key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className={styles.inlineLink}>openrouter.ai/keys</a>.
               </div>
             )}
@@ -187,6 +208,7 @@ export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
             <label htmlFor="api-key-input" className={styles.keyLabel}>{info.label}</label>
             <div className={styles.inputRow}>
               <input
+                ref={inputRef}
                 id="api-key-input"
                 type={visible ? "text" : "password"}
                 className={styles.input}

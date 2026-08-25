@@ -144,9 +144,8 @@ export function enforceContrast(pairs: ColorPair[]): ContrastFixReport {
   for (const pair of pairs) {
     // Capture BEFORE any mutation
     const originalTextHex = pair.textHex;
-    const ratio           = contrastRatio(pair.textHex, pair.bgHex);
-    const passesAABefore  = ratio >= 4.5;
-    const passesAAA       = ratio >= 7.0;
+    const ratioBefore     = contrastRatio(pair.textHex, pair.bgHex);
+    const passesAABefore  = ratioBefore >= 4.5;
     const fixedTextHex    = fixContrastColor(pair.textHex, pair.bgHex);
 
     let finalPassesAA = passesAABefore;
@@ -161,9 +160,9 @@ export function enforceContrast(pairs: ColorPair[]): ContrastFixReport {
 
     checked.push({
       pair:            pair.name,
-      ratio:           Math.round(ratio * 100) / 100,
+      ratio:           Math.round(contrastRatio(pair.textHex, pair.bgHex) * 100) / 100,
       passesAA:        finalPassesAA,
-      passesAAA,
+      passesAAA:       contrastRatio(pair.textHex, pair.bgHex) >= 7,
       fixedTextHex,
       originalTextHex, // ← now correctly the PRE-fix value
     });
@@ -176,6 +175,26 @@ export function enforceContrast(pairs: ColorPair[]): ContrastFixReport {
   };
 }
 
+function findClosestColorPassingAll(textHex: string, backgrounds: string[], targetRatio = 4.5): string | null {
+  if (backgrounds.every((bg) => contrastRatio(textHex, bg) >= targetRatio)) return null;
+
+  const [r, g, b] = hexToRgb(textHex);
+  const [h, s, originalLightness] = rgbToHsl(r, g, b);
+  let closest: { hex: string; distance: number } | null = null;
+
+  // Search both directions once, then apply one stable replacement to every
+  // usage of the text token. This avoids contradictory per-background fixes.
+  for (let step = 0; step <= 200; step++) {
+    const lightness = step / 200;
+    const candidate = rgbToHex(...hslToRgb(h, s, lightness));
+    if (!backgrounds.every((bg) => contrastRatio(candidate, bg) >= targetRatio)) continue;
+    const distance = Math.abs(lightness - originalLightness);
+    if (!closest || distance < closest.distance) closest = { hex: candidate, distance };
+  }
+
+  return closest?.hex ?? null;
+}
+
 /**
  * Extract color pairs from a DesignPlan and fix them.
  * Returns the updated palette and a contrast report.
@@ -183,12 +202,19 @@ export function enforceContrast(pairs: ColorPair[]): ContrastFixReport {
 export function fixPaletteContrast(
   palette: { name: string; hex: string; role: string }[]
 ): { fixedPalette: typeof palette; report: ContrastFixReport } {
+  if (palette.length === 0) {
+    return {
+      fixedPalette: palette,
+      report: { checked: [], fixesApplied: 0, allPass: false },
+    };
+  }
+
   // Find background colors (by role naming convention)
   const bgColors = palette.filter((c) =>
     /background|bg|base|surface|dark|light/i.test(c.role)
   );
   const textColors = palette.filter((c) =>
-    /text|heading|body|copy|title|primary|secondary/i.test(c.role)
+    /text|heading|body|copy|title|foreground|content/i.test(c.role)
   );
 
   // If no clear bg/text split, use darkest as bg and lightest as text
@@ -198,30 +224,46 @@ export function fixPaletteContrast(
     return la - lb;
   });
 
-  const actualBg = bgColors.length > 0 ? bgColors : [sortedByLum[0]];
-  const actualText = textColors.length > 0 ? textColors : [sortedByLum[sortedByLum.length - 1]];
+  const actualBg = bgColors.length > 0 ? bgColors : [sortedByLum[0]!];
+  const actualText = textColors.length > 0 ? textColors : [sortedByLum[sortedByLum.length - 1]!];
 
-  const pairs: ColorPair[] = [];
+  const replacements = new Map<string, string>();
+  for (const text of actualText) {
+    const backgrounds = actualBg.filter((bg) => bg.hex !== text.hex).map((bg) => bg.hex);
+    if (backgrounds.length === 0) continue;
+    const fixed = findClosestColorPassingAll(text.hex, backgrounds);
+    if (fixed) replacements.set(text.hex.toLowerCase(), fixed);
+  }
+
+  const fixedPalette = palette.map((color) => {
+    const replacement = replacements.get(color.hex.toLowerCase());
+    return replacement ? { ...color, hex: replacement } : color;
+  });
+
+  const fixedByName = new Map(fixedPalette.map((color) => [color.name, color]));
+  const checked: ContrastResult[] = [];
   for (const bg of actualBg) {
     for (const text of actualText) {
-      if (bg.hex !== text.hex) {
-        pairs.push({
-          name: `${text.name} on ${bg.name}`,
-          textHex: text.hex,
-          bgHex: bg.hex,
-          usage: `${text.role} on ${bg.role}`,
-        });
-      }
+      if (bg.hex === text.hex) continue;
+      const finalTextHex = fixedByName.get(text.name)?.hex ?? text.hex;
+      const finalBgHex = fixedByName.get(bg.name)?.hex ?? bg.hex;
+      const ratio = contrastRatio(finalTextHex, finalBgHex);
+      checked.push({
+        pair: `${text.name} on ${bg.name}`,
+        ratio: Math.round(ratio * 100) / 100,
+        passesAA: ratio >= 4.5,
+        passesAAA: ratio >= 7,
+        fixedTextHex: finalTextHex !== text.hex ? finalTextHex : null,
+        originalTextHex: text.hex,
+      });
     }
   }
 
-  const report = enforceContrast(pairs);
-
-  // Apply fixes back to the palette
-  const fixedPalette = palette.map((color) => {
-    const fix = report.checked.find((c) => c.originalTextHex === color.hex && c.fixedTextHex);
-    return fix ? { ...color, hex: fix.fixedTextHex! } : color;
-  });
+  const report: ContrastFixReport = {
+    checked,
+    fixesApplied: replacements.size,
+    allPass: checked.length > 0 && checked.every((check) => check.passesAA),
+  };
 
   return { fixedPalette, report };
 }

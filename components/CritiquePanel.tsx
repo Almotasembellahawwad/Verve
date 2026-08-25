@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import styles from "./CritiquePanel.module.css";
-
-const STORAGE_KEY = "verve_anthropic_api_key";
+import { getLocalApiKey, LOCAL_KEYS_CHANGED_EVENT } from "@/lib/client/key-storage";
 
 type DesignCritique = {
   hierarchyIssues: { issue: string; severity: string; fix: string }[];
@@ -36,11 +35,11 @@ export default function CritiquePanel() {
 
   useEffect(() => {
     const onStorageChange = () => {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = getLocalApiKey("anthropic");
       if (stored) setMissingKey(false);
     };
-    window.addEventListener("verve:api-key-saved", onStorageChange);
-    return () => window.removeEventListener("verve:api-key-saved", onStorageChange);
+    window.addEventListener(LOCAL_KEYS_CHANGED_EVENT, onStorageChange);
+    return () => window.removeEventListener(LOCAL_KEYS_CHANGED_EVENT, onStorageChange);
   }, []);
 
   const openApiKeyModal = () => {
@@ -53,7 +52,7 @@ export default function CritiquePanel() {
     setResult(null);
     setMissingKey(false);
 
-    const currentKey = localStorage.getItem(STORAGE_KEY);
+    const currentKey = getLocalApiKey("anthropic");
     if (!currentKey) {
       setMissingKey(true);
       setLoading(false);
@@ -140,7 +139,7 @@ export default function CritiquePanel() {
               aria-describedby="url-hint"
             />
             <p id="url-hint" className={styles.hint}>
-              The page will be analyzed for hierarchy, contrast, spacing, typography, and known AI-design clichés.
+              Verve securely fetches the public HTML/CSS and performs a source-based critique. It does not pretend to inspect rendered pixels or a screenshot.
             </p>
           </div>
         ) : (

@@ -130,8 +130,11 @@ const CSS_QUALITY_CHECKS = {
  
 export function scoreEngineering(
   code: string,
-  _framework: Framework = "nextjs"
+  framework: Framework = "nextjs"
 ): EngineeringResult {
+  // Retain the framework argument as part of the public scoring contract; the
+  // current checks are deliberately framework-neutral.
+  void framework;
   const dims: EngineeringDimension[] = [
     scoreDimension("semantic",    "Semantic HTML",    0.15, code, SEMANTIC_HTML_CHECKS),
     scoreDimension("a11y",        "Accessibility",    0.25, code, ACCESSIBILITY_CHECKS),

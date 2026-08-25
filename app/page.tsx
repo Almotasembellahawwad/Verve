@@ -21,37 +21,73 @@ export default function Home() {
 
       {/* HERO — Signature element: live before/after transformation */}
       <section className={styles.hero} id="hero">
-        <div className={styles.heroLabel}>
-          <span className={styles.statusDot} aria-hidden="true" />
-          <span className="muted-text">signal active — v1.0.0</span>
+        <div className={styles.calibrationRail} aria-hidden="true">
+          <span>V</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100</span>
         </div>
+        <div className={styles.heroGrid}>
+          <div className={styles.heroCopy}>
+            <div className={styles.heroLabel}>
+              <span className={styles.statusDot} aria-hidden="true" />
+              <span>Independent taste engine / build 01.1</span>
+            </div>
 
-        <h1 className={styles.heroHeading}>
-          Every AI website<br />
-          <span className={styles.heroStrike}>looks the same.</span><br />
-          <span className="signal-text">Yours won&apos;t.</span>
-        </h1>
+            <h1 className={styles.heroHeading}>
+              <span className={styles.heroSans}>AI can build it.</span>
+              <span className={styles.heroSerif}>Can it have</span>
+              <span className={styles.heroSerifItalic}>a point of view?</span>
+            </h1>
 
-        <p className={styles.heroBody}>
-          Verve is a design taste layer that sits between any LLM and its code output.
-          Six mechanical steps interrupt the regression-to-the-mean that makes AI UIs
-          indistinguishable. No prompting tricks. No style guides. Structural interference.
-        </p>
+            <p className={styles.heroBody}>
+              Verve interrupts the statistical average between your brief and the code.
+              It rejects familiar defaults, forms a visual thesis, critiques it, validates
+              the implementation, and shows its work.
+            </p>
 
-        <div className={styles.heroCta}>
-          <a href="#workspace" className={styles.ctaPrimary} id="cta-try">
-            Try it free
-          </a>
-          <a
-            href="https://github.com/mohasbks/Verve"
-            className={styles.ctaSecondary}
-            target="_blank"
-            rel="noopener noreferrer"
-            id="cta-github"
-          >
-            <GitHubIcon />
-            View source
-          </a>
+            <div className={styles.heroCta}>
+              <a href="#workspace" className={styles.ctaPrimary} id="cta-try">
+                Open the workbench <span aria-hidden="true">↘</span>
+              </a>
+              <a
+                href="https://github.com/mohasbks/Verve"
+                className={styles.ctaSecondary}
+                target="_blank"
+                rel="noopener noreferrer"
+                id="cta-github"
+              >
+                <GitHubIcon />
+                Inspect the source
+              </a>
+            </div>
+
+            <div className={styles.proofStrip} aria-label="Verve facts">
+              <span><b>21</b> pattern families</span>
+              <span><b>67</b> concrete signals</span>
+              <span><b>09</b> observable stages</span>
+              <span><b>00</b> accounts required</span>
+            </div>
+          </div>
+
+          <aside className={styles.tasteCard} aria-label="Live taste diagnostic example">
+            <div className={styles.tasteCardTop}>
+              <span>VERVE / TASTE TRACE</span>
+              <span className={styles.liveTag}><i /> LIVE</span>
+            </div>
+            <div className={styles.tasteScoreRow}>
+              <span className={styles.tasteScore}>91</span>
+              <div>
+                <span className={styles.scoreLabel}>DISTINCTIVENESS</span>
+                <strong>Point of view detected</strong>
+              </div>
+            </div>
+            <div className={styles.traceRows}>
+              <div><span>Generic hero gradient</span><del>accepted</del><b>rejected</b></div>
+              <div><span>Archetype coherence</span><em>88 / 100</em></div>
+              <div><span>Contrast floor</span><em>AA · pass</em></div>
+              <div><span>Signature element</span><em>locked</em></div>
+            </div>
+            <p className={styles.redNote}>“Make one decision impossible to forget.”</p>
+            <span className={styles.cardIndex} aria-hidden="true">V/01</span>
+          </aside>
         </div>
 
         {/* Signature Element: Live before/after */}
@@ -65,7 +101,7 @@ export default function Home() {
             <span className="muted-text">{"// how it works"}</span>
           </div>
           <h2 className={styles.sectionHeading}>
-            Six steps between your brief and something{" "}
+            Nine observable stages between your brief and something{" "}
             <span className="amber-text">impossible to mistake</span>.
           </h2>
           <PipelineViz />
@@ -150,9 +186,9 @@ export default function Home() {
         <div className="container">
           <div className={styles.statsGrid}>
             <div className={styles.statItem}>
-              <span className={styles.statNum}>20</span>
-              <span className={styles.statLabel}>clichés blocked</span>
-              <span className={styles.statMeta}>color · type · layout · motion · copy</span>
+              <span className={styles.statNum}>21</span>
+              <span className={styles.statLabel}>pattern families</span>
+              <span className={styles.statMeta}>67 concrete signals across color · type · layout · motion · copy</span>
             </div>
             <div className={styles.statItem}>
               <span className={styles.statNum}>30</span>
@@ -160,9 +196,9 @@ export default function Home() {
               <span className={styles.statMeta}>grounding the plan generator</span>
             </div>
             <div className={styles.statItem}>
-              <span className={styles.statNum}>6</span>
-              <span className={styles.statLabel}>pipeline steps</span>
-              <span className={styles.statMeta}>brief → code in one call</span>
+              <span className={styles.statNum}>09</span>
+              <span className={styles.statLabel}>observable stages</span>
+              <span className={styles.statMeta}>brief → critique → validated code</span>
             </div>
             <div className={styles.statItem}>
               <span className={styles.statNum}>MIT</span>

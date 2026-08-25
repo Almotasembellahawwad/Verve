@@ -3,6 +3,7 @@ import { extractJSON } from "./llm-utils";
 import type { DesignPlan } from "./plan-generator";
 import type { BriefAnalysis } from "./brief-analyzer";
 import { evaluateCognitiveCompliance } from "./cognitive-principles";
+import { z } from "zod";
 
 export type EndingCheck = {
   quality: "strong" | "intentional" | "weak" | "filler";
@@ -31,6 +32,31 @@ export type CritiqueResult = {
   cognitiveFailures: string[];
   rawCritique: string;
 };
+
+const MainCritiqueSchema = z.object({
+  genericElementCount: z.number().int().nonnegative(),
+  flaggedElements: z.array(z.object({
+    element: z.string().min(1),
+    reason: z.string().min(1),
+    severity: z.enum(["high", "medium", "low"]),
+  })),
+  positiveElements: z.array(z.string()),
+  overallVerdict: z.string().min(1),
+});
+
+const EndingCheckSchema = z.object({
+  quality: z.enum(["strong", "intentional", "weak", "filler"]),
+  description: z.string(),
+  recommendation: z.string(),
+});
+
+const UsabilityFloorSchema = z.object({
+  passed: z.boolean(),
+  contrastOk: z.boolean(),
+  touchTargetsOk: z.boolean(),
+  bodyTextOk: z.boolean(),
+  issues: z.array(z.string()),
+});
 
 // ── Main adversarial critique prompt ─────────────────────────────────────────
 const CRITIQUE_SYSTEM_PROMPT = `You are an adversarial design critic. Your job is to identify generic, AI-default design decisions.
@@ -165,10 +191,7 @@ Usability baseline stated by designer: ${plan.cognitiveGrounding?.usabilityBasel
   ]);
 
   // Parse main critique — use extractJSON for robust extraction
-  const parsed = extractJSON<Omit<
-    CritiqueResult,
-    "passed" | "rawCritique" | "endingCheck" | "usabilityFloor" | "cognitiveScore" | "cognitiveFailures"
-  >>(critiqueRaw, "Critique");
+  const parsed = MainCritiqueSchema.parse(extractJSON<unknown>(critiqueRaw, "Critique"));
 
   // Parse ending check
   let endingCheck: EndingCheck = {
@@ -177,7 +200,7 @@ Usability baseline stated by designer: ${plan.cognitiveGrounding?.usabilityBasel
     recommendation: "Add a distinctive closing section",
   };
   try {
-    endingCheck = extractJSON<EndingCheck>(endingRaw, "Ending Check");
+    endingCheck = EndingCheckSchema.parse(extractJSON<unknown>(endingRaw, "Ending Check"));
   } catch {
     // silently use default
   }
@@ -194,7 +217,7 @@ Usability baseline stated by designer: ${plan.cognitiveGrounding?.usabilityBasel
   };
   let usabilityParsed = false;
   try {
-    usabilityFloor  = extractJSON<UsabilityFloorCheck>(usabilityRaw, "Usability Floor");
+    usabilityFloor  = UsabilityFloorSchema.parse(extractJSON<unknown>(usabilityRaw, "Usability Floor"));
     usabilityParsed = true;
   } catch {
     // Parse failed — keep passed=true so we don't block on an inconclusive check

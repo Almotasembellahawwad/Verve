@@ -11,6 +11,7 @@
 // =========================================================
 
 import type { LLMAdapter } from "./llm-utils";
+import ts from "typescript";
 
 export interface CodeQualityResult {
   code:           string;
@@ -62,6 +63,45 @@ function checkInlineStyles(code: string): string[] {
   return [];
 }
 
+function checkMinimumStructure(code: string, framework: string): string[] {
+  if (!code.trim()) return ["Generated code is empty"];
+
+  if (framework === "html") {
+    return /<html[\s>]/i.test(code) && /<body[\s>]/i.test(code)
+      ? []
+      : ["HTML output is missing an <html> or <body> element"];
+  }
+
+  return /(?:export\s+default|export\s+function|function\s+[A-Z]|const\s+[A-Z])/m.test(code)
+    ? []
+    : ["Component output has no exported or named component"];
+}
+
+function checkSyntax(code: string, framework: string): string[] {
+  if (framework === "html" || !code.trim()) return [];
+
+  const result = ts.transpileModule(code, {
+    fileName: framework === "nextjs" ? "generated.tsx" : "component.tsx",
+    reportDiagnostics: true,
+    compilerOptions: {
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.ESNext,
+      jsx: ts.JsxEmit.ReactJSX,
+      isolatedModules: true,
+    },
+  });
+
+  return (result.diagnostics ?? [])
+    .filter((diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error)
+    .slice(0, 8)
+    .map((diagnostic) => {
+      const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, " ");
+      if (!diagnostic.file || diagnostic.start === undefined) return `Syntax error: ${message}`;
+      const position = diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start);
+      return `Syntax error at ${position.line + 1}:${position.character + 1}: ${message}`;
+    });
+}
+
 function checkSignatureElement(code: string, signatureElement: string): boolean {
   if (!signatureElement) return true; // Nothing to check
 
@@ -93,8 +133,10 @@ export async function runCodeQualityLoop(
 
   // Step 2: Run structural checks
   const issues: string[] = [
+    ...checkMinimumStructure(stripped, framework),
     ...checkDoctype(stripped, framework),
     ...checkUnclosedTags(stripped),
+    ...checkSyntax(stripped, framework),
     ...checkInlineStyles(stripped),
   ];
 
@@ -130,14 +172,22 @@ export async function runCodeQualityLoop(
 
     // Verify repair actually helped
     const repairedIssues = [
+      ...checkMinimumStructure(repairedStripped, framework),
       ...checkDoctype(repairedStripped, framework),
       ...checkUnclosedTags(repairedStripped),
+      ...checkSyntax(repairedStripped, framework),
     ];
 
     const repairedSignatureFound = checkSignatureElement(repairedStripped, signatureElement);
 
-    // Use repaired if it has fewer structural issues (don't revert if repair made things worse)
-    if (repairedIssues.length <= issues.filter((i) => !i.includes("inline styles")).length) {
+    const originalStructuralIssues = issues.filter((issue) => !issue.includes("inline styles"));
+
+    // A repair must preserve the required signature and improve or match the
+    // original structural health. This rejects empty or destructive repairs.
+    if (
+      repairedSignatureFound &&
+      repairedIssues.length <= originalStructuralIssues.length
+    ) {
       return {
         code:           repairedStripped,
         wasRepaired:    true,

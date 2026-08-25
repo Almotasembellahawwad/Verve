@@ -21,15 +21,19 @@ interface WindowEntry {
 
 // Separate stores per route to allow different limits
 const stores: Record<string, Map<string, WindowEntry>> = {};
+let lastPruneAt = 0;
 
 function getStore(route: string): Map<string, WindowEntry> {
   if (!stores[route]) stores[route] = new Map();
   return stores[route];
 }
 
-// Prune old entries every 5 minutes to prevent memory leak
-setInterval(() => {
-  const now = Date.now();
+// Prune opportunistically. A module-level timer is easy to duplicate during
+// development hot reloads and can keep short-lived server processes alive.
+function pruneStores(now: number): void {
+  if (now - lastPruneAt < 5 * 60_000) return;
+  lastPruneAt = now;
+
   for (const store of Object.values(stores)) {
     for (const [ip, entry] of store) {
       // Remove IPs with no recent requests and no in-flight calls
@@ -37,7 +41,7 @@ setInterval(() => {
       if (entry.timestamps.length === 0 && entry.inFlight === 0) store.delete(ip);
     }
   }
-}, 5 * 60_000);
+}
 
 export interface RateLimitConfig {
   /** Max requests per windowMs */
@@ -63,6 +67,7 @@ export function checkRateLimit(req: NextRequest, config: RateLimitConfig): NextR
   const store = getStore(routeKey);
   const ip    = getIP(req);
   const now   = Date.now();
+  pruneStores(now);
 
   const entry = store.get(ip) ?? { timestamps: [], inFlight: 0 };
 

@@ -10,7 +10,7 @@
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 
-type ErrorCode =
+export type ErrorCode =
   | "GENERATION_FAILED"
   | "INVALID_REQUEST"
   | "RATE_LIMITED"
@@ -32,11 +32,7 @@ export function errorResponse(
   const id = requestId ?? uuidv4();
 
   // Redact API key fragments before logging
-  const message = sanitizeForLog(
-    err instanceof Error ? err.message : String(err)
-  );
-
-  console.error(`[verve] requestId=${id} code=${code} error=${message}`);
+  logSanitizedError(err, code, id);
 
   return NextResponse.json(
     { error: code, requestId: id },
@@ -48,13 +44,18 @@ export function errorResponse(
  * Redacts API key patterns from log strings.
  * Handles: sk-ant-*, sk-or-*, sk-*, AIzaSy*, bearer tokens.
  */
-function sanitizeForLog(msg: string): string {
+export function sanitizeForLog(msg: string): string {
   return msg
     .replace(/sk-ant-[A-Za-z0-9_\-]{10,}/g, "sk-ant-[REDACTED]")
     .replace(/sk-or-v1-[A-Za-z0-9_\-]{10,}/g, "sk-or-[REDACTED]")
     .replace(/sk-[A-Za-z0-9]{20,}/g, "sk-[REDACTED]")
     .replace(/AIzaSy[A-Za-z0-9_\-]{20,}/g, "AIzaSy[REDACTED]")
     .replace(/Bearer\s+[A-Za-z0-9._\-]{20,}/gi, "Bearer [REDACTED]");
+}
+
+export function logSanitizedError(err: unknown, code: ErrorCode, requestId: string): void {
+  const message = sanitizeForLog(err instanceof Error ? err.message : String(err));
+  console.error(`[verve] requestId=${requestId} code=${code} error=${message}`);
 }
 
 /**

@@ -43,11 +43,10 @@ export class OpenAIAdapter implements LLMAdapter {
     const modelCap = MODEL_MAX_COMPLETION_TOKENS[this.model] ?? 8000;
     const isReasoning = isReasoningModel(this.model);
 
-    // For reasoning models: use full model cap so reasoning doesn't eat output budget.
-    // For classic models: respect caller's maxTokens for cost control.
+    const requestedTokens = maxTokens ?? 8000;
     const effectiveTokens = isReasoning
-      ? modelCap
-      : Math.min(maxTokens ?? modelCap, modelCap);
+      ? Math.min(modelCap, Math.max(requestedTokens + 2000, Math.ceil(requestedTokens * 1.5)))
+      : Math.min(requestedTokens, modelCap);
 
     const fullMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
     if (systemPrompt) fullMessages.push({ role: "system", content: systemPrompt });
@@ -87,7 +86,7 @@ export class OpenAIAdapter implements LLMAdapter {
       const content = message.content;
       if (!content || content.trim() === "") {
         if (choice.finish_reason === "length") {
-          throw new Error(`Empty response from ${this.model}. The reasoning phase exhausted the max_completion_tokens budget before outputting text. Try choosing a model like gpt-5.6-luna or claude-3-5-sonnet.`);
+          throw new Error(`Empty response from ${this.model}. The reasoning phase exhausted its completion budget. Try a higher-output model or retry the request.`);
         }
         throw new Error(`Empty response from ${this.model} (finish_reason: ${choice.finish_reason ?? "unknown"}).`);
       }

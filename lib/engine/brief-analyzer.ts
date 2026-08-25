@@ -67,7 +67,11 @@ export async function analyzeBrief(llm: LLMAdapter, brief: string, existingCode?
       maxTokens:       800,
       reasoningEffort: "low",
     });
-    parsed = extractJSON<z.infer<typeof BriefAnalysisSchema>>(raw, "Brief Analyzer");
+    parsed = BriefAnalysisSchema.parse(
+      extractJSON<z.infer<typeof BriefAnalysisSchema>>(raw, "Brief Analyzer")
+    );
+  } else {
+    parsed = result.data;
   }
 
   return { ...parsed, rawBrief: brief };

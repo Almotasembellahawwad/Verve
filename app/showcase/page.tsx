@@ -30,7 +30,7 @@ export default function ShowcasePage() {
         </h1>
         <p className={styles.subheading}>
           No cherry-picking. Same brief — once sent as a plain prompt to an LLM,
-          once run through the 6-step Verve pipeline. The left is what you get by default.
+          once run through the 9-stage Verve pipeline. The left is what you get by default.
           The right is what Verve guarantees you&apos;ll get instead.
         </p>
         <div className={styles.legend}>

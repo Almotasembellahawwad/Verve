@@ -4,8 +4,8 @@ This document tracks planned development phases. Phase 3 only starts after Phase
 
 ## Phase 1 — MVP (current)
 
-- [x] Full 6-step pipeline (`/lib/engine/pipeline.ts`)
-- [x] Cliché blocklist engine (`data/cliches.json`, 20 entries)
+- [x] Nine observable pipeline stages (`/lib/engine/pipeline.ts`)
+- [x] Cliché blocklist engine (`data/cliches.json`, 21 families / 67 signals)
 - [x] Reference library RAG context (`data/reference-library.json`, 30 entries)
 - [x] Adversarial self-critique loop with 2-cycle cap
 - [x] Standalone Design Critic mode (Module E)
@@ -17,7 +17,7 @@ This document tracks planned development phases. Phase 3 only starts after Phase
 ## Phase 2 — After first users
 
 - [ ] **Community submission UI** — Web form to submit cliché patterns without opening a PR. Currently: server logs + manual PR. Target: form → admin queue → auto-PR creation via GitHub API.
-- [ ] **Postgres integration** — Save projects, track usage, power "most flagged clichés" analytics. Target DB: Neon (serverless, zero cold-start, free tier for OSS).
+- [ ] **Optional encrypted sync** — only as an explicit opt-in; local browser storage remains the default.
 - [ ] **Public API with rate limiting** — Generous anonymous tier, API key for heavy use. Implement with Upstash for Redis-backed rate limiting.
 - [ ] **Distinctiveness scoring v2** — Calibrate scores against real usage data. Current scoring is heuristic; v2 should learn from user acceptance/rejection of plans.
 - [ ] **CI/CD** — GitHub Actions: typecheck, lint, build on PR. Deploy preview on Vercel for each PR.
