@@ -20,7 +20,7 @@ export type RenderGateReport = {
 const PROBE_FILE = "/__verve_render_probe.js";
 const REACT_PROBE_FILE = "/src/__verve_render_probe.js";
 
-function probeSource(probeId: string): string {
+export function createRenderProbeSource(probeId: string): string {
   return `(() => {
   const PROBE_ID = ${JSON.stringify(probeId)};
   if (window.__verveRenderProbe === PROBE_ID) return;
@@ -126,11 +126,11 @@ export function instrumentSandboxFiles(project: GeneratedProject, probeId: strin
   );
   if (project.framework === "html" && files["/index.html"]) {
     files["/index.html"] = { code: injectHtmlProbe(files["/index.html"].code) };
-    files[PROBE_FILE] = { code: probeSource(probeId) };
+    files[PROBE_FILE] = { code: createRenderProbeSource(probeId) };
   }
   if (project.framework === "react" && files["/src/main.tsx"]) {
     files["/src/main.tsx"] = { code: injectReactProbe(files["/src/main.tsx"].code) };
-    files[REACT_PROBE_FILE] = { code: probeSource(probeId) };
+    files[REACT_PROBE_FILE] = { code: createRenderProbeSource(probeId) };
   }
   return files;
 }

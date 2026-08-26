@@ -21,6 +21,7 @@ import {
   isPipelineCheckpoint,
   type PipelineCheckpoint,
 } from "@/lib/engine/pipeline-checkpoint";
+import { PUBLIC_DEMO_BRIEF, PUBLIC_DEMO_RESULT } from "@/lib/demo/public-demo";
 
 const PROVIDERS: { id: Provider; label: string; icon: string }[] = [
   { id: "anthropic",  label: "Claude",     icon: "A" },
@@ -56,6 +57,7 @@ const SAMPLE_BRIEFS = [
 type StageState = "waiting" | "running" | "done" | "flagged";
 
 type PipelineResult = {
+  demo?: true;
   mode: "fast" | "studio";
   briefAnalysis: {
     subject: string;
@@ -216,9 +218,14 @@ export default function GeneratePanel() {
   const [recoveryCheckpoint, setRecoveryCheckpoint] = useState<PipelineCheckpoint | null>(null);
   const [historyOpen,  setHistoryOpen]  = useState(false);
   const [certOpen,     setCertOpen]     = useState(false);
+  const [clientReady,  setClientReady]  = useState(false);
   const telemetryTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const latestCheckpointRef = useRef<PipelineCheckpoint | null>(null);
+
+  useEffect(() => {
+    setClientReady(true); // eslint-disable-line react-hooks/set-state-in-effect
+  }, []);
 
   // Reload apiKey when provider changes — reads from localStorage (external system)
   useEffect(() => {
@@ -263,6 +270,25 @@ export default function GeneratePanel() {
 
   const openApiKeyModal = () => {
     window.dispatchEvent(new CustomEvent("verve:open-api-key-modal"));
+  };
+
+  const openPublicDemo = () => {
+    abortRef.current?.abort();
+    setBrief(PUBLIC_DEMO_BRIEF);
+    setFramework("html");
+    setMode("fast");
+    setLoading(false);
+    setError(null);
+    setMissingKey(false);
+    setRecoveryProject(null);
+    setRecoveryMessage(null);
+    setRecoveryCheckpoint(null);
+    setPatchedCode(null);
+    setRetryMessage(null);
+    setStageExtras({});
+    setStageStates([]);
+    setActiveView("project");
+    setResult(PUBLIC_DEMO_RESULT);
   };
 
   // ── SSE-based telemetry: update stage from real events ──────────────────
@@ -729,25 +755,32 @@ export default function GeneratePanel() {
           </div>
         )}
 
-        <button
-          className={`${styles.generateBtn} ${loading ? styles.cancelBtn : ""}`}
-          onClick={loading ? () => abortRef.current?.abort() : () => void handleGenerate()}
-          disabled={!loading && !brief.trim()}
-          id="generate-submit"
-          aria-busy={loading}
-        >
-          {loading ? (
-            <>
-              <span aria-hidden="true">■</span>
-              Cancel generation
-            </>
-          ) : (
-            <>
-              <span aria-hidden="true">▶</span>
-              Run Verve pipeline
-            </>
+        <div className={styles.generateActions}>
+          <button
+            className={`${styles.generateBtn} ${loading ? styles.cancelBtn : ""}`}
+            onClick={loading ? () => abortRef.current?.abort() : () => void handleGenerate()}
+            disabled={!loading && !brief.trim()}
+            id="generate-submit"
+            aria-busy={loading}
+          >
+            {loading ? (
+              <>
+                <span aria-hidden="true">■</span>
+                Cancel generation
+              </>
+            ) : (
+              <>
+                <span aria-hidden="true">▶</span>
+                Run Verve pipeline
+              </>
+            )}
+          </button>
+          {!loading && (
+            <button type="button" className={styles.demoBtn} onClick={openPublicDemo} id="open-public-demo" disabled={!clientReady}>
+              Explore live demo <span>no API key</span>
+            </button>
           )}
-        </button>
+        </div>
       </div>
 
       {/* -- Live Telemetry Log (visible while loading) -------------------- */}
@@ -832,9 +865,11 @@ export default function GeneratePanel() {
                   {result.revisionCount} revision{result.revisionCount > 1 ? "s" : ""}
                 </span>
               )}
-              <span className={styles.duration}>
-                {(result.durationMs / 1000).toFixed(1)}s
-              </span>
+              {result.demo ? (
+                <span className={styles.demoBadge}>CURATED DEMO · NO MODEL CALL</span>
+              ) : (
+                <span className={styles.duration}>{(result.durationMs / 1000).toFixed(1)}s</span>
+              )}
               <button
                 className={styles.certBtn}
                 onClick={() => setCertOpen(true)}

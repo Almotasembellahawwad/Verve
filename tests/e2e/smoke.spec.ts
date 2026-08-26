@@ -65,4 +65,46 @@ test("security headers protect the public surface", async ({ request }) => {
   expect(response.headers()["x-content-type-options"]).toBe("nosniff");
   expect(response.headers()["x-frame-options"]).toBe("DENY");
   expect(response.headers()["content-security-policy"]).toContain("frame-ancestors 'none'");
+  expect(response.headers()["content-security-policy"]).toContain("https://fonts.googleapis.com");
+  expect(response.headers()["content-security-policy"]).toContain("https://cdn.fontshare.com");
+});
+
+test("public discovery files point to Verve's canonical deployment", async ({ request }) => {
+  const [robots, sitemap, manifest, socialImage] = await Promise.all([
+    request.get("/robots.txt"),
+    request.get("/sitemap.xml"),
+    request.get("/manifest.webmanifest"),
+    request.get("/opengraph-image"),
+  ]);
+
+  for (const response of [robots, sitemap, manifest, socialImage]) {
+    expect(response.ok()).toBeTruthy();
+  }
+
+  expect(await robots.text()).toContain("https://verve-dev.vercel.app/sitemap.xml");
+  expect(await sitemap.text()).toContain("https://verve-dev.vercel.app/lab");
+  expect((await manifest.json()).start_url).toBe("/");
+  expect(socialImage.headers()["content-type"]).toContain("image/png");
+});
+
+test("the no-key demo opens as an editable native HTML project", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (window === window.top) {
+      window.localStorage.setItem("verve_onboarding_seen_v2", "1");
+    }
+  });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const demoButton = page.locator("#open-public-demo");
+  await expect(demoButton).toBeEnabled({ timeout: 15_000 });
+  await demoButton.click();
+
+  await expect(page.getByText("CURATED DEMO · NO MODEL CALL")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "maeda-cairo-public-demo" })).toBeVisible();
+  await expect(page.getByText("Native HTML preview · zero package downloads")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Edit index.html" })).toBeEditable();
+
+  const preview = page.frameLocator('iframe[title="maeda-cairo-public-demo live preview"]');
+  await expect(preview.getByRole("heading", { name: /القاهرة/ })).toBeVisible();
+  await expect(page.getByText("Static validation and the rendered result both passed.")).toBeVisible();
 });

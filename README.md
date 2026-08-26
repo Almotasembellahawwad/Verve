@@ -1,10 +1,17 @@
 # Verve — speak a brief, ship a complete project
 
-![Verve 0.2 project intelligence interface](docs/verve-0.2-preview.png)
+![Verve project intelligence interface](docs/verve-0.2-preview.png)
 
 Verve is an open-source project intelligence engine for generating distinctive web projects from spoken or written briefs. It does not stop at a code block: every successful run returns a runnable multi-file project, design rationale, validation evidence, and a ZIP export. HTML and React projects also open in a lightweight live sandbox; complete Next.js projects use an inspect-and-export workspace for reliable local execution.
 
 [Development preview](https://verve-dev.vercel.app/) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [MIT License](LICENSE)
+
+## What changed in 0.3 Public Beta
+
+- **No-key live demo** — inspect, edit, validate, and download a complete Arabic HTML project without an account or provider call.
+- **Native HTML runtime** — HTML/CSS uses an isolated browser frame with zero package downloads; React remains on the lightweight Sandpack runtime.
+- **Discoverable release surface** — canonical metadata, generated social cards, sitemap, robots policy, manifest, and SoftwareApplication structured data.
+- **Public engineering contract** — CI, issue forms, changelog, security policy, and an explicit disclosure of the browser-local BYOK request path.
 
 ## What changed in 0.2
 
@@ -151,7 +158,7 @@ npm run dev
 
 Open `http://localhost:3000`. Add a provider key from the key manager. It is saved under Verve’s browser-local storage namespace and is never written to the repository or a Verve database.
 
-Optional environment settings are documented in [`.env.example`](.env.example). Pexels is optional and its key follows the same local BYOK flow.
+The optional canonical-site setting is documented in [`.env.example`](.env.example). Provider and Pexels keys are entered in the browser key manager and must not be added to environment files.
 
 ## Commands
 

@@ -19,8 +19,8 @@ const PIPELINE_MODULES = [
   {
     id: "02",
     name: "Asset Sourcing (Module H)",
-    description: "Sources Pexels images (with 12-item cliché blocklist), Fontshare fonts, and Lucide icons based on the brief.",
-    systemPromptHighlight: "BLOCKED images: handshake, business meeting, generic team, stock smile... Query Pexels for subject-specific, contextually honest photography.",
+    description: "Sources optional Pexels images, contextual Lucide icon names, and a platform-safe font stack without a mandatory runtime font request.",
+    systemPromptHighlight: "BLOCKED images: handshake, business meeting, generic team, stock smile... Use subject-specific photography when Pexels is available; keep typography runnable without a remote font dependency.",
     inputs: ["BriefAnalysis", "pexelsKey"],
     outputs: ["AssetBundle (photos, fonts, icons)"],
   },

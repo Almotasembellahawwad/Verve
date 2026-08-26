@@ -1,0 +1,20 @@
+name: Feature request
+description: Propose an outcome Verve should enable.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    attributes:
+      label: User problem
+      description: What cannot you complete today, and who has this problem?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Desired outcome
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Evidence or example
+      description: Add a public reference, screenshot, or generated-project example when possible.

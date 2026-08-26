@@ -35,6 +35,9 @@ This document tracks shipped foundations and the next evidence-driven product wo
 - [x] ZIP export follows current editor changes
 - [x] Browser-local BYOK with no Supabase dependency
 - [x] GPT-5.6 Responses API, per-call deadlines, optional-stage fallback, accurate stage timing, and missed-heartbeat recovery
+- [x] Native HTML/CSS preview with zero package downloads and isolated execution
+- [x] Editable no-key public demo for first-run product proof
+- [x] Public metadata surface: canonical URL, social cards, robots, sitemap, manifest, and structured data
 
 ## Phase 2.1 — Quality calibration
 
@@ -51,7 +54,8 @@ This document tracks shipped foundations and the next evidence-driven product wo
 - [ ] **Optional encrypted sync** — only as an explicit opt-in; local browser storage remains the default.
 - [ ] **Public API with rate limiting** — Generous anonymous tier, API key for heavy use. Implement with Upstash for Redis-backed rate limiting.
 - [ ] **Distinctiveness scoring v2** — Calibrate scores against real usage data while keeping project readiness a separate axis.
-- [ ] **CI/CD** — GitHub Actions: typecheck, lint, build on PR. Deploy preview on Vercel for each PR.
+- [x] **CI** — GitHub Actions: typecheck, lint, engine tests, production build, and Playwright on PRs and `main`.
+- [ ] **Deploy previews** — Keep Vercel preview deployments attached to pull requests and expose their status in GitHub.
 - [ ] **More cliché entries** — Target: 50 entries. Focus areas: motion (more specific timing patterns), copy (more LLM-specific phrasing tells), component-level layout tells (pricing table layouts, testimonial patterns).
 
 ## Phase 3 — After real traction

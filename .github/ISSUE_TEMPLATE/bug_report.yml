@@ -1,0 +1,30 @@
+name: Bug report
+description: Report a reproducible Verve failure.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: Include the failed stage and visible error. Never paste an API key.
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Framework
+      options: [HTML + CSS, React 19, Next.js 16, Not applicable]
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Provider and model
+      placeholder: OpenRouter / model name
+  - type: textarea
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Browser console or recovery message
+      description: Remove prompts, personal data, tokens, and API keys before posting.

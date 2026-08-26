@@ -25,6 +25,7 @@ import { analyzeCompetitiveField } from "../lib/engine/competitive-field";
 import { findUnsupportedQuantifiedClaims } from "../lib/engine/content-safety";
 import { liveSandboxTemplate, supportsLiveSandbox } from "../lib/project/live-sandbox";
 import { instrumentSandboxFiles, isRenderGateReport } from "../lib/project/render-gate";
+import { buildHtmlPreviewDocument } from "../lib/project/html-preview";
 import { runPipeline } from "../lib/engine/pipeline";
 import {
   checkpointMatchesInput,
@@ -337,6 +338,32 @@ test("Live Sandbox is limited to HTML and lightweight React", () => {
   assert.equal(liveSandboxTemplate("html"), "static");
   assert.equal(liveSandboxTemplate("react"), "react");
   assert.throws(() => liveSandboxTemplate("nextjs"), /does not run full nextjs/);
+});
+
+test("native HTML preview inlines local files without mutating the exported project", () => {
+  const base = buildRecoveryProject("Native HTML preview fixture", "html", "test");
+  const project = {
+    ...base,
+    files: [
+      {
+        ...base.files[0],
+        content: '<!doctype html><html><head><link rel="stylesheet" href="./styles.css"></head><body><main>Preview</main><script src="script.js"></script></body></html>',
+      },
+      { path: "styles.css", content: "main { color: tomato; }", language: "css", role: "source" as const },
+      { path: "script.js", content: "window.previewReady = true;", language: "javascript", role: "source" as const },
+    ],
+  };
+  const originalHtml = project.files[0].content;
+  const preview = buildHtmlPreviewDocument(project, "native-probe");
+
+  assert.match(preview, /data-verve-source="styles\.css"/);
+  assert.match(preview, /main \{ color: tomato; \}/);
+  assert.match(preview, /data-verve-source="script\.js"/);
+  assert.match(preview, /window\.previewReady = true/);
+  assert.match(preview, /data-verve-render-probe/);
+  assert.match(preview, /native-probe/);
+  assert.doesNotMatch(preview, /href="\.\/styles\.css"/);
+  assert.equal(project.files[0].content, originalHtml);
 });
 
 test("Render Gate instrumentation stays ephemeral and supports HTML and React previews", () => {

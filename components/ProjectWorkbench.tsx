@@ -16,6 +16,7 @@ import { validateGeneratedProject } from "@/lib/project/project-validator";
 import { mergeEditorFiles } from "@/lib/project/editor-project";
 import { liveSandboxTemplate, supportsLiveSandbox } from "@/lib/project/live-sandbox";
 import { instrumentSandboxFiles, isRenderGateReport, type RenderGateReport } from "@/lib/project/render-gate";
+import NativeHtmlWorkbench from "./NativeHtmlWorkbench";
 import styles from "./ProjectWorkbench.module.css";
 
 type Viewport = "mobile" | "tablet" | "desktop";
@@ -294,6 +295,10 @@ export default function ProjectWorkbench({ project }: { project: GeneratedProjec
 
   if (!supportsLiveSandbox(project.framework)) {
     return <NextProjectInspector project={project} />;
+  }
+
+  if (project.framework === "html") {
+    return <NativeHtmlWorkbench key={`${project.name}-${project.files.length}`} project={project} />;
   }
 
   return (

@@ -89,11 +89,11 @@ If you're contributing to the engine (`/lib/engine`) or UI components (`/compone
 ## Running locally
 
 ```bash
-cp .env.example .env.local
-# Add ANTHROPIC_API_KEY
 npm install
 npm run dev
 ```
+
+Open `http://localhost:3000` and add a provider key through Verve's browser key manager when you need to run the real pipeline. Never commit provider keys or paste them into issues.
 
 ## License
 

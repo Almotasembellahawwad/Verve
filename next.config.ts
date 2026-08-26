@@ -4,8 +4,8 @@ const isProduction = process.env.NODE_ENV === "production";
 const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isProduction ? "" : " 'unsafe-eval'"}`,
-  "style-src 'self' 'unsafe-inline'",
-  "font-src 'self' data:",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com",
+  "font-src 'self' data: https://fonts.gstatic.com https://cdn.fontshare.com",
   "img-src 'self' data: blob: https:",
   "connect-src 'self' https:",
   "frame-src 'self' https://*.codesandbox.io https://codesandbox.io",
