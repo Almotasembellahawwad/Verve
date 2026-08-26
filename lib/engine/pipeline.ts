@@ -14,7 +14,7 @@
 // [06] Scorer (J)              → DistinctivenessReport
 // =========================================================
 
-import { analyzeBrief, type BriefAnalysis }                           from "./brief-analyzer";
+import { analyzeBrief, analyzeBriefLocally, type BriefAnalysis }      from "./brief-analyzer";
 import { runBlocklistFilter, type BlocklistResult }                    from "./blocklist-filter";
 import { generateDesignPlan, type DesignPlan }                        from "./plan-generator";
 import { runSelfCritique, formatCritiqueForRegeneration, type CritiqueResult } from "./critique-loop";
@@ -32,7 +32,7 @@ import { createAdapter }                                              from "../l
 import type { Provider }                                               from "../llm-adapter/types";
 import { buildGeneratedProject }                                      from "../project/project-builder";
 import type { GeneratedProject }                                      from "../project/types";
-import { critiquePlanLocally, resolveArchetypeLocally }                from "./fast-path";
+import { critiquePlanLocally, generateDesignPlanLocally, resolveArchetypeLocally } from "./fast-path";
 import { runOptionalProviderStep }                                    from "./provider-resilience";
 
 
@@ -126,8 +126,27 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   // ── [01] Brief Analysis ──────────────────────────────────────────────────
   emit("stage_start", { id: "01", name: "Brief Analysis", module: "BriefAnalyzer" }, "01-start");
   let elapsed = timer();
-  const briefAnalysis = await analyzeBrief(llm, brief, existingCode);
-  emit("stage_done", { id: "01", name: "Brief Analysis", durationMs: elapsed() }, "01-done");
+  const briefStep = mode === "fast"
+    ? { value: analyzeBriefLocally(brief, existingCode), degraded: false, reason: undefined, source: "local-fast-path" as const }
+    : await runOptionalProviderStep(
+      () => analyzeBrief(llm, brief, existingCode),
+      () => analyzeBriefLocally(brief, existingCode),
+      signal
+    ).then((result) => ({ ...result, source: result.degraded ? "local-fallback" as const : "provider" as const }));
+  const briefAnalysis = briefStep.value;
+  if (briefStep.degraded) {
+    emit("stage_degraded", {
+      id: "01",
+      reason: briefStep.reason,
+      message: "Provider analysis was unavailable; Verve extracted a conservative brief locally and continued.",
+    }, "01-degraded");
+  }
+  emit("stage_done", {
+    id: "01",
+    name: "Brief Analysis",
+    durationMs: elapsed(),
+    extra: { source: briefStep.source },
+  }, "01-done");
 
   // ── [02] Asset Sourcing + Blocklist + Competitive Field — parallel ─────────
   emit("stage_start", { id: "02", name: "Asset Sourcing + Blocklist + Competitive Field", module: "H+Blocklist+L" }, "02-start");
@@ -181,18 +200,31 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
 
   emit("stage_start", { id: "03", name: "Design Plan Generation", module: "PlanGenerator + G" }, "03-start");
   elapsed = timer();
-  designPlan = await generateDesignPlan(
-    llm,
-    briefAnalysis,
-    blocklistAndAssetContext,
-    previousCritique,
-    archetypeContext,
-    animationContext,
-    {
-      timeoutMs: mode === "fast" ? 45_000 : 55_000,
-      reasoningEffort: mode === "fast" ? "low" : "medium",
-    }
+  const planStep = await runOptionalProviderStep(
+    () => generateDesignPlan(
+      llm,
+      briefAnalysis,
+      blocklistAndAssetContext,
+      previousCritique,
+      archetypeContext,
+      animationContext,
+      {
+        timeoutMs: mode === "fast" ? 45_000 : 55_000,
+        reasoningEffort: mode === "fast" ? "low" : "medium",
+      }
+    ),
+    () => generateDesignPlanLocally(briefAnalysis),
+    signal
   );
+  designPlan = planStep.value;
+  if (planStep.degraded) {
+    studioReviewDegraded = true;
+    emit("stage_degraded", {
+      id: "03",
+      reason: planStep.reason,
+      message: "The provider could not return a valid plan; a brief-specific local plan preserved code generation.",
+    }, "03-plan-degraded");
+  }
   if (mode === "fast") {
     finalCritique = critiquePlanLocally(designPlan);
   } else {

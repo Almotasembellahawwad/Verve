@@ -613,11 +613,11 @@ export default function GeneratePanel() {
               onChange={(event) => setMode(event.target.value as "fast" | "studio")}
               disabled={loading}
             >
-              <option value="fast">Fast · 3 core model calls</option>
+              <option value="fast">Fast · 2 core model calls</option>
               <option value="studio">Studio · adversarial review</option>
             </select>
             <span className={styles.hint}>
-              {mode === "fast" ? "Best for OpenRouter and rapid drafts." : "Deeper critique and one repair pass."}
+              {mode === "fast" ? "Local brief analysis saves one provider call; plan and code retain fallbacks." : "Deeper critique and one repair pass."}
             </span>
           </div>
           <div className={styles.inputGroup}>
@@ -1127,7 +1127,7 @@ export default function GeneratePanel() {
                   <h3 className={styles.reportSectionTitle}>
                     Restraint Check &mdash; Module N
                     <span style={{
-                      fontSize: "9px", letterSpacing: "0.1em", marginLeft: 8,
+                      fontSize: "10px", letterSpacing: "0.1em", marginLeft: 8,
                       color: result.restraintResult.verdict === "disciplined" ? "#34D399"
                         : result.restraintResult.verdict === "restrained-further" ? "#FBBF24"
                         : "#FF5050"
@@ -1179,7 +1179,7 @@ export default function GeneratePanel() {
                   <h3 className={styles.reportSectionTitle}>
                     Engineering Score &mdash; Dual Scoring
                     <span style={{
-                      fontSize: "9px", letterSpacing: "0.1em", marginLeft: 8,
+                      fontSize: "10px", letterSpacing: "0.1em", marginLeft: 8,
                       color: result.engineeringResult.passed ? "#34D399" : "#FF5050"
                     }}>
                       Grade {result.engineeringResult.grade}
@@ -1231,7 +1231,7 @@ export default function GeneratePanel() {
 
                   {result.engineeringResult.recommendations.length > 0 && (
                     <div style={{ marginTop: 10, borderTop: "0.5px solid rgba(255,255,255,0.06)", paddingTop: 10 }}>
-                      <div style={{ fontSize: "9px", letterSpacing: "0.1em", color: "rgba(255,255,255,0.25)", marginBottom: 6, textTransform: "uppercase" }}>
+                      <div style={{ fontSize: "10px", letterSpacing: "0.1em", color: "rgba(255,255,255,0.25)", marginBottom: 6, textTransform: "uppercase" }}>
                         Top fixes
                       </div>
                       {result.engineeringResult.recommendations.map((rec, i) => (
@@ -1253,7 +1253,7 @@ export default function GeneratePanel() {
                   <div className={styles.reportSection}>
                     <h3 className={styles.reportSectionTitle}>
                       Competitive Field &mdash; Module L
-                      <span style={{ fontSize: "9px", letterSpacing: "0.1em", marginLeft: 8, color: cf.temperature === "hot" ? "#FF5050" : cf.temperature === "warm" ? "#FBBF24" : "#34D399" }}>
+                      <span style={{ fontSize: "10px", letterSpacing: "0.1em", marginLeft: 8, color: cf.temperature === "hot" ? "#FF5050" : cf.temperature === "warm" ? "#FBBF24" : "#34D399" }}>
                         {cf.temperature?.toUpperCase()} MARKET
                       </span>
                     </h3>

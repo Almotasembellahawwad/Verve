@@ -239,7 +239,7 @@
 .tabBadge {
   display: inline-flex;
   align-items: center;
-  font-size: 9px;
+  font-size: 10px;
   font-family: var(--font-display);
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -391,7 +391,7 @@
   right: 10px;
   top: 148px;
   color: rgba(255, 255, 255, 0.14);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.22em;
   writing-mode: vertical-rl;
 }
@@ -407,7 +407,7 @@
   justify-content: space-between;
   align-items: flex-start;
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 0.06em;
   border-left: 1px solid rgb(var(--brand-rgb) / 0.48);
   background-image: repeating-linear-gradient(to bottom, rgb(var(--brand-rgb) / 0.5) 0 1px, transparent 1px 12px);
@@ -529,7 +529,7 @@
   padding: 12px;
   background: var(--bg-void);
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 10px;
   line-height: 1.4;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -590,7 +590,7 @@
   justify-content: space-between;
   padding-bottom: 14px;
   border-bottom: 1px solid rgba(20,22,19,0.3);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.1em;
 }
 
@@ -629,7 +629,7 @@
 }
 
 .scoreLabel {
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 0.13em;
 }
 
@@ -659,7 +659,7 @@
 .traceRows b {
   color: var(--brand);
   text-transform: uppercase;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .traceRows em {
@@ -686,7 +686,7 @@
   right: 18px;
   bottom: 16px;
   color: rgba(20,22,19,0.28);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .thesisBand {
@@ -717,7 +717,7 @@
 
 .thesisEyebrow {
   color: var(--brand);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.16em;
 }
 
@@ -892,7 +892,7 @@
   right: max(24px, calc((100vw - 1180px) / 2));
   top: 42px;
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 0.16em;
 }
 

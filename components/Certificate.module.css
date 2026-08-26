@@ -131,7 +131,7 @@
 .certDate,
 .certDuration,
 .certRevision {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.25);
@@ -175,7 +175,7 @@
 }
 
 .certScoreLabel {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.25);
@@ -186,7 +186,7 @@
 .certSection {}
 
 .certSectionTitle {
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.22);
@@ -296,14 +296,14 @@
 }
 
 .certFooterNote {
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.15);
 }
 
 .certFooterUrl {
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgb(var(--brand-rgb) / 0.35);

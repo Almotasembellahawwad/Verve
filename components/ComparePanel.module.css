@@ -322,7 +322,7 @@
   font-size: 11px;
 }
 
-.tlId    { color: var(--text-muted); opacity: 0.5; font-size: 9px; letter-spacing: 0.04em; width: 24px; }
+.tlId    { color: var(--text-muted); opacity: 0.5; font-size: 10px; letter-spacing: 0.04em; width: 24px; }
 .tlName  { color: var(--text-muted); flex: 1; }
 .tlDone  { color: var(--data-pass); font-size: 10px; }
 
@@ -686,7 +686,7 @@
 }
 
 .gmOverlayText {
-  font-size: 9px;
+  font-size: 10px;
   color: rgba(255,255,255,0.5);
   letter-spacing: 0.1em;
   font-family: var(--font-display);

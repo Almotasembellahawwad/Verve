@@ -221,7 +221,7 @@
 }
 
 .annotation {
-  font-size: 9px;
+  font-size: 10px;
   font-family: var(--font-display);
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -272,7 +272,7 @@
 }
 
 .clicheItem {
-  font-size: 9.5px;
+  font-size: 10px;
   font-family: var(--font-display);
   color: #E06050;
   letter-spacing: 0.04em;

@@ -188,8 +188,9 @@ export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
             {/* OpenRouter note */}
             {activeProvider === "openrouter" && (
               <div className={styles.openrouterNote}>
-                <strong>Free routing included:</strong> OpenRouter selects an available free model automatically,
-                with GPT OSS 20B as a direct fallback. Provider-side rate limits still apply.
+                <strong>Experimental free routing:</strong> Verve uses local brief analysis, structured output, and
+                gateway fallback so a weak first model does not waste the run. Free-model availability and daily
+                limits are still controlled by OpenRouter and are not suitable for guaranteed production traffic.
                 Get your key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className={styles.inlineLink}>openrouter.ai/keys</a>.
               </div>
             )}

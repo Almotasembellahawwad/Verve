@@ -79,6 +79,64 @@ const DesignPlanOutputSchema = z.object({
   }),
 });
 
+const DESIGN_PLAN_JSON_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    colorPalette: {
+      type: "array",
+      minItems: 3,
+      maxItems: 8,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          name: { type: "string" },
+          hex: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
+          role: { type: "string" },
+        },
+        required: ["name", "hex", "role"],
+      },
+    },
+    typePairing: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        display: { type: "string" },
+        body: { type: "string" },
+        rationale: { type: "string" },
+      },
+      required: ["display", "body", "rationale"],
+    },
+    layoutConcept: { type: "string" },
+    signatureElement: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        name: { type: "string" },
+        description: { type: "string" },
+        implementation: { type: "string" },
+        justification: { type: "string" },
+      },
+      required: ["name", "description", "implementation", "justification"],
+    },
+    referencesSampled: { type: "array", items: { type: "string" } },
+    cognitiveGrounding: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        vonRestorffCompliance: { type: "string" },
+        gutenbergCompliance: { type: "string" },
+        signalNoiseRatio: { type: "number", minimum: 0, maximum: 1 },
+        peakEndDesign: { type: "string" },
+        usabilityBaseline: { type: "string" },
+      },
+      required: ["vonRestorffCompliance", "gutenbergCompliance", "signalNoiseRatio", "peakEndDesign", "usabilityBaseline"],
+    },
+  },
+  required: ["colorPalette", "typePairing", "layoutConcept", "signatureElement", "referencesSampled", "cognitiveGrounding"],
+};
+
 function getRelevantReferences(analysis: BriefAnalysis): RefEntry[] {
   const scored = refData.entries.map((ref) => {
     let score = 0;
@@ -196,6 +254,7 @@ Generate the design plan now.`;
     maxTokens: 3500,
     reasoningEffort: options.reasoningEffort ?? "medium",
     timeoutMs: options.timeoutMs,
+    responseFormat: { name: "design_plan", schema: DESIGN_PLAN_JSON_SCHEMA },
   });
 
   let result = DesignPlanOutputSchema.safeParse(extractJSON<unknown>(raw, "Plan Generator"));
@@ -212,6 +271,7 @@ Generate the design plan now.`;
       maxTokens: 3500,
       reasoningEffort: "low",
       timeoutMs: options.timeoutMs,
+      responseFormat: { name: "design_plan", schema: DESIGN_PLAN_JSON_SCHEMA },
     });
     result = DesignPlanOutputSchema.safeParse(extractJSON<unknown>(raw, "Plan Generator retry"));
   }

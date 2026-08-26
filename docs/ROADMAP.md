@@ -23,9 +23,10 @@ This document tracks shipped foundations and the next evidence-driven product wo
 - [x] Framework-safe preview: live HTML/React sandbox plus Next.js inspector/export
 - [x] Rendered-result gate for live overflow, runtime, text-size, and accessibility evidence
 - [x] Playwright desktop/mobile smoke tests and security-header checks
-- [x] Fast mode with three core model calls and deterministic preflight
+- [x] Verve public-surface self-audit for the same 10px typography floor used by generated projects
+- [x] Fast mode with local brief extraction, two core model calls, and deterministic preflight
 - [x] Studio mode with adversarial critique and bounded repair
-- [x] OpenRouter timeout, retry, fallback, heartbeat, truncation rejection, and recovery result
+- [x] OpenRouter gateway fallback, structured output, local brief/plan resilience, heartbeat, truncation rejection, and recovery result
 - [x] Arabic and English browser speech-to-text input
 - [x] Project readiness warnings independent of distinctiveness score
 - [x] Multi-file Project Validator with blocked/review/ready terminal states

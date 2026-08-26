@@ -53,6 +53,93 @@ export function resolveArchetypeLocally(analysis: BriefAnalysis): ArchetypeResol
   };
 }
 
+type LocalVisualDirection = {
+  pattern: RegExp;
+  palette: DesignPlan["colorPalette"];
+  display: string;
+  signature: string;
+};
+
+const LOCAL_VISUAL_DIRECTIONS: LocalVisualDirection[] = [
+  {
+    pattern: /food|hospitality|restaurant|مطعم|cafe|مقهى/i,
+    palette: [
+      { name: "Charred Clay", hex: "#17100D", role: "primary background" },
+      { name: "Linen", hex: "#FFF2D8", role: "primary text and light surface" },
+      { name: "Cairo Pepper", hex: "#E85D2A", role: "action and directional accent" },
+      { name: "Olive Leaf", hex: "#87945B", role: "secondary material accent" },
+    ],
+    display: "Georgia, 'Times New Roman', serif",
+    signature: "The Table Route",
+  },
+  {
+    pattern: /architecture|interior|عمارة|داخلي/i,
+    palette: [
+      { name: "Graphite", hex: "#121313", role: "primary background" },
+      { name: "Drawing Paper", hex: "#F2EFE8", role: "primary text and light surface" },
+      { name: "Survey Red", hex: "#D84A38", role: "measured focal accent" },
+      { name: "Concrete", hex: "#8C918D", role: "secondary annotation" },
+    ],
+    display: "Arial Narrow, Arial, sans-serif",
+    signature: "The Occupied Datum",
+  },
+  {
+    pattern: /beauty|skincare|بشرة|تجميل/i,
+    palette: [
+      { name: "Ink", hex: "#151414", role: "primary text and dark surface" },
+      { name: "Mineral", hex: "#E7E1D5", role: "primary background" },
+      { name: "Berry Proof", hex: "#A53B5B", role: "evidence and action accent" },
+      { name: "Moss", hex: "#66705B", role: "secondary material accent" },
+    ],
+    display: "Georgia, 'Times New Roman', serif",
+    signature: "The Evidence Seam",
+  },
+];
+
+export function generateDesignPlanLocally(analysis: BriefAnalysis): DesignPlan {
+  const haystack = `${analysis.subject} ${analysis.industry} ${analysis.rawBrief}`;
+  const direction = LOCAL_VISUAL_DIRECTIONS.find((candidate) => candidate.pattern.test(haystack)) ?? {
+    palette: [
+      { name: "Near Black", hex: "#111315", role: "primary background" },
+      { name: "Paper", hex: "#F3F0E8", role: "primary text and light surface" },
+      { name: "Signal", hex: "#F05A38", role: "single action accent" },
+      { name: "Slate", hex: "#73808A", role: "secondary annotation" },
+    ],
+    display: "Arial, Helvetica, sans-serif",
+    signature: "The Decision Line",
+  };
+
+  return {
+    colorPalette: direction.palette,
+    typePairing: {
+      display: direction.display,
+      body: "Arial, Helvetica, sans-serif",
+      rationale: `System typography keeps delivery reliable while the hierarchy is shaped around ${analysis.primaryJob.toLowerCase()}.`,
+    },
+    layoutConcept: [
+      "A narrow orientation rail establishes subject and place without a centered hero.",
+      "The main reading path alternates one decisive statement with compact evidence supplied by the brief.",
+      "The signature device crosses the content once, then resolves into the single primary action.",
+      "The final section closes the argument instead of repeating navigation or invented social proof.",
+    ].join("\n"),
+    signatureElement: {
+      name: direction.signature,
+      description: "One continuous directional line that connects the opening promise to the final action.",
+      implementation: "Use one responsive CSS grid line with semantic labels; collapse it into a vertical guide below 768px.",
+      justification: `It gives ${analysis.subject} a recognizable reading mechanism tied to the page job, without relying on decorative repetition.`,
+    },
+    referencesSampled: [],
+    cognitiveGrounding: {
+      vonRestorffCompliance: "The single accent line is isolated by spacing and is never repeated as decoration.",
+      gutenbergCompliance: "The opening statement anchors the primary area and the truthful action owns the terminal area.",
+      signalNoiseRatio: 0.82,
+      peakEndDesign: `The closing state restates the decision in the language of: ${analysis.primaryJob}.`,
+      usabilityBaseline: "Use AA text contrast, 44px minimum interactive targets, visible focus, and reduced-motion behavior.",
+    },
+    rawPlan: "Deterministic local resilience plan generated from the supplied brief.",
+  };
+}
+
 export function critiquePlanLocally(plan: DesignPlan): CritiqueResult {
   const issues: CritiqueResult["flaggedElements"] = [];
   if ((plan.colorPalette ?? []).length < 3) {

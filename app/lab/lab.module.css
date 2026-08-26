@@ -121,7 +121,7 @@
 .moduleBtn.active { background: var(--brand-dim); color: var(--text-primary); border-right: 2px solid var(--brand); }
 
 .moduleId {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.08em;
   color: var(--brand);
   font-family: 'Courier New', monospace;
@@ -172,7 +172,7 @@
 }
 
 .detailLabel {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: rgba(255,255,255,0.3);
@@ -294,7 +294,7 @@
 }
 
 .constraintKey {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(255,255,255,0.25);
@@ -323,7 +323,7 @@
 
 .avoidIcon {
   flex-shrink: 0;
-  font-size: 9px;
+  font-size: 10px;
   margin-top: 2px;
 }
 
@@ -392,7 +392,7 @@
 }
 
 .briefCopyBtn {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(255,255,255,0.35);
@@ -408,7 +408,7 @@
 }
 
 .briefRunBtn {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--status-success);

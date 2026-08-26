@@ -10,15 +10,15 @@ Verve is an open-source project intelligence engine for generating distinctive w
 
 - **Project Engine** — assembles complete Next.js 16, React 19 + Vite, or standalone HTML projects.
 - **Framework-safe preview** — HTML and lightweight React run in the live sandbox; Next.js projects use a file inspector and ZIP export instead of an incompatible browser shell.
-- **Fast and Studio modes** — a three-model-call draft path and a deeper adversarial production path.
+- **Fast and Studio modes** — a two-model-call draft path with local brief extraction and a deeper adversarial production path.
 - **Voice briefs** — dictate in Arabic or English, review the transcript, then generate.
-- **OpenRouter recovery** — per-call limits, retry/fallback routing, ten-second SSE heartbeats, truncation detection, failed-stage reporting, and a downloadable recovery draft.
+- **OpenRouter recovery** — gateway-managed model fallback, structured JSON output, local brief/plan resilience, ten-second SSE heartbeats, truncation detection, failed-stage reporting, and a downloadable recovery draft.
 - **Complete ZIP export** — source, configuration, dependencies, `.gitignore`, and a project-specific README.
 - **Production warnings** — flags fake forms, unsafe HTML injection, unsupported quantified claims, runtime asset dependencies, root-level mobile clipping, weak React keys, missing fonts, tiny text, and missing reduced-motion handling.
 - **Project Validator 0.2.1** — verifies scaffold files, entry exports, relative imports, declared dependencies, fragment links, form contracts, image alternatives, button types, reduced motion, and unfinished content markers.
 - **Live Problems + Console** — revalidates the edited project inside the workbench and surfaces Sandpack runtime failures beside deterministic checks.
 - **Rendered-result gate** — HTML/React previews report real viewport overflow, console failures, tiny text, missing image alternatives, duplicate IDs, and unnamed buttons before readiness can become `ready`.
-- **Browser smoke suite** — Playwright verifies desktop/mobile rendering, horizontal overflow, browser errors, and security headers using the installed Chrome channel.
+- **Browser smoke suite** — Playwright verifies desktop/mobile rendering, horizontal overflow, browser errors, security headers, and Verve's own 10px readable-type floor using the installed Chrome channel.
 - **Edit-safe export** — ZIP packages the current editor state, not the original generated snapshot.
 - **Calibrated Fast evidence 0.2.4** — Fast-mode structural evidence can no longer masquerade as an adversarial visual review, blocklist and usability failures cap the final grade, cliché matching requires distinctive evidence, and the plan prompt no longer recommends its own forbidden cream token.
 - **Truthful scoring and HTML delivery 0.2.3** — adversarial design flags cap distinctiveness scores, engineering checks avoid reduced-motion and fluid-width false positives, static HTML projects ship accurate no-build instructions, and generators may not fabricate item-level portfolio records from a total count.
@@ -40,7 +40,7 @@ Distinctiveness is not allowed to hide broken behavior. A high visual score and 
 
 | Mode | Model calls | Best for | Behavior |
 |---|---:|---|---|
-| **Fast** | 3 core calls, plus provider/schema retries | OpenRouter free models, exploration, rapid drafts | LLM brief analysis, local archetype/preflight, design plan, code, deterministic validation |
+| **Fast** | 2 core calls, plus gateway/schema fallback | OpenRouter free models, exploration, rapid drafts | Local brief analysis, local archetype/preflight, provider design plan and code, deterministic validation |
 | **Studio** | Variable, bounded | Production candidates and complex briefs | LLM archetype, adversarial critique, one optional plan revision, code generation, optional targeted repair |
 
 Both modes return the same `GeneratedProject` schema, so the workbench, history, preview, API, and ZIP exporter do not need mode-specific output handling.
@@ -117,14 +117,16 @@ Optional intelligence is fail-open: if adversarial review or its revision exceed
 
 ## OpenRouter reliability
 
-Free routed models can rate-limit, hang, return empty content, or stop at their output limit. Verve treats an incomplete answer as a provider failure rather than presenting half a project.
+Free routed models can rate-limit, hang, return empty content, or stop at their output limit. OpenRouter documents this capacity for experimentation and low-volume use rather than guaranteed production traffic. Verve treats an incomplete answer as a provider failure rather than presenting half a project.
 
-The OpenRouter adapter now provides:
+The OpenRouter path now provides:
 
-- a 35-second individual call budget;
-- a 70-second fallback-chain budget;
-- bounded exponential retry;
-- fallback from the free router to a direct free model;
+- local Fast-mode brief extraction, saving one free request per run;
+- a local brief-specific plan if provider planning fails;
+- gateway-managed fallback between the selected free endpoint and the free router;
+- stage-specific deadlines up to a 90-second hard ceiling;
+- strict JSON Schema output for brief and plan calls;
+- `max_completion_tokens` with additional reasoning/output headroom;
 - explicit `finish_reason: length` rejection;
 - stage-aware retry telemetry;
 - ten-second stream heartbeats;

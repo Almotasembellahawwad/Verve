@@ -132,7 +132,7 @@
 }
 
 .providerDesc {
-  font-size: 9px;
+  font-size: 10px;
   color: rgba(255, 255, 255, 0.28);
   letter-spacing: 0.04em;
 }
@@ -142,14 +142,14 @@
 }
 
 .statusSet {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .statusEmpty {
-  font-size: 9px;
+  font-size: 10px;
   color: rgba(255, 255, 255, 0.2);
   letter-spacing: 0.06em;
 }
@@ -284,7 +284,7 @@
 }
 .securityNote code {
   color: rgba(255, 255, 255, 0.35);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 /* ---- Actions ---- */

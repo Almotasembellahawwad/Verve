@@ -1,181 +1,152 @@
 // =========================================================
 // lib/llm-adapter/openrouter.ts
-// OpenRouter adapter — with AbortSignal + global chain timeout
+// OpenRouter adapter with gateway-managed model fallback.
 //
-// Free model chain (confirmed available Aug 2026):
-//   google/gemma-4-31b-it:free         (primary)
-//   openai/gpt-oss-20b:free            (fallback 1)
-//   google/gemma-4-26b-a4b-it:free     (fallback 2)
-//   nvidia/llama-3.1-nemotron-ultra-253b-v1:free (fallback 3)
-//
-// Resilience rules:
-//   1. Exponential backoff on 429 rate limits.
-//   2. Fallback to next model on 429, empty response, or 5xx errors.
-//   3. Global 90s chain timeout across all retries + fallbacks.
-//   4. content=empty is a FAILED generation — never return reasoning traces.
+// OpenRouter's `models` parameter performs provider/model failover inside one
+// request. This is more reliable than spending the entire stage deadline on a
+// client-side first attempt and discovering that no time remains for fallback.
 // =========================================================
 
-import OpenAI from "openai";
 import type { LLMAdapter, LLMMessage, LLMOptions } from "./types";
 
-const OPENROUTER_BASE    = "https://openrouter.ai/api/v1";
-const MAX_RETRIES_PER_MODEL = 1;
-const BASE_DELAY_MS         = 1200;
-const CHAIN_TIMEOUT_MS      = 70_000;
-const PER_CALL_TIMEOUT_MS   = 35_000;
-
-const FREE_FALLBACK_CHAIN = ["openrouter/free", "openai/gpt-oss-20b:free"];
+const OPENROUTER_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions";
+const OPENROUTER_TIMEOUT_CEILING_MS = 90_000;
+const FREE_FALLBACK_CHAIN = ["openrouter/free", "openai/gpt-oss-20b:free"] as const;
 
 export type RetryNotifier = (attempt: number, waitMs: number, model: string) => void;
 
-function sleep(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(resolve, ms);
-    signal?.addEventListener("abort", () => { clearTimeout(timer); reject(signal.reason); });
-  });
+type OpenRouterPayload = {
+  model?: string;
+  choices?: Array<{
+    finish_reason?: string | null;
+    message?: { content?: string | null };
+  }>;
+  error?: { code?: string | number; message?: string };
+};
+
+export function buildOpenRouterModelChain(primaryModel: string): string[] {
+  const free = primaryModel === "openrouter/free" || primaryModel.endsWith(":free");
+  if (!free) return [primaryModel];
+  return [primaryModel, ...FREE_FALLBACK_CHAIN.filter((model) => model !== primaryModel)];
 }
 
-function isRetryableError(err: unknown): boolean {
-  if (!err) return false;
-  const e   = err as { status?: number; message?: string };
-  const msg = typeof e.message === "string" ? e.message.toLowerCase() : "";
-  const s   = e.status ?? 0;
-  return (
-    s === 429 || s === 500 || s === 502 || s === 503 || s === 504 ||
-    msg.includes("429") || msg.includes("rate limit") || msg.includes("too many requests") ||
-    msg.includes("provider returned error") || msg.includes("empty response") ||
-    msg.includes("overloaded") || msg.includes("no content") ||
-    msg.includes("timeout") || msg.includes("truncated") || msg.includes("length limit")
+export function openRouterDeadline(timeoutMs?: number): number {
+  return Math.min(
+    OPENROUTER_TIMEOUT_CEILING_MS,
+    Math.max(15_000, timeoutMs ?? OPENROUTER_TIMEOUT_CEILING_MS)
   );
 }
 
+function errorFromPayload(response: Response, payload: OpenRouterPayload): Error & { status?: number } {
+  const message = payload.error?.message?.trim() || `OpenRouter request failed with HTTP ${response.status}`;
+  const error = new Error(message) as Error & { status?: number };
+  error.status = response.status;
+  return error;
+}
+
 export class OpenRouterAdapter implements LLMAdapter {
-  private client: OpenAI;
+  private apiKey: string;
   private primaryModel: string;
   private signal?: AbortSignal;
   private onRetry?: RetryNotifier;
 
   constructor(apiKey: string, model = "openrouter/free", signal?: AbortSignal, onRetry?: RetryNotifier) {
-    this.client = new OpenAI({
-      apiKey,
-      baseURL:    OPENROUTER_BASE,
-      maxRetries: 0,
-      defaultHeaders: {
-        "HTTP-Referer": "https://verve-design.vercel.app",
-        "X-Title":      "Verve Design Intelligence",
-      },
-    });
+    this.apiKey = apiKey;
     this.primaryModel = model;
-    this.signal       = signal;
-    this.onRetry      = onRetry;
+    this.signal = signal;
+    this.onRetry = onRetry;
   }
 
   async complete(messages: LLMMessage[], options: LLMOptions = {}): Promise<string> {
-    const { systemPrompt, temperature = 0.7, maxTokens = 4000, timeoutMs } = options;
+    const {
+      systemPrompt,
+      temperature = 0.7,
+      maxTokens = 4000,
+      timeoutMs,
+      reasoningEffort,
+      responseFormat,
+    } = options;
+    const modelChain = buildOpenRouterModelChain(this.primaryModel);
+    const effectiveTimeoutMs = openRouterDeadline(timeoutMs);
+    const timeoutController = new AbortController();
+    const timeout = setTimeout(
+      () => timeoutController.abort(new Error(`OpenRouter request timed out after ${effectiveTimeoutMs / 1000}s`)),
+      effectiveTimeoutMs
+    );
+    const signal = this.signal
+      ? AbortSignal.any([this.signal, timeoutController.signal])
+      : timeoutController.signal;
 
-    const fullMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+    const fullMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
     if (systemPrompt) fullMessages.push({ role: "system", content: systemPrompt });
-    for (const m of messages) fullMessages.push({ role: m.role, content: m.content });
+    fullMessages.push(...messages);
 
-    const isFreeModel = this.primaryModel === "openrouter/free" || this.primaryModel.endsWith(":free");
-    const chain = isFreeModel
-      ? [this.primaryModel, ...FREE_FALLBACK_CHAIN.filter((m) => m !== this.primaryModel)]
-      : [this.primaryModel];
+    // Completion limits include reasoning tokens. Keep enough visible-output
+    // headroom for GPT OSS without requesting an unbounded project.
+    const completionBudget = Math.min(20_000, Math.max(maxTokens, maxTokens + 2_000));
+    const requestBody: Record<string, unknown> = {
+      models: modelChain,
+      messages: fullMessages,
+      max_completion_tokens: completionBudget,
+      temperature,
+      provider: {
+        allow_fallbacks: true,
+        require_parameters: Boolean(responseFormat),
+      },
+    };
 
-    // Global chain timeout — prevents orphaned requests on hung free models
-    const effectiveChainTimeoutMs = Math.min(CHAIN_TIMEOUT_MS, Math.max(5_000, timeoutMs ?? CHAIN_TIMEOUT_MS));
-    const chainCtrl = new AbortController();
-    const chainTimer = setTimeout(() => chainCtrl.abort(new Error(`OpenRouter chain timed out after ${effectiveChainTimeoutMs / 1000}s`)), effectiveChainTimeoutMs);
-    const chainSignal = this.signal
-      ? AbortSignal.any([this.signal, chainCtrl.signal])
-      : chainCtrl.signal;
-
-    let lastError: Error = new Error("OpenRouter: no response");
-    let globalAttempt = 0;
-
-    try {
-      for (const model of chain) {
-        for (let retry = 0; retry <= MAX_RETRIES_PER_MODEL; retry++) {
-          globalAttempt++;
-
-          // Check for early abort
-          if (chainSignal.aborted) throw chainSignal.reason;
-
-          // Per-call timeout
-          const effectiveCallTimeoutMs = Math.min(PER_CALL_TIMEOUT_MS, effectiveChainTimeoutMs);
-          const callCtrl  = new AbortController();
-          const callTimer = setTimeout(() => callCtrl.abort(new Error(`${model} call timed out after ${effectiveCallTimeoutMs / 1000}s`)), effectiveCallTimeoutMs);
-          const callSignal = AbortSignal.any([chainSignal, callCtrl.signal]);
-
-          try {
-            const response = await this.client.chat.completions.create(
-              { model, max_tokens: maxTokens, temperature, messages: fullMessages },
-              { signal: callSignal }
-            );
-
-            const choice = response.choices[0];
-            const msg    = choice?.message;
-
-            // NEVER return reasoning_content — it may contain internal model instructions.
-            // Empty content = failed generation, not a fallback to reasoning.
-            const content = msg?.content;
-
-            if (!content || typeof content !== "string" || !content.trim()) {
-              throw new Error(`Empty response from ${model} (reasoning content withheld per policy)`);
-            }
-
-            // Returning a half-written project is worse than returning a
-            // recoverable provider error. Let the fallback chain try again.
-            if (choice.finish_reason === "length") {
-              throw new Error(`Truncated response from ${model}: output reached its length limit`);
-            }
-
-            if (model !== this.primaryModel) {
-              console.info(`[OpenRouter] Fallback succeeded: ${model}`);
-            }
-            return content;
-
-          } catch (err: unknown) {
-            lastError = err instanceof Error ? err : new Error(String(err));
-
-            // Propagate abort immediately — don't retry on cancellation
-            if (chainSignal.aborted) throw lastError;
-
-            const retryable = isRetryableError(err);
-
-            if (retryable && retry < MAX_RETRIES_PER_MODEL) {
-              const waitMs = BASE_DELAY_MS * Math.pow(2, retry);
-              console.warn(`[OpenRouter] ${lastError.message} on ${model}, retry ${retry + 1}/${MAX_RETRIES_PER_MODEL}`);
-              this.onRetry?.(globalAttempt, waitMs, model);
-              await sleep(waitMs, chainSignal);
-              continue;
-            }
-
-            if (retryable) {
-              const nextModel = chain[chain.indexOf(model) + 1];
-              if (nextModel) {
-                const shortNext = nextModel.split("/")[1]?.replace(":free", "") ?? nextModel;
-                console.warn(`[OpenRouter] ${model} exhausted → switching to ${nextModel}`);
-                this.onRetry?.(globalAttempt, 1500, `switching to ${shortNext}`);
-                await sleep(1500, chainSignal);
-              }
-              break; // next model in chain
-            }
-
-            // Non-retryable (e.g. invalid API key) — fail immediately
-            throw lastError;
-
-          } finally {
-            clearTimeout(callTimer);
-          }
-        }
-      }
-    } finally {
-      clearTimeout(chainTimer);
+    if (responseFormat) {
+      requestBody.response_format = {
+        type: "json_schema",
+        json_schema: {
+          name: responseFormat.name,
+          strict: true,
+          schema: responseFormat.schema,
+        },
+      };
     }
 
-    throw new Error(
-      `OpenRouter exhausted its fallback chain (${chain.map((m) => m.split("/")[1] ?? m).join(", ")}). Last error: ${lastError.message}`
-    );
+    // The direct GPT OSS model supports OpenRouter's normalized reasoning
+    // control. Dynamic routers intentionally choose their own compatible model.
+    if (this.primaryModel !== "openrouter/free" && reasoningEffort) {
+      requestBody.reasoning = { effort: reasoningEffort, exclude: true };
+    }
+
+    try {
+      const response = await fetch(OPENROUTER_COMPLETIONS_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://verve-dev.vercel.app",
+          "X-Title": "Verve Design Intelligence",
+          "X-OpenRouter-Metadata": "enabled",
+        },
+        body: JSON.stringify(requestBody),
+        signal,
+      });
+      const payload = await response.json().catch(() => ({})) as OpenRouterPayload;
+      if (!response.ok || payload.error) throw errorFromPayload(response, payload);
+
+      const choice = payload.choices?.[0];
+      const content = choice?.message?.content;
+      if (!content || !content.trim()) {
+        throw new Error(`OpenRouter returned no visible output (model: ${payload.model ?? this.primaryModel})`);
+      }
+      if (choice.finish_reason === "length") {
+        throw new Error(`OpenRouter returned an incomplete response at its completion limit (model: ${payload.model ?? this.primaryModel})`);
+      }
+      if (choice.finish_reason === "content_filter" || choice.finish_reason === "error") {
+        throw new Error(`OpenRouter could not complete the response (finish reason: ${choice.finish_reason})`);
+      }
+
+      if (payload.model && payload.model !== this.primaryModel) {
+        this.onRetry?.(1, 0, `fallback: ${payload.model}`);
+        console.info(`[OpenRouter] Gateway fallback succeeded: ${payload.model}`);
+      }
+      return content;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 }

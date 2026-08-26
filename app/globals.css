@@ -298,7 +298,7 @@
 }
 .bsc-badge {
   display: inline-block; background: rgba(255,255,255,0.2); border-radius: 999px;
-  font-size: 9px; padding: 3px 10px; margin-bottom: 10px;
+  font-size: 10px; padding: 3px 10px; margin-bottom: 10px;
 }
 .bsc-headline { font-size: 18px; font-weight: 800; line-height: 1.2; margin-bottom: 8px; font-family: Inter, sans-serif; }
 .bsc-sub { font-size: 10px; opacity: 0.85; margin-bottom: 14px; line-height: 1.5; }
@@ -320,7 +320,7 @@
 }
 .bsc-card-icon { font-size: 18px; margin-bottom: 6px; }
 .bsc-card-title { font-size: 10px; font-weight: 700; color: #111827; margin-bottom: 3px; }
-.bsc-card-desc { font-size: 9px; color: #6b7280; }
+.bsc-card-desc { font-size: 10px; color: #6b7280; }
 
 /* ── VERVE 1: Carbon Ledger ────────────────────────────── */
 .vrv1-nav {
@@ -339,7 +339,7 @@
 }
 .vrv1-hero { padding: 24px 20px; background: #0D0C0A; }
 .vrv1-label {
-  font-family: 'DM Mono', monospace; font-size: 9px;
+  font-family: 'DM Mono', monospace; font-size: 10px;
   color: #6E6459; letter-spacing: 0.08em; margin-bottom: 14px;
 }
 .vrv1-headline {
@@ -364,16 +364,16 @@
   display: flex; justify-content: space-between; align-items: center;
   padding: 10px 20px; border-bottom: 1px solid #2A261F;
 }
-.vrv1-audit-title { font-family: 'DM Mono', monospace; font-size: 9px; color: #6E6459; letter-spacing: 0.1em; }
-.vrv1-audit-status { font-size: 9px; color: var(--status-success); letter-spacing: 0.1em; }
+.vrv1-audit-title { font-family: 'DM Mono', monospace; font-size: 10px; color: #6E6459; letter-spacing: 0.1em; }
+.vrv1-audit-status { font-size: 10px; color: var(--status-success); letter-spacing: 0.1em; }
 .vrv1-row {
   display: grid; grid-template-columns: 60px 1fr 80px 50px;
   padding: 9px 20px; border-bottom: 1px solid #1C1815; align-items: center;
 }
 .vrv1-row:nth-child(odd) { background: #121008; }
-.vrv1-scope { font-size: 9px; color: #6E6459; letter-spacing: 0.06em; font-family: 'DM Mono', monospace; }
+.vrv1-scope { font-size: 10px; color: #6E6459; letter-spacing: 0.06em; font-family: 'DM Mono', monospace; }
 .vrv1-val { font-family: 'DM Mono', monospace; font-size: 11px; color: #E8DCC8; font-weight: 500; }
-.vrv1-status { font-size: 8px; letter-spacing: 0.1em; font-weight: 700; padding: 2px 6px; text-align: center; }
+.vrv1-status { font-size: 10px; letter-spacing: 0.1em; font-weight: 700; padding: 2px 6px; text-align: center; }
 .vrv1-status-compliant { color: var(--status-success); background: color-mix(in srgb, var(--status-success) 7%, transparent); }
 .vrv1-status-review { color: var(--brand); background: var(--brand-dim); }
 .vrv1-delta { font-family: 'DM Mono', monospace; font-size: 10px; color: #6E6459; text-align: right; }
@@ -405,7 +405,7 @@
   background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
   height: 60px;
 }
-.bsc2-card-label { font-size: 9px; color: #666; padding: 6px 8px; }
+.bsc2-card-label { font-size: 10px; color: #666; padding: 6px 8px; }
 
 /* ── VERVE 2: Film Index Grid ──────────────────────────── */
 .vrv2-nav {
@@ -417,7 +417,7 @@
   font-size: 14px; letter-spacing: 0.24em; color: #F0F0E8; flex: 1;
 }
 .vrv2-links { display: flex; gap: 14px; font-size: 10px; color: #555; letter-spacing: 0.06em; }
-.vrv2-fps { font-size: 9px; color: #D4E620; letter-spacing: 0.1em; }
+.vrv2-fps { font-size: 10px; color: #D4E620; letter-spacing: 0.1em; }
 .vrv2-hero { padding: 24px 20px 0; background: #0A0A0A; }
 .vrv2-frame {
   display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
@@ -425,7 +425,7 @@
 .vrv2-frameline {
   flex: 1; height: 1px; background: #D4E620;
 }
-.vrv2-filmno { font-size: 9px; color: #D4E620; letter-spacing: 0.14em; white-space: nowrap; }
+.vrv2-filmno { font-size: 10px; color: #D4E620; letter-spacing: 0.14em; white-space: nowrap; }
 .vrv2-headline {
   font-family: 'Editorial New', 'Times New Roman', serif;
   font-size: 22px; font-weight: 400; font-style: italic;
@@ -441,11 +441,11 @@
   cursor: default;
 }
 .vrv2-film-row:hover { background: #0F0F0F; }
-.vrv2-film-no { font-size: 9px; color: #333; letter-spacing: 0.08em; }
+.vrv2-film-no { font-size: 10px; color: #333; letter-spacing: 0.08em; }
 .vrv2-film-title { font-size: 11px; color: #F0F0E8; letter-spacing: 0.06em; font-weight: 500; }
-.vrv2-film-year { font-size: 9px; color: #444; }
+.vrv2-film-year { font-size: 10px; color: #444; }
 .vrv2-film-dur { font-size: 10px; color: #555; font-family: monospace; }
-.vrv2-play { font-size: 8px; color: #D4E620; }
+.vrv2-play { font-size: 10px; color: #D4E620; }
 
 /* ── BASIC 3: Generic Dev Tool ─────────────────────────── */
 .bsc3-nav {
@@ -461,7 +461,7 @@
 .bsc3-hero { background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%); padding: 28px 20px; text-align: center; color: #fff; }
 .bsc3-badge {
   display: inline-block; background: rgba(34,197,94,0.1); color: #22c55e;
-  border-radius: 999px; font-size: 9px; padding: 3px 10px; margin-bottom: 10px;
+  border-radius: 999px; font-size: 10px; padding: 3px 10px; margin-bottom: 10px;
   border: 1px solid rgba(34,197,94,0.3);
 }
 .bsc3-headline { font-size: 20px; font-weight: 800; line-height: 1.2; margin-bottom: 8px; font-family: Inter, sans-serif; }
@@ -473,7 +473,7 @@
 .bsc3-card { background: #0f172a; padding: 14px 10px; text-align: center; }
 .bsc3-ci { font-size: 18px; display: block; margin-bottom: 6px; }
 .bsc3-ct { display: block; font-size: 10px; font-weight: 700; color: #f1f5f9; margin-bottom: 4px; }
-.bsc3-cd { font-size: 9px; color: #64748b; margin: 0; }
+.bsc3-cd { font-size: 10px; color: #64748b; margin: 0; }
 
 /* ── VERVE 3: API Tool — Status Code Hierarchy ──────────── */
 .vrv3-nav {
@@ -483,7 +483,7 @@
 .vrv3-logo { font-family: 'Berkeley Mono', 'Courier New', monospace; font-size: 14px; font-weight: 700; color: #F0EDE6; flex: 1; letter-spacing: -0.02em; }
 .vrv3-dot { color: #FF5F5F; }
 .vrv3-links { display: flex; gap: 14px; font-size: 10px; color: #444; font-family: monospace; }
-.vrv3-nav-pill { font-size: 9px; color: #555; border: 1px solid #222; padding: 2px 7px; font-family: monospace; }
+.vrv3-nav-pill { font-size: 10px; color: #555; border: 1px solid #222; padding: 2px 7px; font-family: monospace; }
 .vrv3-hero { padding: 20px; background: #0C0C0C; }
 .vrv3-terminal {
   background: #141414; border: 1px solid #1E1E1E; margin-bottom: 18px;
@@ -497,7 +497,7 @@
 .vrv3-tbtn-r { background: #FF5F5F; }
 .vrv3-tbtn-y { background: #FFBD2E; }
 .vrv3-tbtn-g { background: #28CA42; }
-.vrv3-ttitle { font-size: 9px; color: #555; margin-left: auto; letter-spacing: 0.04em; }
+.vrv3-ttitle { font-size: 10px; color: #555; margin-left: auto; letter-spacing: 0.04em; }
 .vrv3-tcode { padding: 12px 14px; font-size: 10px; line-height: 1.8; }
 .vrv3-comment { color: #444; }
 .vrv3-key { color: #79B8FF; }

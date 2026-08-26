@@ -8,7 +8,7 @@ import { PROVIDER_MODELS } from "../lib/llm-adapter/types";
 import { fetchPublicDesignSource } from "../lib/security/safe-url";
 import type { LLMAdapter } from "../lib/llm-adapter/types";
 import { buildGeneratedProject, buildRecoveryProject, inspectProductionRisks } from "../lib/project/project-builder";
-import type { BriefAnalysis } from "../lib/engine/brief-analyzer";
+import { analyzeBriefLocally, type BriefAnalysis } from "../lib/engine/brief-analyzer";
 import type { DesignPlan } from "../lib/engine/plan-generator";
 import { validateGeneratedProject } from "../lib/project/project-validator";
 import { mergeEditorFiles } from "../lib/project/editor-project";
@@ -18,12 +18,14 @@ import { runSelfCritique } from "../lib/engine/critique-loop";
 import type { CritiqueResult } from "../lib/engine/critique-loop";
 import { generateDistinctivenessReport } from "../lib/engine/scorer";
 import { scoreEngineering } from "../lib/engine/engineering-score";
-import { critiquePlanLocally, resolveArchetypeLocally } from "../lib/engine/fast-path";
+import { critiquePlanLocally, generateDesignPlanLocally, resolveArchetypeLocally } from "../lib/engine/fast-path";
+import { buildOpenRouterModelChain, OpenRouterAdapter, openRouterDeadline } from "../lib/llm-adapter/openrouter";
 import { runRestraintCheck } from "../lib/engine/restraint-check";
 import { analyzeCompetitiveField } from "../lib/engine/competitive-field";
 import { findUnsupportedQuantifiedClaims } from "../lib/engine/content-safety";
 import { liveSandboxTemplate, supportsLiveSandbox } from "../lib/project/live-sandbox";
 import { instrumentSandboxFiles, isRenderGateReport } from "../lib/project/render-gate";
+import { runPipeline } from "../lib/engine/pipeline";
 
 test("the public blocklist has truthful family and signal counts", () => {
   const data = getAllCliches();
@@ -87,6 +89,109 @@ test("provider registry contains no retired model IDs", () => {
 test("URL critic rejects insecure and private-network targets before fetching", async () => {
   await assert.rejects(() => fetchPublicDesignSource("http://example.com"), /public HTTPS/);
   await assert.rejects(() => fetchPublicDesignSource("https://127.0.0.1"), /private network/);
+});
+
+test("OpenRouter uses one gateway-managed free fallback chain", () => {
+  assert.deepEqual(buildOpenRouterModelChain("openai/gpt-oss-20b:free"), [
+    "openai/gpt-oss-20b:free",
+    "openrouter/free",
+  ]);
+  assert.deepEqual(buildOpenRouterModelChain("openrouter/free"), [
+    "openrouter/free",
+    "openai/gpt-oss-20b:free",
+  ]);
+  assert.deepEqual(buildOpenRouterModelChain("paid/model"), ["paid/model"]);
+  assert.equal(openRouterDeadline(35_000), 35_000);
+  assert.equal(openRouterDeadline(5_000), 15_000);
+  assert.equal(openRouterDeadline(120_000), 90_000);
+});
+
+test("OpenRouter sends modern completion, fallback, reasoning, and structured-output controls", async () => {
+  const originalFetch = globalThis.fetch;
+  let body: Record<string, unknown> = {};
+  globalThis.fetch = async (_input, init) => {
+    body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return new Response(JSON.stringify({
+      model: "openai/gpt-oss-20b:free",
+      choices: [{ finish_reason: "stop", message: { content: '{"ok":true}' } }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  try {
+    const adapter = new OpenRouterAdapter("test-key", "openai/gpt-oss-20b:free");
+    const output = await adapter.complete([{ role: "user", content: "Return JSON" }], {
+      maxTokens: 1000,
+      reasoningEffort: "low",
+      responseFormat: {
+        name: "fixture",
+        schema: { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"] },
+      },
+    });
+    assert.equal(output, '{"ok":true}');
+    assert.deepEqual(body.models, ["openai/gpt-oss-20b:free", "openrouter/free"]);
+    assert.equal(body.max_tokens, undefined);
+    assert.equal(body.max_completion_tokens, 3000);
+    assert.deepEqual(body.reasoning, { effort: "low", exclude: true });
+    assert.equal((body.response_format as { type?: string }).type, "json_schema");
+    assert.equal((body.provider as { require_parameters?: boolean }).require_parameters, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Fast local analysis preserves an Arabic Cairo restaurant brief", () => {
+  const analysis = analyzeBriefLocally("اريد موقع لمطعم في القاهرة");
+  assert.equal(analysis.industry, "Food & Hospitality");
+  assert.equal(analysis.rawBrief, "اريد موقع لمطعم في القاهرة");
+  assert.ok(analysis.constraints.includes("Arabic-first content with correct RTL behavior"));
+  assert.ok(analysis.constraints.includes("Cairo context supplied by the brief"));
+
+  const plan = generateDesignPlanLocally(analysis);
+  assert.equal(plan.signatureElement.name, "The Table Route");
+  assert.ok(plan.layoutConcept.length > 80);
+  assert.ok(plan.colorPalette.length >= 3);
+  assert.deepEqual(plan.referencesSampled, []);
+});
+
+test("OpenRouter Fast mode survives a failed plan call and still assembles the project", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    if (calls === 1) {
+      return new Response(JSON.stringify({ error: { code: 503, message: "Provider unavailable" } }), {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify({
+      model: "openai/gpt-oss-20b:free",
+      choices: [{
+        finish_reason: "stop",
+        message: {
+          content: `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>مطعم في القاهرة</title><style>body{margin:0;background:#17100d;color:#fff2d8;font:16px Arial,sans-serif}main{padding:clamp(24px,8vw,96px)}a{color:#fff2d8}@media(prefers-reduced-motion:reduce){*{animation:none!important}}</style></head><body><main><h1>مطعم في القاهرة</h1><p>تفاصيل القائمة والحجز قريباً.</p><a href="#contact">استفسر عن الحجز</a><section id="contact"><h2>الحجز</h2><p>بيانات التواصل قيد التحقق.</p></section></main></body></html>`,
+        },
+      }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  try {
+    const result = await runPipeline({
+      brief: "اريد موقع لمطعم في القاهرة",
+      framework: "html",
+      mode: "fast",
+      provider: "openrouter",
+      model: "openai/gpt-oss-20b:free",
+      apiKey: "test-key",
+    });
+    assert.equal(calls, 2, "local brief analysis must not spend an OpenRouter request");
+    assert.equal(result.briefAnalysis.industry, "Food & Hospitality");
+    assert.match(result.designPlan.rawPlan, /Deterministic local resilience plan/);
+    assert.equal(result.project.framework, "html");
+    assert.match(result.project.files.find((file) => file.path === "index.html")?.content ?? "", /مطعم في القاهرة/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("blocklist does not infer a compound visual cliché from two generic CSS words", () => {

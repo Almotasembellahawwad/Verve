@@ -19,6 +19,12 @@ export type LLMOptions = {
   reasoningEffort?: "none" | "low" | "medium" | "high" | "xhigh" | "max";
   // Per-call deadline. Adapters clamp this to their provider safety ceiling.
   timeoutMs?: number;
+  // Providers that support structured output can enforce this JSON schema.
+  // Other adapters may safely ignore it because Zod still validates locally.
+  responseFormat?: {
+    name: string;
+    schema: Record<string, unknown>;
+  };
 };
 
 export interface LLMAdapter {
@@ -49,8 +55,8 @@ export const PROVIDER_MODELS: Record<Provider, { id: string; label: string; desc
     { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro Preview", description: "Advanced reasoning — preview" },
   ],
   openrouter: [
-    { id: "openrouter/free",          label: "OpenRouter Free Router", description: "Automatically selects an available free model" },
-    { id: "openai/gpt-oss-20b:free", label: "GPT OSS 20B (Free)",     description: "Fast open-weight fallback" },
+    { id: "openrouter/free",          label: "OpenRouter Free Router", description: "Experimental automatic free routing; availability varies" },
+    { id: "openai/gpt-oss-20b:free", label: "GPT OSS 20B (Free)",     description: "Experimental free endpoint with automatic router fallback" },
   ],
 };
 

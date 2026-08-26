@@ -979,7 +979,7 @@
 .workbenchHeader span {
   display: block;
   color: var(--brand);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.15em;
   margin-bottom: 8px;
 }
@@ -1182,7 +1182,7 @@
 }
 
 .exportTitle {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: rgba(255,255,255,0.3);
@@ -1222,7 +1222,7 @@
 }
 
 .detailLabel {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: rgba(255,255,255,0.28);
@@ -1249,7 +1249,7 @@
 
 /* SSE telemetry extra info */
 .tlExtra {
-  font-size: 9px;
+  font-size: 10px;
   color: rgba(255,255,255,0.28);
   margin-left: 6px;
 }
@@ -1449,7 +1449,7 @@
 
 /* FREE badge on OpenRouter tab */
 .freeTag {
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 0.1em;
   background: color-mix(in srgb, var(--status-success) 12%, transparent);
   color: var(--status-success);
@@ -1493,7 +1493,7 @@
 
 .keyManageHint {
   color: color-mix(in srgb, var(--status-success) 52%, transparent);
-  font-size: 9px;
+  font-size: 10px;
   margin-left: 2px;
   transition: color 0.18s;
 }

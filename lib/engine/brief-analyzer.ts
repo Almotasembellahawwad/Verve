@@ -12,9 +12,97 @@ const BriefAnalysisSchema = z.object({
   constraints: z.array(z.string()).default([]),
 });
 
+const BRIEF_ANALYSIS_JSON_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    subject: { type: "string", minLength: 1 },
+    audience: { type: "string", minLength: 1 },
+    primaryJob: { type: "string", minLength: 1 },
+    tone: { type: "string", minLength: 1 },
+    industry: { type: "string", minLength: 1 },
+    constraints: { type: "array", items: { type: "string" } },
+  },
+  required: ["subject", "audience", "primaryJob", "tone", "industry", "constraints"],
+};
+
 export type BriefAnalysis = z.infer<typeof BriefAnalysisSchema> & {
   rawBrief: string;
 };
+
+type LocalDirection = {
+  pattern: RegExp;
+  industry: string;
+  audience: string;
+  primaryJob: string;
+  tone: string;
+};
+
+const LOCAL_DIRECTIONS: LocalDirection[] = [
+  {
+    pattern: /مطعم|restaurant|مطاعم|cafe|café|مقهى|food|dining/i,
+    industry: "Food & Hospitality",
+    audience: "Local diners and visitors",
+    primaryJob: "Turn interest into a reservation, visit, or direct enquiry",
+    tone: "Appetizing, grounded, hospitable, place-specific",
+  },
+  {
+    pattern: /عقار|architecture|architect|عمارة|interior|داخلي|hospitality design/i,
+    industry: "Architecture / Interior Design",
+    audience: "Prospective clients and project partners",
+    primaryJob: "Build confidence in the practice and start a qualified enquiry",
+    tone: "Measured, spatial, material, exacting",
+  },
+  {
+    pattern: /skincare|skin care|بشرة|beauty|تجميل|cosmetic/i,
+    industry: "Beauty / Skincare",
+    audience: "Prospective customers researching the product",
+    primaryJob: "Explain the product truthfully and guide a purchase decision",
+    tone: "Tactile, precise, reassuring, evidence-aware",
+  },
+  {
+    pattern: /saas|analytics|dashboard|software|برنامج|تحليلات|منصة/i,
+    industry: "Software / SaaS",
+    audience: "Prospective product users and decision makers",
+    primaryJob: "Clarify the product value and start a trial or sales conversation",
+    tone: "Direct, systematic, credible, efficient",
+  },
+  {
+    pattern: /law|legal|محام|قانون/i,
+    industry: "Legal Services",
+    audience: "Prospective clients seeking legal guidance",
+    primaryJob: "Establish trust and start a confidential consultation",
+    tone: "Authoritative, calm, discreet, clear",
+  },
+];
+
+function hasArabic(value: string): boolean {
+  return /[\u0600-\u06ff]/.test(value);
+}
+
+/**
+ * A conservative local extraction path for Fast mode and provider outages.
+ * It never invents business facts: the supplied brief remains the subject and
+ * source of truth, while only the design category and page job are inferred.
+ */
+export function analyzeBriefLocally(brief: string, existingCode?: string): BriefAnalysis {
+  const compactBrief = brief.replace(/\s+/g, " ").trim();
+  const direction = LOCAL_DIRECTIONS.find((candidate) => candidate.pattern.test(compactBrief));
+  const constraints: string[] = [];
+  if (hasArabic(compactBrief)) constraints.push("Arabic-first content with correct RTL behavior");
+  if (/القاهرة|cairo/i.test(compactBrief)) constraints.push("Cairo context supplied by the brief");
+  if (existingCode?.trim()) constraints.push("Preserve and improve the supplied implementation where safe");
+
+  return {
+    subject: compactBrief.slice(0, 280),
+    audience: direction?.audience ?? "The people explicitly targeted by the brief",
+    primaryJob: direction?.primaryJob ?? "Communicate the offer clearly and lead to one truthful primary action",
+    tone: direction?.tone ?? "Specific, clear, restrained, context-aware",
+    industry: direction?.industry ?? "General Business",
+    constraints,
+    rawBrief: brief,
+  };
+}
 
 const SYSTEM_PROMPT = `You are a senior product designer analyzing a design brief to extract structured information.
 Your goal is to identify:
@@ -49,6 +137,7 @@ export async function analyzeBrief(llm: LLMAdapter, brief: string, existingCode?
     maxTokens:    1000,
     reasoningEffort: "low",
     timeoutMs: 35_000,
+    responseFormat: { name: "brief_analysis", schema: BRIEF_ANALYSIS_JSON_SCHEMA },
   });
 
   // First attempt
@@ -69,6 +158,7 @@ export async function analyzeBrief(llm: LLMAdapter, brief: string, existingCode?
       maxTokens:       800,
       reasoningEffort: "low",
       timeoutMs:       35_000,
+      responseFormat:  { name: "brief_analysis", schema: BRIEF_ANALYSIS_JSON_SCHEMA },
     });
     parsed = BriefAnalysisSchema.parse(
       extractJSON<z.infer<typeof BriefAnalysisSchema>>(raw, "Brief Analyzer")

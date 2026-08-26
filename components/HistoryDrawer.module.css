@@ -59,7 +59,7 @@
 }
 
 .clearBtn {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(255, 80, 80, 0.5);
@@ -182,7 +182,7 @@
 }
 
 .archetype {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.25);
@@ -191,13 +191,13 @@
 }
 
 .normanMini {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--status-success);
   letter-spacing: 0.06em;
 }
 
 .time {
-  font-size: 9px;
+  font-size: 10px;
   color: rgba(255, 255, 255, 0.2);
   letter-spacing: 0.06em;
   margin-left: auto;

@@ -34,6 +34,31 @@ test("the homepage does not overflow its rendered viewport", async ({ page }) =>
   expect(dimensions.document, `document width ${dimensions.document}px exceeds ${dimensions.viewport}px; offenders: ${JSON.stringify(dimensions.offenders)}; scroll containers: ${JSON.stringify(dimensions.scrollContainers)}`).toBeLessThanOrEqual(dimensions.viewport + 1);
 });
 
+test("Verve public surfaces obey their own readable-type floor", async ({ page }) => {
+  for (const path of ["/", "/lab", "/showcase"]) {
+    await page.goto(path, { waitUntil: "domcontentloaded" });
+    const tinyText = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("body *")]
+      .filter((element) => {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return style.display !== "none"
+          && style.visibility !== "hidden"
+          && rect.width > 0
+          && rect.height > 0
+          && (element.textContent ?? "").trim().length > 0
+          && Number.parseFloat(style.fontSize) < 10;
+      })
+      .slice(0, 12)
+      .map((element) => ({
+        tag: element.tagName,
+        className: element.className,
+        text: (element.textContent ?? "").trim().slice(0, 60),
+        fontSize: getComputedStyle(element).fontSize,
+      })));
+    expect(tinyText, `${path} renders text below Verve's 10px floor`).toEqual([]);
+  }
+});
+
 test("security headers protect the public surface", async ({ request }) => {
   const response = await request.get("/");
   expect(response.ok()).toBeTruthy();
