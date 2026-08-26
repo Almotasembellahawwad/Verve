@@ -84,6 +84,8 @@ The revision count and critique transcript are always surfaced to the user. Tran
 
 Fast mode uses two core generative calls: design plan and entry-code generation. Brief analysis, archetype resolution, critique preflight, contrast, syntax, scoring, and project assembly are local. If provider planning fails, a conservative brief-specific local plan preserves the code-generation attempt. Provider and schema fallbacks remain bounded exceptions.
 
+Fast runs emit bounded versioned checkpoints after stages 01 and 04. A stage-04 checkpoint contains only validated brief analysis and the contrast-enforced design plan, never credentials. It is fingerprinted against the brief, existing code, framework, and mode. If code generation fails, the browser returns that checkpoint with the next request and the pipeline skips the provider plan call.
+
 Studio mode uses the full LLM archetype and adversarial critique flow, one bounded plan revision, and one targeted code repair. OpenRouter deliberately skips the optional repair call because free routed capacity is less predictable. Brief analysis, plan generation, critique, and revision each have a local fail-open contract; only entry-code generation remains a required model result. OpenRouter sends a model list to the gateway so fallback happens inside one stage deadline, and structured stages request strict JSON Schema output.
 
 ## Project and preview layer

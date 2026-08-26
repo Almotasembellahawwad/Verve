@@ -5,6 +5,7 @@ import { errorResponse, classifyError } from "@/lib/middleware/error-handler";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { serializePipelineResult } from "@/lib/api/pipeline-response";
+import { PipelineCheckpointSchema } from "@/lib/engine/pipeline-checkpoint";
 
 export const maxDuration = 300;
 
@@ -17,6 +18,7 @@ const RequestSchema = z.object({
   model:        z.string().max(100).optional(),
   pexelsKey:    z.string().max(500).optional(),
   mode:         z.enum(["fast", "studio"]).optional().default("studio"),
+  checkpoint:   PipelineCheckpointSchema.optional(),
 });
 
 export async function POST(req: NextRequest) {

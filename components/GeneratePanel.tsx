@@ -16,6 +16,11 @@ import VoiceBriefInput from "./VoiceBriefInput";
 import type { GeneratedProject } from "@/lib/project/types";
 import { buildRecoveryProject } from "@/lib/project/project-builder";
 import { readWithInactivityTimeout, StreamInactivityError } from "@/lib/client/generation-stream";
+import {
+  checkpointMatchesInput,
+  isPipelineCheckpoint,
+  type PipelineCheckpoint,
+} from "@/lib/engine/pipeline-checkpoint";
 
 const PROVIDERS: { id: Provider; label: string; icon: string }[] = [
   { id: "anthropic",  label: "Claude",     icon: "A" },
@@ -208,10 +213,12 @@ export default function GeneratePanel() {
   const [retryMessage, setRetryMessage] = useState<string | null>(null);
   const [recoveryProject, setRecoveryProject] = useState<GeneratedProject | null>(null);
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
+  const [recoveryCheckpoint, setRecoveryCheckpoint] = useState<PipelineCheckpoint | null>(null);
   const [historyOpen,  setHistoryOpen]  = useState(false);
   const [certOpen,     setCertOpen]     = useState(false);
   const telemetryTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const abortRef = useRef<AbortController | null>(null);
+  const latestCheckpointRef = useRef<PipelineCheckpoint | null>(null);
 
   // Reload apiKey when provider changes — reads from localStorage (external system)
   useEffect(() => {
@@ -278,7 +285,10 @@ export default function GeneratePanel() {
     if (completed) setStageStates(PIPELINE_STAGES.map(() => "done"));
   };
 
-  const handleGenerate = async (requestedMode: "fast" | "studio" = mode) => {
+  const handleGenerate = async (
+    requestedMode: "fast" | "studio" = mode,
+    resumeCheckpoint?: PipelineCheckpoint
+  ) => {
     if (!brief.trim() || brief.length < 10) {
       setError("Please enter a design brief (at least 10 characters).");
       return;
@@ -297,6 +307,8 @@ export default function GeneratePanel() {
     setResult(null);
     setRecoveryProject(null);
     setRecoveryMessage(null);
+    setRecoveryCheckpoint(null);
+    latestCheckpointRef.current = resumeCheckpoint ?? null;
     setPatchedCode(null); // reset patched code on new generation
     setRetryMessage(null);
     setStageExtras({});
@@ -320,6 +332,7 @@ export default function GeneratePanel() {
           model,
           mode: requestedMode,
           pexelsKey: getLocalApiKey("pexels") || undefined,
+          checkpoint: resumeCheckpoint,
         }),
       });
 
@@ -374,6 +387,10 @@ export default function GeneratePanel() {
           } else if (eventType === "stage_degraded") {
             updateStage(String(payload.id ?? ""), "running", "local fallback");
             setRetryMessage(String(payload.message ?? "Optional provider review was replaced by the local preflight."));
+          } else if (eventType === "checkpoint") {
+            if (isPipelineCheckpoint(payload.checkpoint)) {
+              latestCheckpointRef.current = payload.checkpoint;
+            }
           } else if (eventType === "result") {
             receivedTerminalEvent = true;
             setRetryMessage(null);
@@ -381,6 +398,7 @@ export default function GeneratePanel() {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const data = payload as any;
             setResult(data);
+            latestCheckpointRef.current = null;
             setActiveView("project");
             // ── Save to history ──────────────────────────────────────────
             try { addHistory(entryFromResult(brief, data)); } catch {}
@@ -395,6 +413,10 @@ export default function GeneratePanel() {
             stopTelemetry(false);
             setRecoveryMessage(String(payload.message ?? "A recovery draft was preserved."));
             setRecoveryProject(payload.project as GeneratedProject);
+            const checkpoint = isPipelineCheckpoint(payload.checkpoint)
+              ? payload.checkpoint
+              : latestCheckpointRef.current;
+            setRecoveryCheckpoint(checkpoint);
           } else if (eventType === "error") {
             const errPayload = payload as Record<string, string>;
             const msg = errPayload.message || errPayload.error || errPayload.code || "Pipeline error";
@@ -414,6 +436,7 @@ export default function GeneratePanel() {
         requestController.abort(err);
         setRecoveryMessage("The live connection stopped receiving heartbeats. A local recovery checkpoint was created immediately.");
         setRecoveryProject(buildRecoveryProject(brief, framework, "stream"));
+        setRecoveryCheckpoint(latestCheckpointRef.current);
       }
       if (!wasCancelled) stopTelemetry(false);
       const raw = err instanceof Error ? err.message : "Something went wrong";
@@ -759,9 +782,24 @@ export default function GeneratePanel() {
               <span>RECOVERY CHECKPOINT</span>
               <strong>The run stopped, but Verve did not discard your work.</strong>
               <p>{recoveryMessage}</p>
+              {recoveryCheckpoint?.completedStage === "04" && (
+                <p className={styles.checkpointNote}>Plan and contrast are saved locally. Resume spends only the code-generation call.</p>
+              )}
             </div>
-            <button type="button" onClick={() => { setMode("fast"); void handleGenerate("fast"); }}>
-              Retry in Fast mode
+            <button
+              type="button"
+              onClick={() => {
+                setMode("fast");
+                const matchingCheckpoint = recoveryCheckpoint && checkpointMatchesInput(recoveryCheckpoint, {
+                  brief,
+                  existingCode: existingCode || undefined,
+                  framework,
+                  mode: "fast",
+                }) ? recoveryCheckpoint : undefined;
+                void handleGenerate("fast", matchingCheckpoint);
+              }}
+            >
+              {recoveryCheckpoint?.completedStage === "04" ? "Resume code generation" : "Retry in Fast mode"}
             </button>
           </div>
           <ProjectWorkbench project={recoveryProject} />

@@ -34,6 +34,11 @@ import { buildGeneratedProject }                                      from "../p
 import type { GeneratedProject }                                      from "../project/types";
 import { critiquePlanLocally, generateDesignPlanLocally, resolveArchetypeLocally } from "./fast-path";
 import { runOptionalProviderStep }                                    from "./provider-resilience";
+import {
+  checkpointMatchesInput,
+  createPipelineCheckpoint,
+  type PipelineCheckpoint,
+} from "./pipeline-checkpoint";
 
 
 // ── Result type ───────────────────────────────────────────────────────────────
@@ -62,7 +67,7 @@ export type PipelineResult = {
 export type GenerationMode = "fast" | "studio";
 
 export type PipelineEvent = {
-  event: "stage_start" | "stage_done" | "stage_flag" | "stage_retry" | "stage_degraded";
+  event: "stage_start" | "stage_done" | "stage_flag" | "stage_retry" | "stage_degraded" | "checkpoint";
   data: Record<string, unknown>;
   stageId?: string;
 };
@@ -82,6 +87,7 @@ export type PipelineInput = {
   signal?: AbortSignal;
   onEvent?: (event: PipelineEvent) => void;
   mode?: GenerationMode;
+  checkpoint?: PipelineCheckpoint;
 };
 
 // The UI promises one Studio repair pass. More cycles add latency and cost
@@ -103,8 +109,13 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     signal,
     onEvent,
     mode          = "studio",
+    checkpoint,
   } = input;
   const revisionLimit = Math.min(MAX_REVISION_CYCLES, Math.max(0, maxRevisions));
+  const checkpointInput = { brief, existingCode, framework, mode };
+  const resumeCheckpoint = checkpointMatchesInput(checkpoint, checkpointInput)
+    ? checkpoint
+    : undefined;
 
   let activeStageId = "boot";
   const emit = (event: PipelineEvent["event"], data: Record<string, unknown>, stageId?: string) => {
@@ -126,7 +137,9 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   // ── [01] Brief Analysis ──────────────────────────────────────────────────
   emit("stage_start", { id: "01", name: "Brief Analysis", module: "BriefAnalyzer" }, "01-start");
   let elapsed = timer();
-  const briefStep = mode === "fast"
+  const briefStep = resumeCheckpoint
+    ? { value: resumeCheckpoint.briefAnalysis, degraded: false, reason: undefined, source: "checkpoint" as const }
+    : mode === "fast"
     ? { value: analyzeBriefLocally(brief, existingCode), degraded: false, reason: undefined, source: "local-fast-path" as const }
     : await runOptionalProviderStep(
       () => analyzeBrief(llm, brief, existingCode),
@@ -147,6 +160,11 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     durationMs: elapsed(),
     extra: { source: briefStep.source },
   }, "01-done");
+  if (mode === "fast") {
+    emit("checkpoint", {
+      checkpoint: createPipelineCheckpoint({ ...checkpointInput, mode: "fast" }, "01", briefAnalysis),
+    }, "checkpoint-01");
+  }
 
   // ── [02] Asset Sourcing + Blocklist + Competitive Field — parallel ─────────
   emit("stage_start", { id: "02", name: "Asset Sourcing + Blocklist + Competitive Field", module: "H+Blocklist+L" }, "02-start");
@@ -200,22 +218,27 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
 
   emit("stage_start", { id: "03", name: "Design Plan Generation", module: "PlanGenerator + G" }, "03-start");
   elapsed = timer();
-  const planStep = await runOptionalProviderStep(
-    () => generateDesignPlan(
-      llm,
-      briefAnalysis,
-      blocklistAndAssetContext,
-      previousCritique,
-      archetypeContext,
-      animationContext,
-      {
-        timeoutMs: mode === "fast" ? 45_000 : 55_000,
-        reasoningEffort: mode === "fast" ? "low" : "medium",
-      }
-    ),
-    () => generateDesignPlanLocally(briefAnalysis),
-    signal
-  );
+  const resumedPlan = resumeCheckpoint?.completedStage === "04"
+    ? resumeCheckpoint.designPlan
+    : undefined;
+  const planStep = resumedPlan
+    ? { value: resumedPlan, degraded: false, reason: undefined }
+    : await runOptionalProviderStep(
+      () => generateDesignPlan(
+        llm,
+        briefAnalysis,
+        blocklistAndAssetContext,
+        previousCritique,
+        archetypeContext,
+        animationContext,
+        {
+          timeoutMs: mode === "fast" ? 45_000 : 55_000,
+          reasoningEffort: mode === "fast" ? "low" : "medium",
+        }
+      ),
+      () => generateDesignPlanLocally(briefAnalysis),
+      signal
+    );
   designPlan = planStep.value;
   if (planStep.degraded) {
     studioReviewDegraded = true;
@@ -249,7 +272,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     durationMs: elapsed(),
     extra: {
       signature: designPlan.signatureElement?.name,
-      review: studioReviewDegraded ? "local fallback" : mode === "fast" ? "fast preflight" : "adversarial",
+      review: resumedPlan ? "resumed checkpoint" : studioReviewDegraded ? "local fallback" : mode === "fast" ? "fast preflight" : "adversarial",
     },
   }, "03-done");
 
@@ -327,6 +350,11 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     durationMs: 0,
     extra: { fixes: contrastReport.fixesApplied, allPass: contrastReport.allPass },
   }, "04-done");
+  if (mode === "fast") {
+    emit("checkpoint", {
+      checkpoint: createPipelineCheckpoint({ ...checkpointInput, mode: "fast" }, "04", briefAnalysis, designPlan),
+    }, "checkpoint-04");
+  }
 
   // ── [05] Code Generation ─────────────────────────────────────────────────
   const fullCodeContext = [

@@ -1545,6 +1545,7 @@
 .recoveryHeader span { color: var(--status-warning); font: .62rem var(--font-plex-mono), monospace; letter-spacing: .14em; }
 .recoveryHeader strong { color: var(--text); }
 .recoveryHeader p { margin: 0; color: var(--text-muted); font-size: .78rem; }
+.recoveryHeader .checkpointNote { color: var(--status-success); }
 .recoveryHeader button {
   flex: none;
   min-height: 42px;

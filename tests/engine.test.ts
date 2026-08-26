@@ -26,6 +26,12 @@ import { findUnsupportedQuantifiedClaims } from "../lib/engine/content-safety";
 import { liveSandboxTemplate, supportsLiveSandbox } from "../lib/project/live-sandbox";
 import { instrumentSandboxFiles, isRenderGateReport } from "../lib/project/render-gate";
 import { runPipeline } from "../lib/engine/pipeline";
+import {
+  checkpointMatchesInput,
+  createPipelineCheckpoint,
+  isPipelineCheckpoint,
+  type PipelineCheckpoint,
+} from "../lib/engine/pipeline-checkpoint";
 
 test("the public blocklist has truthful family and signal counts", () => {
   const data = getAllCliches();
@@ -189,6 +195,81 @@ test("OpenRouter Fast mode survives a failed plan call and still assembles the p
     assert.match(result.designPlan.rawPlan, /Deterministic local resilience plan/);
     assert.equal(result.project.framework, "html");
     assert.match(result.project.files.find((file) => file.path === "index.html")?.content ?? "", /مطعم في القاهرة/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("pipeline checkpoints are bounded and tied to the exact local input", () => {
+  const input = {
+    brief: "A Cairo restaurant with Arabic-first reservations",
+    framework: "html",
+    mode: "fast" as const,
+  };
+  const analysis = analyzeBriefLocally(input.brief);
+  const plan = generateDesignPlanLocally(analysis);
+  const checkpoint = createPipelineCheckpoint(input, "04", analysis, plan);
+
+  assert.equal(isPipelineCheckpoint(checkpoint), true);
+  assert.equal(checkpointMatchesInput(checkpoint, input), true);
+  assert.equal(checkpointMatchesInput(checkpoint, { ...input, brief: `${input.brief} changed` }), false);
+  assert.equal(isPipelineCheckpoint({ ...checkpoint, completedStage: "04", designPlan: undefined }), false);
+  assert.equal(isPipelineCheckpoint({ ...checkpoint, briefAnalysis: { ...analysis, subject: "x".repeat(501) } }), false);
+});
+
+test("stage 04 resume retries code generation without another model plan call", async () => {
+  const originalFetch = globalThis.fetch;
+  const baseInput = {
+    brief: "اريد موقع لمطعم في القاهرة مع حجز واضح",
+    framework: "html",
+    mode: "fast" as const,
+    provider: "openrouter" as const,
+    model: "openai/gpt-oss-20b:free",
+    apiKey: "test-key",
+  };
+  let calls = 0;
+  let savedCheckpoint: PipelineCheckpoint | undefined;
+  globalThis.fetch = async () => {
+    calls++;
+    return new Response(JSON.stringify({ error: { code: 503, message: "Provider unavailable" } }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    await assert.rejects(
+      () => runPipeline({
+        ...baseInput,
+        onEvent(event) {
+          if (event.event === "checkpoint" && isPipelineCheckpoint(event.data.checkpoint)) {
+            savedCheckpoint = event.data.checkpoint;
+          }
+        },
+      }),
+      /Provider unavailable/
+    );
+    assert.equal(calls, 2, "the first run attempted plan and code");
+    assert.equal(savedCheckpoint?.completedStage, "04");
+
+    calls = 0;
+    globalThis.fetch = async () => {
+      calls++;
+      return new Response(JSON.stringify({
+        model: "openai/gpt-oss-20b:free",
+        choices: [{
+          finish_reason: "stop",
+          message: {
+            content: `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>مطعم القاهرة</title><style>body{font:16px Arial;background:#17100d;color:#fff2d8}@media(prefers-reduced-motion:reduce){*{animation:none!important}}</style></head><body><main><h1>مطعم القاهرة</h1></main></body></html>`,
+          },
+        }],
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    };
+
+    const resumed = await runPipeline({ ...baseInput, checkpoint: savedCheckpoint });
+    assert.equal(calls, 1, "resume must spend only the code-generation call");
+    assert.equal(resumed.project.framework, "html");
+    assert.match(resumed.generatedCode.code, /مطعم القاهرة/);
   } finally {
     globalThis.fetch = originalFetch;
   }

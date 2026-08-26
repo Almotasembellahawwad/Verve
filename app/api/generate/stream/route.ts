@@ -6,6 +6,7 @@ import { checkRateLimit, acquireConcurrentSlot, ROUTE_LIMITS } from "@/lib/middl
 import { classifyError, logSanitizedError } from "@/lib/middleware/error-handler";
 import { serializePipelineResult } from "@/lib/api/pipeline-response";
 import { buildRecoveryProject } from "@/lib/project/project-builder";
+import { isPipelineCheckpoint, PipelineCheckpointSchema } from "@/lib/engine/pipeline-checkpoint";
 
 export const maxDuration = 300;
 
@@ -18,6 +19,7 @@ const RequestSchema = z.object({
   model: z.string().max(100).optional(),
   pexelsKey: z.string().max(500).optional(),
   mode: z.enum(["fast", "studio"]).optional().default("studio"),
+  checkpoint: PipelineCheckpointSchema.optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -54,6 +56,7 @@ export async function POST(req: NextRequest) {
       const startedAt = Date.now();
       let stageStartedAt = startedAt;
       let currentStage = "boot";
+      let latestCheckpoint = parsed.data.checkpoint;
       const overallCtrl = new AbortController();
       const overallTimer = setTimeout(
         () => overallCtrl.abort(new Error("Pipeline timed out after 240s")),
@@ -91,6 +94,9 @@ export async function POST(req: NextRequest) {
               currentStage = data.id;
               stageStartedAt = Date.now();
             }
+            if (event === "checkpoint" && isPipelineCheckpoint(data.checkpoint)) {
+              latestCheckpoint = data.checkpoint;
+            }
             send(event, data, stageId);
           },
         });
@@ -113,6 +119,7 @@ export async function POST(req: NextRequest) {
           failedStage: currentStage,
           message,
           project: buildRecoveryProject(parsed.data.brief, parsed.data.framework, currentStage),
+          ...(latestCheckpoint ? { checkpoint: latestCheckpoint } : {}),
         }, "recovery");
       } finally {
         clearInterval(heartbeat);

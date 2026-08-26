@@ -13,6 +13,7 @@ Verve is an open-source project intelligence engine for generating distinctive w
 - **Fast and Studio modes** — a two-model-call draft path with local brief extraction and a deeper adversarial production path.
 - **Voice briefs** — dictate in Arabic or English, review the transcript, then generate.
 - **OpenRouter recovery** — gateway-managed model fallback, structured JSON output, local brief/plan resilience, ten-second SSE heartbeats, truncation detection, failed-stage reporting, and a downloadable recovery draft.
+- **Resumable Fast checkpoints** — after contrast enforcement, a failed code call can resume from stage 05 without paying for another brief or plan call.
 - **Complete ZIP export** — source, configuration, dependencies, `.gitignore`, and a project-specific README.
 - **Production warnings** — flags fake forms, unsafe HTML injection, unsupported quantified claims, runtime asset dependencies, root-level mobile clipping, weak React keys, missing fonts, tiny text, and missing reduced-motion handling.
 - **Project Validator 0.2.1** — verifies scaffold files, entry exports, relative imports, declared dependencies, fragment links, form contracts, image alternatives, button types, reduced motion, and unfinished content markers.
@@ -123,6 +124,7 @@ The OpenRouter path now provides:
 
 - local Fast-mode brief extraction, saving one free request per run;
 - a local brief-specific plan if provider planning fails;
+- an input-bound local checkpoint that resumes code generation without repeating the plan call;
 - gateway-managed fallback between the selected free endpoint and the free router;
 - stage-specific deadlines up to a 90-second hard ceiling;
 - strict JSON Schema output for brief and plan calls;
@@ -219,6 +221,7 @@ stage_start
 heartbeat       # every 10 seconds during a silent provider call
 stage_retry     # when OpenRouter retries or switches model
 stage_degraded  # optional Studio intelligence moved to local fallback
+checkpoint      # safe Fast-mode stage state; never contains an API key
 stage_done
 result          # successful terminal event
 ```

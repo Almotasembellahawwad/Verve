@@ -27,6 +27,7 @@ This document tracks shipped foundations and the next evidence-driven product wo
 - [x] Fast mode with local brief extraction, two core model calls, and deterministic preflight
 - [x] Studio mode with adversarial critique and bounded repair
 - [x] OpenRouter gateway fallback, structured output, local brief/plan resilience, heartbeat, truncation rejection, and recovery result
+- [x] Input-bound Fast checkpoint resume from stage 05 without repeating provider planning
 - [x] Arabic and English browser speech-to-text input
 - [x] Project readiness warnings independent of distinctiveness score
 - [x] Multi-file Project Validator with blocked/review/ready terminal states
