@@ -29,7 +29,7 @@ export type EngineeringDimension = {
   score: number;       // 0-100
   weight: number;      // 0-1, must sum to 1 across dimensions
   flags: string[];     // specific issues found
-  passed: boolean;     // score >= 60
+  passed: boolean;     // score >= 55
 };
 
 export type EngineeringResult = {
@@ -77,7 +77,11 @@ const ACCESSIBILITY_CHECKS = {
       penalty: 10,
       label: "icon-only button without an accessible name",
     },
-    { pattern: /outline:\s*none|outline:\s*0/i, penalty: 20, label: "focus outline removed (keyboard trap)" },
+    {
+      test: hasUnreplacedFocusOutlineRemoval,
+      penalty: 20,
+      label: "focus outline removed without a visible replacement",
+    },
     { pattern: /font-size:\s*[0-9]px;/i, penalty: 15, label: "font-size below 10px (unreadable)" },
   ],
 };
@@ -243,6 +247,14 @@ function matchesCheck(check: PatternCheck, code: string): boolean {
   if (!check.pattern) return false;
   check.pattern.lastIndex = 0;
   return check.pattern.test(code);
+}
+
+function hasUnreplacedFocusOutlineRemoval(code: string): boolean {
+  if (!/outline:\s*(?:none|0(?:\s*;|\s*}))/i.test(code)) return false;
+  const focusVisibleBlocks = code.match(/[^{}]*:focus-visible[^{}]*\{[^{}]*\}/gi) ?? [];
+  return !focusVisibleBlocks.some((block) =>
+    /outline:\s*(?!(?:none|0)\b)[^;}]+|box-shadow\s*:|border(?:-color)?\s*:/i.test(block)
+  );
 }
 
 /** Remove reduced-motion @media blocks so necessary !important rules are not treated as CSS debt. */

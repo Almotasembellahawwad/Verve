@@ -349,6 +349,12 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   // Score the delivered code, not the user's brief/input. The input scan is
   // retained only as generation guidance and prompt-injection context.
   const blocklistResult = runBlocklistFilter(finalCode.code);
+  if (mode === "fast" && blocklistResult.matches.length > 0) {
+    finalCritique = {
+      ...finalCritique,
+      overallVerdict: `Fast structural preflight passed, but the delivered code contains ${blocklistResult.matches.length} blocked visual pattern${blocklistResult.matches.length === 1 ? "" : "s"}. Resolve them or run Studio for adversarial review.`,
+    };
+  }
 
   // -- [N] Restraint Check (Dieter Rams) -- deterministic, no LLM call ------
   const restraintResult = runRestraintCheck({

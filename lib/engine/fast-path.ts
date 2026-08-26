@@ -70,9 +70,10 @@ export function critiquePlanLocally(plan: DesignPlan): CritiqueResult {
     passed,
     genericElementCount: issues.length,
     flaggedElements: issues,
-    positiveElements: ["Fast mode completed a deterministic production preflight."],
+    // Structural evidence is not proof that a cliché was deliberately avoided.
+    positiveElements: [],
     overallVerdict: passed
-      ? "Fast preflight passed. Use Studio mode for adversarial visual critique."
+      ? "Fast structural preflight passed. Visual distinctiveness has not been adversarially reviewed."
       : "Fast preflight found a blocking design-plan issue.",
     endingCheck: {
       quality: "intentional",

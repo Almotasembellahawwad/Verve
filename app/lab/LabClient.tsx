@@ -75,7 +75,7 @@ const PIPELINE_MODULES = [
   {
     id: "06",
     name: "Scorer — Norman 3-Level (Module J)",
-    description: "Splits the distinctiveness score into 3 Norman levels: Visceral (35%), Behavioral (40%), Reflective (25%).",
+    description: "Splits the evidence into 3 Norman levels: Visceral (50%), Behavioral (20%), Reflective (30%). Behavioral failures cap the result; usability cannot inflate generic visuals.",
     systemPromptHighlight: "KEY: Behavioral is evaluated BLIND to aesthetics to counter Aesthetic-Usability Effect. Reflective uses archetypeCoherence and Peak-End quality.",
     inputs: ["BlocklistResult", "DesignPlan", "CritiqueResult", "ArchetypeResolution"],
     outputs: ["DistinctivenessReport (normanLevels, archetypeCoherence, normanSummary)"],

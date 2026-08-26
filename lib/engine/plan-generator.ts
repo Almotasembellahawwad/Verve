@@ -144,7 +144,7 @@ Rules:
 3. EXACTLY ONE signature element — a bold, specific, justifiable design risk. Not "use a unique gradient." Something that, if removed, would make the design generic.
 4. The layout concept must differ from the 4-card-grid, alternating-sections, centered-hero defaults.
 5. ALL archetype constraints above are HARD requirements — color, type, layout decisions must be coherent with the identified archetype.
-6. COLOR RULE: Must ensure high contrast. Background MUST be deep (#0E0E0D / #14221F) or light (#FAF8F5 / #F4F1EA). Text MUST be high contrast (#F2EFE9 or #14221F). NEVER use gray on gray.
+6. COLOR RULE: Provide high-contrast text and surfaces with an estimated WCAG AA ratio. Derive every color from this brief and obey the blocklist above; do not copy fixed fallback hex values or use gray on gray.
 ${critiqueNote}
 
 Respond ONLY in valid JSON with this exact schema:

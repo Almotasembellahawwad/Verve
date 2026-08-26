@@ -93,6 +93,7 @@ export function runRestraintCheck(plan: DesignPlanInput): RestraintResult {
 
   // Identify the "boldest element" (what would be removed first)
   const boldestElement = identifyBoldestElement(plan, flaggedSignals);
+  const boldestSubject = /^the\b/i.test(boldestElement) ? boldestElement : `the ${boldestElement}`;
 
   // Verdict
   let verdict: RestraintVerdict;
@@ -101,7 +102,7 @@ export function runRestraintCheck(plan: DesignPlanInput): RestraintResult {
 
   if (raw >= 70) {
     verdict = "disciplined";
-    reasoning = `The plan demonstrates genuine restraint. The ${boldestElement} is purposeful and has a clear structural role, not purely decorative. Removing it would weaken the design, not strengthen it. This is the Rams test passed.`;
+    reasoning = `The plan demonstrates genuine restraint. ${boldestSubject} is purposeful and has a clear structural role, not purely decorative. Removing it would weaken the design, not strengthen it. This is the Rams test passed.`;
   } else if (raw >= 45) {
     verdict = "restrained-further";
     const primary = flaggedSignals[0];

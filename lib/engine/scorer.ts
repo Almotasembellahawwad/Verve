@@ -229,6 +229,7 @@ function scoreReflective(
 ): NormanLevelScore {
   let score = 60; // reflective starts at baseline — most designs don't achieve shareability
   const improvements: string[] = [];
+  const deterministicPreflight = finalCritique.rawCritique.includes("Deterministic Fast-mode preflight");
 
   // Archetype coherence: does the design reflect the identified archetype?
   let archetypeCoherence = 50; // default
@@ -240,6 +241,9 @@ function scoreReflective(
       )
     ).length;
     archetypeCoherence = Math.max(20, 100 - archetypeViolations * 20);
+    if (deterministicPreflight) {
+      archetypeCoherence = Math.min(archetypeCoherence, Math.round(archetypeResolution.confidence * 100));
+    }
     score += (archetypeCoherence - 50) * 0.3; // scaled contribution
   }
 
@@ -278,6 +282,7 @@ function scoreReflective(
   score -= highCritiqueFlags.length * 7;
   score -= mediumCritiqueFlags.length * 3;
   if (!finalCritique.passed) score = Math.min(score, 69);
+  if (deterministicPreflight) score = Math.min(score, 84);
 
   score = Math.max(0, Math.min(100, score));
 
@@ -311,22 +316,33 @@ export function generateDistinctivenessReport(
   const behavioral = scoreBehavioral(plan, finalCritique);
   const reflective = scoreReflective(plan, finalCritique, archetypeResolution);
 
-  // ── Composite score (weighted average — behavioral is minimum floor) ──────
-  // Visceral:   35% — boldness drives first impression
-  // Behavioral: 40% — usability is non-negotiable (highest weight)
-  // Reflective: 25% — long-term value and brand coherence
+  // ── Distinctiveness composite with evidence floors ───────────────────────
+  // Visceral:   50% — visible specificity is the primary evidence
+  // Behavioral: 20% — usability is a floor, not a distinctiveness bonus
+  // Reflective: 30% — long-term value and brand coherence
   const rawComposite = Math.round(
-    visceral.score   * 0.35 +
-    behavioral.score * 0.40 +
-    reflective.score * 0.25
+    visceral.score   * 0.50 +
+    behavioral.score * 0.20 +
+    reflective.score * 0.30
   );
   const highCritiqueCount = finalCritique.flaggedElements.filter((flag) => flag.severity === "high").length;
+  const highBlocklistCount = blocklistResult.matches.filter((match) => match.severity === "high").length;
+  const mediumBlocklistCount = blocklistResult.matches.filter((match) => match.severity === "medium").length;
   const critiqueCap = highCritiqueCount >= 5 ? 49
     : highCritiqueCount >= 3 ? 59
       : highCritiqueCount > 0 ? 74
         : !finalCritique.passed ? 79
           : 100;
-  const composite = Math.min(rawComposite, critiqueCap);
+  const blocklistCap = highBlocklistCount >= 2 ? 79
+    : highBlocklistCount === 1 ? 84
+      : mediumBlocklistCount > 0 ? 89
+        : 100;
+  const behavioralCap = behavioral.score < 40 ? 49
+    : behavioral.score < 55 ? 59
+      : behavioral.score < 70 ? 74
+        : 100;
+  const visualEvidenceCap = visceral.score < 80 ? 89 : 100;
+  const composite = Math.min(rawComposite, critiqueCap, blocklistCap, behavioralCap, visualEvidenceCap);
   const compositeGrade = toGrade(composite);
 
   // ── Archetype coherence ───────────────────────────────────────────────────
@@ -338,6 +354,9 @@ export function generateDistinctivenessReport(
       )
     ).length;
     archetypeCoherence = Math.max(20, 100 - violations * 20);
+    if (finalCritique.rawCritique.includes("Deterministic Fast-mode preflight")) {
+      archetypeCoherence = Math.min(archetypeCoherence, Math.round(archetypeResolution.confidence * 100));
+    }
   }
 
   // ── Cliché lists ──────────────────────────────────────────────────────────
@@ -390,7 +409,9 @@ export function generateDistinctivenessReport(
     clichesAvoided,
     clichesDetected: [...new Set(clichesDetected)],
     signatureElement: `${plan.signatureElement.name}: ${plan.signatureElement.description}`,
-    critiqueSummary:  finalCritique.overallVerdict,
+    critiqueSummary: finalCritique.rawCritique.includes("Deterministic Fast-mode preflight") && blocklistResult.matches.length > 0
+      ? `Fast structural preflight passed, but the delivered code contains ${blocklistResult.matches.length} blocked visual pattern${blocklistResult.matches.length === 1 ? "" : "s"}. Resolve them or run Studio for adversarial review.`
+      : finalCritique.overallVerdict,
     critiqueTranscript: finalCritique.rawCritique,
     revisionCount,
     recommendations: allRecs,

@@ -46,8 +46,13 @@ export function runBlocklistFilter(content: string, existingCode?: string): Bloc
     );
 
     // Also check pattern keywords in the text
-    const patternWords = entry.pattern.toLowerCase().split(/\s+/);
-    const keywordHit = patternWords.filter((w) => w.length > 5 && fullText.includes(w)).length >= 2;
+    const patternWords = entry.pattern.toLowerCase().split(/\s+/).filter((word) => word.length > 5);
+    const keywordHits = patternWords.filter((word) => fullText.includes(word)).length;
+    // Two generic source-code tokens such as "heading" and "weight" do not
+    // prove a compound visual cliché. Exact examples remain authoritative;
+    // keyword inference requires most of a pattern's distinctive vocabulary.
+    const keywordThreshold = Math.max(3, Math.ceil(patternWords.length * 0.75));
+    const keywordHit = patternWords.length >= 3 && keywordHits >= keywordThreshold;
 
     if (matchedValues.length > 0 || keywordHit) {
       matches.push({

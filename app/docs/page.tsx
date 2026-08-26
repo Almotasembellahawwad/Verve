@@ -185,7 +185,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     "dependencies": { "next": "^16.3.1", "react": "^19.2.4" },
     "warnings": []
   },
-  "distinctivenessReport": { "score": 91, "grade": "A", "clichesAvoided": [], "recommendations": [] },
+  "distinctivenessReport": { "score": 84, "grade": "A", "clichesAvoided": [], "recommendations": [] },
   "revisionCount": 0,
   "durationMs": 14200
 }`,
@@ -335,7 +335,7 @@ event: recovery`,
             {
               file: "scorer.ts",
               exports: "generateDistinctivenessReport(blocklistResult, plan, critique, revisionCount): DistinctivenessReport",
-              desc: "Pure function — no LLM call. Computes score from: high-severity clichés (−12 each), medium clichés (−5), high critique flags (−10), medium flags (−4), revision cycles (+5 each), positive elements (+3 each, max 15).",
+              desc: "Pure function — no LLM call. Weighs visceral evidence at 50%, behavioral quality at 20%, and reflective meaning at 30%. Critique, blocklist, and usability failures apply hard ceilings so missing review evidence cannot become an S grade.",
             },
             {
               file: "design-critic.ts",

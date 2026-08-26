@@ -1040,7 +1040,7 @@ export default function GeneratePanel() {
               {result.distinctivenessReport.clichesAvoided.length > 0 && (
                 <div className={styles.reportSection}>
                   <h3 className={styles.reportSectionTitle}>
-                    <span className="signal-text">✓</span> Deliberately avoided
+                    <span className="signal-text">✓</span> Specific strengths
                   </h3>
                   <ul className={styles.reportList}>
                     {result.distinctivenessReport.clichesAvoided.map((c) => (

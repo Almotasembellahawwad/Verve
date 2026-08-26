@@ -18,6 +18,8 @@ import { runSelfCritique } from "../lib/engine/critique-loop";
 import type { CritiqueResult } from "../lib/engine/critique-loop";
 import { generateDistinctivenessReport } from "../lib/engine/scorer";
 import { scoreEngineering } from "../lib/engine/engineering-score";
+import { critiquePlanLocally, resolveArchetypeLocally } from "../lib/engine/fast-path";
+import { runRestraintCheck } from "../lib/engine/restraint-check";
 
 test("the public blocklist has truthful family and signal counts", () => {
   const data = getAllCliches();
@@ -81,6 +83,11 @@ test("provider registry contains no retired model IDs", () => {
 test("URL critic rejects insecure and private-network targets before fetching", async () => {
   await assert.rejects(() => fetchPublicDesignSource("http://example.com"), /public HTTPS/);
   await assert.rejects(() => fetchPublicDesignSource("https://127.0.0.1"), /private network/);
+});
+
+test("blocklist does not infer a compound visual cliché from two generic CSS words", () => {
+  const result = runBlocklistFilter(".hero-heading { font-weight: 700; }");
+  assert.equal(result.matches.some((match) => match.id === "type-002"), false);
 });
 
 test("project engine assembles a runnable Next.js file contract", () => {
@@ -182,6 +189,61 @@ test("engineering checks distinguish fluid CSS and accessibility policy from rea
 
   const fixed = scoreEngineering("<style>.shell { width: 1200px; }</style>", "html");
   assert.ok(fixed.dimensions.find((dimension) => dimension.id === "responsive")?.flags.includes("fixed large pixel width (breaks mobile)"));
+
+  const replacedFocus = scoreEngineering("<button>Open</button><style>button { outline: none; } button:focus-visible { outline: 2px solid currentColor; }</style>", "html");
+  assert.equal(replacedFocus.dimensions.find((dimension) => dimension.id === "a11y")?.flags.includes("focus outline removed without a visible replacement"), false);
+
+  const missingFocus = scoreEngineering("<button>Open</button><style>button { outline: 0; }</style>", "html");
+  assert.ok(missingFocus.dimensions.find((dimension) => dimension.id === "a11y")?.flags.includes("focus outline removed without a visible replacement"));
+});
+
+test("Fast evidence cannot turn a blocked visual result into an S grade", () => {
+  const analysis = {
+    subject: "Luxury interior design studio",
+    audience: "Hotel developers",
+    primaryJob: "Book a consultation",
+    tone: "Quiet and exacting",
+    industry: "Interior Design",
+    constraints: [],
+    rawBrief: "Abu Dhabi luxury interiors",
+  } as BriefAnalysis;
+  const plan = {
+    colorPalette: [
+      { name: "Cream", hex: "#F4F1EA", role: "background" },
+      { name: "Ink", hex: "#111111", role: "text" },
+      { name: "Stone", hex: "#665f55", role: "accent" },
+    ],
+    typePairing: { display: "Georgia", body: "Arial", rationale: "Editorial contrast for hospitality decision makers." },
+    layoutConcept: "A long material register connects residential and hospitality evidence to one consultation threshold at the end of the page.",
+    signatureElement: {
+      name: "The Material Datum",
+      description: "A single measured line joining project evidence.",
+      implementation: "One semantic list with a responsive CSS rule.",
+      justification: "It turns the studio's material decisions into a navigable project argument instead of a decorative gallery motif.",
+    },
+    referencesSampled: [],
+    cognitiveGrounding: {
+      vonRestorffCompliance: "The datum is isolated through spacing and one contrasting rule while all other sections remain quiet.",
+      gutenbergCompliance: "The consultation action closes the reading path.",
+      signalNoiseRatio: 0.8,
+      peakEndDesign: "The material line resolves into the consultation action.",
+      usabilityBaseline: "AA contrast and 44px controls.",
+    },
+    rawPlan: "fixture",
+  } as DesignPlan;
+  const critique = critiquePlanLocally(plan);
+  const archetype = resolveArchetypeLocally(analysis);
+  const report = generateDistinctivenessReport(runBlocklistFilter("#F4F1EA"), plan, critique, 0, archetype);
+  assert.ok(report.score <= 84);
+  assert.notEqual(report.grade, "S");
+  assert.ok(report.normanLevels.reflective.score <= 84);
+  assert.equal(report.archetypeCoherence, 68);
+  assert.deepEqual(report.clichesAvoided, []);
+  assert.match(report.critiqueSummary, /blocked visual pattern/);
+
+  const restraint = runRestraintCheck(plan);
+  assert.doesNotMatch(restraint.reasoning, /The The Material Datum/);
+  assert.match(restraint.reasoning, /The Material Datum is purposeful/);
 });
 
 test("a rejected adversarial review cannot produce a 100 distinctiveness score", () => {
