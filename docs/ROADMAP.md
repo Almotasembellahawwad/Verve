@@ -26,12 +26,15 @@ This document tracks shipped foundations and the next evidence-driven product wo
 - [x] OpenRouter timeout, retry, fallback, heartbeat, truncation rejection, and recovery result
 - [x] Arabic and English browser speech-to-text input
 - [x] Project readiness warnings independent of distinctiveness score
+- [x] Multi-file Project Validator with blocked/review/ready terminal states
+- [x] Live Problems and Sandpack Console panels
+- [x] ZIP export follows current editor changes
 - [x] Browser-local BYOK with no Supabase dependency
 
 ## Phase 2.1 — Quality calibration
 
 - [ ] Rendered screenshot audit at 360, 768, and 1440 pixels
-- [ ] Browser console and broken-navigation evidence in the readiness report
+- [x] Browser console and deterministic broken-navigation evidence in the readiness report
 - [ ] Form-contract adapters for explicit email, webhook, or server-action behavior
 - [ ] Section-level regeneration without replacing the whole project
 - [ ] Persistent editable project snapshots in IndexedDB rather than large localStorage records

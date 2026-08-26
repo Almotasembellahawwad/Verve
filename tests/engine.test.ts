@@ -10,6 +10,8 @@ import type { LLMAdapter } from "../lib/llm-adapter/types";
 import { buildGeneratedProject, buildRecoveryProject, inspectProductionRisks } from "../lib/project/project-builder";
 import type { BriefAnalysis } from "../lib/engine/brief-analyzer";
 import type { DesignPlan } from "../lib/engine/plan-generator";
+import { validateGeneratedProject } from "../lib/project/project-validator";
+import { mergeEditorFiles } from "../lib/project/editor-project";
 
 test("the public blocklist has truthful family and signal counts", () => {
   const data = getAllCliches();
@@ -140,4 +142,43 @@ test("provider recovery always yields a previewable project", () => {
   assert.equal(project.entryFile, "index.html");
   assert.equal(project.readiness.status, "review-required");
   assert.match(project.files[0].content, /Generation can resume/);
+});
+
+test("project validator blocks broken imports, anchors, and forms", () => {
+  const recovery = buildRecoveryProject("Validation fixture project", "html", "test");
+  const project = {
+    ...recovery,
+    files: [{
+      ...recovery.files[0],
+      content: `<!doctype html><html><body><a href="#missing">Go</a><form><button>Send</button></form><script type="module">import x from './missing.js'; import route from 'react-router-dom'; console.log(x, route)</script></body></html>`,
+    }],
+  };
+  const validation = validateGeneratedProject(project);
+  assert.equal(validation.status, "blocked");
+  assert.ok(validation.checks.some((item) => item.id === "relative-imports" && item.status === "fail"));
+  assert.ok(validation.checks.some((item) => item.id === "dependencies" && item.status === "fail"));
+  assert.ok(validation.checks.some((item) => item.id === "anchors" && item.status === "fail"));
+  assert.ok(validation.checks.some((item) => item.id === "forms" && item.status === "fail"));
+});
+
+test("project validator reads reduced-motion policy from stylesheet files", () => {
+  const recovery = buildRecoveryProject("Motion policy project", "html", "test");
+  const project = {
+    ...recovery,
+    files: [
+      recovery.files[0],
+      { path: "styles.css", content: "@media (prefers-reduced-motion: reduce) { * { animation: none; } }", language: "css" as const, role: "source" as const },
+    ],
+  };
+  const validation = validateGeneratedProject(project);
+  assert.ok(validation.checks.some((item) => item.id === "reduced-motion" && item.status === "pass"));
+});
+
+test("ZIP project source follows the live editor state", () => {
+  const project = buildRecoveryProject("Editable recovery project", "html", "test");
+  const edited = mergeEditorFiles(project, {
+    "/index.html": { code: "<!doctype html><html><body>Edited and exported</body></html>" },
+  });
+  assert.match(edited.files.find((file) => file.path === "index.html")?.content ?? "", /Edited and exported/);
+  assert.notEqual(edited.files[0].content, project.files[0].content);
 });

@@ -2,6 +2,7 @@ import type { BriefAnalysis } from "../engine/brief-analyzer";
 import type { GeneratedCode } from "../engine/code-generator";
 import type { DesignPlan } from "../engine/plan-generator";
 import type { GeneratedProject, ProjectFile, ProjectFramework } from "./types";
+import { validateGeneratedProject } from "./project-validator";
 
 function slugify(value: string): string {
   const slug = value
@@ -103,6 +104,27 @@ function readiness(warnings: string[]): GeneratedProject["readiness"] {
   };
 }
 
+function finalizeProject(project: Omit<GeneratedProject, "validation"> | GeneratedProject): GeneratedProject {
+  const { validation: _previousValidation, ...base } = project as GeneratedProject;
+  void _previousValidation;
+  const provisional = {
+    ...base,
+    validation: { status: "ready", score: 100, checks: [], failed: 0, warnings: 0 },
+  } as GeneratedProject;
+  const validation = validateGeneratedProject(provisional);
+  const riskReadiness = readiness(provisional.warnings);
+  const status = validation.status === "blocked"
+    ? "blocked"
+    : validation.status === "review-required" || riskReadiness.status === "review-required"
+      ? "review-required"
+      : "ready";
+  return {
+    ...provisional,
+    validation,
+    readiness: { status, score: Math.min(validation.score, riskReadiness.score) },
+  };
+}
+
 function nextProject(
   name: string,
   generated: GeneratedCode,
@@ -158,7 +180,7 @@ img, svg { display: block; max-width: 100%; }
   ];
 
   const warnings = inspectProductionRisks(generated.code);
-  return { schemaVersion: 1, name, framework: "nextjs", entryFile: "app/page.tsx", files, dependencies, scripts, warnings, readiness: readiness(warnings) };
+  return finalizeProject({ schemaVersion: 1, name, framework: "nextjs", entryFile: "app/page.tsx", files, dependencies, scripts, warnings, readiness: readiness(warnings) });
 }
 
 function reactProject(
@@ -182,7 +204,7 @@ function reactProject(
   ];
 
   const warnings = inspectProductionRisks(generated.code);
-  return { schemaVersion: 1, name, framework: "react", entryFile: "src/App.tsx", files, dependencies, scripts, warnings, readiness: readiness(warnings) };
+  return finalizeProject({ schemaVersion: 1, name, framework: "react", entryFile: "src/App.tsx", files, dependencies, scripts, warnings, readiness: readiness(warnings) });
 }
 
 function htmlProject(
@@ -197,7 +219,7 @@ function htmlProject(
     file("README.md", projectReadme(name, "html", analysis, plan, scripts), "markdown", "documentation"),
   ];
   const warnings = inspectProductionRisks(generated.code);
-  return { schemaVersion: 1, name, framework: "html", entryFile: "index.html", files, dependencies: {}, scripts, warnings, readiness: readiness(warnings) };
+  return finalizeProject({ schemaVersion: 1, name, framework: "html", entryFile: "index.html", files, dependencies: {}, scripts, warnings, readiness: readiness(warnings) });
 }
 
 export function inspectProductionRisks(code: string): string[] {
@@ -224,9 +246,8 @@ export function buildGeneratedProject(
       : nextProject(name, generated, analysis, plan);
   if (validationIssues.length > 0) {
     project.warnings.push(...validationIssues.map((issue) => `Validation: ${issue}`));
-    project.readiness = readiness(project.warnings);
   }
-  return project;
+  return finalizeProject(project);
 }
 
 export function buildRecoveryProject(
@@ -243,5 +264,5 @@ export function buildRecoveryProject(
 <body><div class="shell"><main><small>Recovery draft · ${failedStage}</small><h1>Direction saved.<br>Generation can resume.</h1><p>${safeBrief}</p><p>Verve preserved this local fallback because the selected model stopped before delivering the complete project. Retry in Fast mode or choose another model for the production build.</p></main></div></body></html>`;
   const files = [file("index.html", html, "html"), file("README.md", `# Recovery draft\n\nThe provider stopped during **${failedStage}**. The original brief has been preserved in index.html.`, "markdown", "documentation")];
   const warnings = [`Provider stopped during ${failedStage}. This is a recovery preview, not the production project.`];
-  return { schemaVersion: 1, name: `${name}-${framework}-recovery`, framework: "html", entryFile: "index.html", files, dependencies: {}, scripts: {}, warnings, readiness: readiness(warnings) };
+  return finalizeProject({ schemaVersion: 1, name: `${name}-${framework}-recovery`, framework: "html", entryFile: "index.html", files, dependencies: {}, scripts: {}, warnings, readiness: readiness(warnings) });
 }

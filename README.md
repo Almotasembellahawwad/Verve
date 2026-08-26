@@ -15,6 +15,9 @@ Verve is an open-source project intelligence engine for generating distinctive w
 - **OpenRouter recovery** — per-call limits, retry/fallback routing, ten-second SSE heartbeats, truncation detection, failed-stage reporting, and a downloadable recovery draft.
 - **Complete ZIP export** — source, configuration, dependencies, `.gitignore`, and a project-specific README.
 - **Production warnings** — flags fake forms, unsafe HTML injection, runtime asset dependencies, and missing reduced-motion handling.
+- **Project Validator 0.2.1** — verifies scaffold files, entry exports, relative imports, declared dependencies, fragment links, form contracts, image alternatives, button types, reduced motion, and unfinished content markers.
+- **Live Problems + Console** — revalidates the edited project inside the workbench and surfaces Sandpack runtime failures beside deterministic checks.
+- **Edit-safe export** — ZIP packages the current editor state, not the original generated snapshot.
 - **Local BYOK** — provider keys are stored in the current browser only and sent only with the request that uses them.
 
 ## Why Verve exists
@@ -225,6 +228,7 @@ Other public routes are documented in the in-app `/docs` page.
 - Keys are never included in results, history entries, logs, generated files, or recovery projects.
 - Logs redact common Anthropic, OpenAI, OpenRouter, Gemini, and bearer-token patterns.
 - Generated projects run inside a Sandpack iframe rather than Verve’s own React tree.
+- Project edits are revalidated in the browser and the exact edited files are used for ZIP export.
 - Remote critique URLs must be public HTTPS targets; private-network and loopback addresses are rejected.
 - Voice input requires an explicit browser microphone permission and remains editable before submission.
 - Generated code is untrusted output. Review warnings and run the production build before deployment.
@@ -250,7 +254,9 @@ lib/
 │   └── openrouter.ts          # timeout/retry/fallback/truncation policy
 ├── project/
 │   ├── types.ts               # GeneratedProject contract
-│   └── project-builder.ts     # complete stack scaffolds + risk scan
+│   ├── project-builder.ts     # complete stack scaffolds + risk scan
+│   ├── project-validator.ts   # multi-file production contract
+│   └── editor-project.ts      # editor state → validation/export project
 └── client/key-storage.ts      # browser-local BYOK storage
 tests/
 └── engine.test.ts

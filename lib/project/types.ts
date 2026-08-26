@@ -7,6 +7,22 @@ export type ProjectFile = {
   role: "source" | "config" | "asset" | "documentation";
 };
 
+export type ProjectCheck = {
+  id: string;
+  title: string;
+  status: "pass" | "warning" | "fail";
+  message: string;
+  file?: string;
+};
+
+export type ProjectValidation = {
+  status: "ready" | "review-required" | "blocked";
+  score: number;
+  checks: ProjectCheck[];
+  failed: number;
+  warnings: number;
+};
+
 export type GeneratedProject = {
   schemaVersion: 1;
   name: string;
@@ -17,7 +33,8 @@ export type GeneratedProject = {
   scripts: Record<string, string>;
   warnings: string[];
   readiness: {
-    status: "ready" | "review-required";
+    status: "ready" | "review-required" | "blocked";
     score: number;
   };
+  validation: ProjectValidation;
 };

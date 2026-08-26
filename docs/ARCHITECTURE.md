@@ -28,7 +28,9 @@ lib/engine/
 
 lib/project/
 ├── types.ts                    07 — public GeneratedProject contract
-└── project-builder.ts          07 — Next.js, React/Vite, and HTML assembly
+├── project-builder.ts          07 — Next.js, React/Vite, and HTML assembly
+├── project-validator.ts        07 — multi-file production contract
+└── editor-project.ts           workbench edits merged before validation/export
 ```
 
 ## LLM Adapter
@@ -88,7 +90,7 @@ Studio mode uses the full LLM archetype and adversarial critique flow, bounded p
 
 `buildGeneratedProject()` creates the complete stack scaffold after code validation. `ProjectWorkbench` maps the files into a Sandpack iframe, provides file browsing/editing and responsive viewports, and exports the same contract through JSZip. Generated code never mounts into Verve's own component tree.
 
-Project readiness is separate from distinctiveness. Runtime dependencies, fake form behavior, unsafe HTML injection, missing motion safeguards, and unresolved validation findings lower readiness and remain visible to the user.
+Project readiness is separate from distinctiveness. The validator checks scaffold files, entry exports, relative imports, declared packages, fragment targets, form behavior, unsafe HTML injection, image alternatives, button types, motion safeguards, and unfinished content. `ProjectWorkbench` reruns those checks against the live editor state; ZIP uses that same state.
 
 ## Provider terminal states
 
