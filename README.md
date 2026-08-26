@@ -18,6 +18,7 @@ Verve is an open-source project intelligence engine for generating distinctive w
 - **Project Validator 0.2.1** — verifies scaffold files, entry exports, relative imports, declared dependencies, fragment links, form contracts, image alternatives, button types, reduced motion, and unfinished content markers.
 - **Live Problems + Console** — revalidates the edited project inside the workbench and surfaces Sandpack runtime failures beside deterministic checks.
 - **Edit-safe export** — ZIP packages the current editor state, not the original generated snapshot.
+- **Truthful scoring and HTML delivery 0.2.3** — adversarial design flags now cap distinctiveness scores, engineering checks avoid reduced-motion and fluid-width false positives, static HTML projects ship accurate no-build instructions, and generators may not fabricate item-level portfolio records from a total count.
 - **Provider resilience 0.2.2** — GPT-5.6 uses the Responses API, calls have stage-specific deadlines, Studio review degrades to a deterministic preflight, and a silent stream creates an immediate recovery checkpoint.
 - **Local BYOK** — provider keys are stored in the current browser only and sent only with the request that uses them.
 

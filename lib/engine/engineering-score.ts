@@ -15,6 +15,14 @@
 
 type Framework = string;
 
+type PatternCheck = {
+  pattern?: RegExp;
+  test?: (code: string) => boolean;
+  label: string;
+};
+
+type BadPatternCheck = PatternCheck & { penalty: number };
+
 export type EngineeringDimension = {
   id: string;
   name: string;
@@ -64,7 +72,11 @@ const ACCESSIBILITY_CHECKS = {
   ],
   bad: [
     { pattern: /<img(?![^>]*alt=)/i, penalty: 25, label: "img without alt attribute" },
-    { pattern: /<button(?![^>]*aria)/i, penalty: 10, label: "button without ARIA context" },
+    {
+      test: (code: string) => /<button\b(?![^>]*(?:aria-label|aria-labelledby|title))[^>]*>\s*(?:<svg[\s\S]*?<\/svg>|[^A-Za-z0-9]{0,8})\s*<\/button>/i.test(code),
+      penalty: 10,
+      label: "icon-only button without an accessible name",
+    },
     { pattern: /outline:\s*none|outline:\s*0/i, penalty: 20, label: "focus outline removed (keyboard trap)" },
     { pattern: /font-size:\s*[0-9]px;/i, penalty: 15, label: "font-size below 10px (unreadable)" },
   ],
@@ -74,7 +86,16 @@ const PERFORMANCE_CHECKS = {
   bad: [
     { pattern: /data:image\/[a-z]+;base64,[A-Za-z0-9+/]{200,}/i, penalty: 30, label: "large base64 inline image" },
     { pattern: /animation.*0\.1s|transition.*0\.05s/i, penalty: 8,  label: "animation duration < 100ms (imperceptible)" },
-    { pattern: /@import url\([^)]{80,}\)/i, penalty: 10, label: "multiple large font imports" },
+    { pattern: /@import\s+(?:url\()?['"]?https?:\/\/(?:fonts\.googleapis|api\.fontshare)/i, penalty: 8, label: "render-blocking remote font import" },
+    {
+      test: (code: string) => {
+        const importText = code.match(/@import[^;]+(?:fonts\.googleapis|api\.fontshare)[^;]+;/gi)?.join(" ") ?? "";
+        const weights = new Set(importText.match(/(?:^|[^0-9])(?:[1-9]00)(?=$|[^0-9])/g)?.map((value) => value.replace(/\D/g, "")) ?? []);
+        return weights.size >= 4;
+      },
+      penalty: 8,
+      label: "loads four or more remote font weights",
+    },
     { pattern: /box-shadow:[^;]{0,200}box-shadow:/i, penalty: 12, label: "multiple box-shadows (paint cost)" },
     { pattern: /filter:\s*blur/i, penalty: 15, label: "CSS blur filter (GPU paint cost on mobile)" },
   ],
@@ -92,7 +113,11 @@ const CLEAN_CODE_CHECKS = {
     { pattern: /type |interface /,        label: "uses TypeScript types" },
   ],
   bad: [
-    { pattern: /[0-9]{3,}px/g,           penalty: 8,  label: "magic pixel numbers" },
+    {
+      test: (code: string) => (code.match(/(?:padding|margin|inset|top|right|bottom|left|width|height):\s*\d{3,}px\b/gi)?.length ?? 0) >= 6,
+      penalty: 6,
+      label: "many large fixed-pixel layout values",
+    },
     { pattern: /style={{[^}]{200,}}}/,    penalty: 15, label: "large inline style objects (CSS-in-JS smell)" },
     { pattern: /TODO|FIXME|HACK/i,        penalty: 5,  label: "unresolved TODO/FIXME" },
     { pattern: /console\.(log|warn|error)\(/i, penalty: 5, label: "console statements in production code" },
@@ -107,7 +132,7 @@ const RESPONSIVE_CHECKS = {
     { pattern: /vw|vh|dvh|svh/i, label: "uses viewport units" },
   ],
   bad: [
-    { pattern: /width:\s*[7-9][0-9]{2}px|width:\s*1[0-9]{3}px/i, penalty: 25, label: "fixed large pixel width (breaks mobile)" },
+    { pattern: /(?:^|[;{]\s*)width:\s*(?:[7-9][0-9]{2}|1[0-9]{3})px\b/im, penalty: 25, label: "fixed large pixel width (breaks mobile)" },
     { pattern: /overflow:\s*hidden.*overflow:\s*hidden/i, penalty: 10, label: "multiple overflow: hidden (may clip on mobile)" },
   ],
 };
@@ -119,7 +144,11 @@ const CSS_QUALITY_CHECKS = {
     { pattern: /hsl\(|oklch\(|lch\(/i, label: "uses perceptual color space" },
   ],
   bad: [
-    { pattern: /!important/g, penalty: 12, label: "!important overrides" },
+    {
+      test: (code: string) => /!important/i.test(removeReducedMotionBlocks(code)),
+      penalty: 12,
+      label: "!important overrides outside reduced-motion policy",
+    },
     { pattern: /#[0-9a-fA-F]{3,6}.*#[0-9a-fA-F]{3,6}.*#[0-9a-fA-F]{3,6}.*#[0-9a-fA-F]{3,6}.*#[0-9a-fA-F]{3,6}/i, penalty: 10, label: "5+ hardcoded hex colors (should use custom properties)" },
     { pattern: /z-index:\s*9{3,}/i, penalty: 8, label: "z-index: 999+ (z-index inflation)" },
   ],
@@ -180,18 +209,18 @@ function scoreDimension(
   name: string,
   weight: number,
   code: string,
-  checks: { good?: { pattern: RegExp; label: string }[]; bad?: { pattern: RegExp; penalty: number; label: string }[] }
+  checks: { good?: PatternCheck[]; bad?: BadPatternCheck[] }
 ): EngineeringDimension {
   let score = 65; // baseline
   const flags: string[] = [];
 
   // Good patterns add to score
-  const goodHits = (checks.good ?? []).filter((c) => c.pattern.test(code));
+  const goodHits = (checks.good ?? []).filter((check) => matchesCheck(check, code));
   score += goodHits.length * 5;
 
   // Bad patterns subtract
   for (const check of (checks.bad ?? [])) {
-    if (check.pattern.test(code)) {
+    if (matchesCheck(check, code)) {
       score -= check.penalty;
       flags.push(check.label);
     }
@@ -207,6 +236,40 @@ function scoreDimension(
     flags,
     passed: score >= 55,
   };
+}
+
+function matchesCheck(check: PatternCheck, code: string): boolean {
+  if (check.test) return check.test(code);
+  if (!check.pattern) return false;
+  check.pattern.lastIndex = 0;
+  return check.pattern.test(code);
+}
+
+/** Remove reduced-motion @media blocks so necessary !important rules are not treated as CSS debt. */
+function removeReducedMotionBlocks(code: string): string {
+  let result = code;
+  let searchFrom = 0;
+  while (searchFrom < result.length) {
+    const mediaStart = result.indexOf("@media", searchFrom);
+    if (mediaStart === -1) break;
+    const openingBrace = result.indexOf("{", mediaStart);
+    if (openingBrace === -1) break;
+    const header = result.slice(mediaStart, openingBrace).toLowerCase();
+    if (!header.includes("prefers-reduced-motion")) {
+      searchFrom = openingBrace + 1;
+      continue;
+    }
+    let depth = 1;
+    let cursor = openingBrace + 1;
+    while (cursor < result.length && depth > 0) {
+      if (result[cursor] === "{") depth++;
+      else if (result[cursor] === "}") depth--;
+      cursor++;
+    }
+    result = `${result.slice(0, mediaStart)}${result.slice(cursor)}`;
+    searchFrom = mediaStart;
+  }
+  return result;
 }
 
 export function engineeringGrade(score: number): string {

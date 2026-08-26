@@ -29,9 +29,15 @@ function projectReadme(
   plan: DesignPlan,
   scripts: Record<string, string>
 ): string {
-  const commands = Object.entries(scripts)
-    .map(([key, command]) => `- \`npm run ${key}\` — \`${command}\``)
-    .join("\n");
+  const isStaticHtml = framework === "html";
+  const commands = isStaticHtml
+    ? "- Open `index.html` directly in a browser.\n- Optional local server: `npx --yes serve .`"
+    : Object.entries(scripts)
+        .map(([key, command]) => `- \`npm run ${key}\` — \`${command}\``)
+        .join("\n");
+  const runCommand = isStaticHtml
+    ? "# No install or build step is required.\n# Open index.html, or run:\nnpx --yes serve ."
+    : "npm install\nnpm run dev";
 
   return `# ${name}
 
@@ -54,13 +60,12 @@ Signature element: **${plan.signatureElement.name}** — ${plan.signatureElement
 ## Run locally
 
 \`\`\`bash
-npm install
-npm run dev
+${runCommand}
 \`\`\`
 
 ## Scripts
 
-${commands || "No build step is required."}
+${commands || "No scripts are required."}
 
 ## Production contract
 
@@ -213,7 +218,7 @@ function htmlProject(
   analysis: BriefAnalysis,
   plan: DesignPlan
 ): GeneratedProject {
-  const scripts = { dev: "npx serve ." };
+  const scripts = {};
   const files = [
     file("index.html", generated.code, "html"),
     file("README.md", projectReadme(name, "html", analysis, plan, scripts), "markdown", "documentation"),

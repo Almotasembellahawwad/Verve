@@ -15,6 +15,9 @@ import { mergeEditorFiles } from "../lib/project/editor-project";
 import { runOptionalProviderStep } from "../lib/engine/provider-resilience";
 import { readWithInactivityTimeout, StreamInactivityError } from "../lib/client/generation-stream";
 import { runSelfCritique } from "../lib/engine/critique-loop";
+import type { CritiqueResult } from "../lib/engine/critique-loop";
+import { generateDistinctivenessReport } from "../lib/engine/scorer";
+import { scoreEngineering } from "../lib/engine/engineering-score";
 
 test("the public blocklist has truthful family and signal counts", () => {
   const data = getAllCliches();
@@ -130,6 +133,103 @@ test("project risk scan rejects deceptive form behavior", () => {
   assert.ok(warnings.some((warning) => warning.includes("simulated")));
 });
 
+test("static HTML projects ship truthful no-build instructions", () => {
+  const analysis = {
+    subject: "Static studio",
+    audience: "Clients",
+    primaryJob: "Review work",
+    tone: "Measured",
+    industry: "Architecture",
+    constraints: [],
+    rawBrief: "Static architecture portfolio",
+  } as BriefAnalysis;
+  const plan = {
+    colorPalette: [{ name: "Ink", hex: "#111111", role: "background" }],
+    typePairing: { display: "Arial", body: "Arial", rationale: "Reliable system typography." },
+    layoutConcept: "A measured portfolio register with a direct closing contact path.",
+    signatureElement: { name: "Register", description: "A project register.", implementation: "Semantic list.", justification: "Connects work to evidence." },
+    referencesSampled: [],
+  } as unknown as DesignPlan;
+  const project = buildGeneratedProject(
+    {
+      framework: "html",
+      componentName: "StaticPage",
+      imports: [],
+      setupNotes: "",
+      code: "<!doctype html><html><body><main><h1>Studio</h1></main><style>@media (prefers-reduced-motion: reduce) { * { animation: none; } }</style></body></html>",
+    },
+    analysis,
+    plan
+  );
+  const readme = project.files.find((entry) => entry.path === "README.md")?.content ?? "";
+  assert.equal(Object.keys(project.scripts).length, 0);
+  assert.doesNotMatch(readme, /npm install|npm run dev/);
+  assert.match(readme, /Open `index\.html` directly/);
+  assert.match(readme, /npx --yes serve \./);
+});
+
+test("engineering checks distinguish fluid CSS and accessibility policy from real debt", () => {
+  const code = `<main><h1>Fluid</h1></main><style>
+    .shell { width: min(1440px, calc(100% - 48px)); max-width: 780px; }
+    @media (max-width: 700px) { .shell { width: 100%; } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  </style>`;
+  const result = scoreEngineering(code, "html");
+  const responsive = result.dimensions.find((dimension) => dimension.id === "responsive");
+  const css = result.dimensions.find((dimension) => dimension.id === "css");
+  assert.equal(responsive?.flags.includes("fixed large pixel width (breaks mobile)"), false);
+  assert.equal(css?.flags.includes("!important overrides outside reduced-motion policy"), false);
+
+  const fixed = scoreEngineering("<style>.shell { width: 1200px; }</style>", "html");
+  assert.ok(fixed.dimensions.find((dimension) => dimension.id === "responsive")?.flags.includes("fixed large pixel width (breaks mobile)"));
+});
+
+test("a rejected adversarial review cannot produce a 100 distinctiveness score", () => {
+  const plan = {
+    colorPalette: [{ name: "Zinc", hex: "#777777", role: "background" }],
+    typePairing: { display: "Clash Display", body: "Arial", rationale: "Common editorial pairing." },
+    layoutConcept: "A conventional editorial portfolio sequence.",
+    signatureElement: {
+      name: "Occupation Hinge",
+      description: "An interactive project index.",
+      implementation: "SVG and CSS.",
+      justification: "A long explanation that exceeds eighty characters but should not earn credit after the critic explicitly rejects the signature element as generic.",
+    },
+    referencesSampled: [],
+    cognitiveGrounding: {
+      vonRestorffCompliance: "The hinge is isolated in a long, detailed visual explanation that is not evidence of originality.",
+      gutenbergCompliance: "Primary and terminal areas are clear.",
+      signalNoiseRatio: 0.8,
+      peakEndDesign: "A direct ending.",
+      usabilityBaseline: "AA contrast and usable controls.",
+    },
+    rawPlan: "fixture",
+  } as DesignPlan;
+  const critique = {
+    passed: false,
+    genericElementCount: 5,
+    flaggedElements: [
+      { element: "Weathered Zinc", reason: "Common material cue", severity: "high" },
+      { element: "Clash Display", reason: "Common type choice", severity: "high" },
+      { element: "Horizontal reading plan", reason: "Conventional", severity: "high" },
+      { element: "Occupation Hinge", reason: "Generic signature", severity: "high" },
+      { element: "Conventional hero", reason: "Expected", severity: "high" },
+    ],
+    positiveElements: ["Clear hierarchy", "Usable controls"],
+    overallVerdict: "A generic model could produce most of this plan.",
+    endingCheck: { quality: "strong", description: "Clear ending", recommendation: "Keep" },
+    usabilityFloor: { passed: true, contrastOk: true, touchTargetsOk: true, bodyTextOk: true, issues: [] },
+    cognitiveScore: 25,
+    cognitiveFailures: [],
+    rawCritique: "Rejected for generic visual decisions.",
+  } as CritiqueResult;
+  const report = generateDistinctivenessReport(runBlocklistFilter(""), plan, critique, 2);
+  assert.ok(report.score <= 49);
+  assert.ok(report.normanLevels.visceral.score <= 44);
+  assert.notEqual(report.normanLevels.reflective.score, 100);
+  assert.match(report.normanSummary, /Weakest level/);
+});
+
 test("Fast mode validation never spends an extra repair call", async () => {
   let calls = 0;
   const fakeAdapter: LLMAdapter = { async complete() { calls++; return "export default function App() { return <main />; }"; } };
@@ -137,6 +237,19 @@ test("Fast mode validation never spends an extra repair call", async () => {
   assert.equal(calls, 0);
   assert.equal(result.wasRepaired, false);
   assert.ok(result.issues.some((issue) => issue.includes("default export")));
+});
+
+test("code validation reports unsafe DOM APIs and runtime font imports", async () => {
+  const fakeAdapter: LLMAdapter = { async complete() { throw new Error("repair must remain disabled"); } };
+  const result = await runCodeQualityLoop(
+    fakeAdapter,
+    `<!doctype html><html><body><main id="app"></main><style>@import url('https://api.fontshare.com/v2/css?family=test');</style><script>document.querySelector('#app').innerHTML = '<p>Unsafe</p>';</script></body></html>`,
+    "",
+    "html",
+    false
+  );
+  assert.ok(result.issues.some((issue) => issue.includes("Unsafe HTML injection")));
+  assert.ok(result.issues.some((issue) => issue.includes("runtime font import")));
 });
 
 test("provider recovery always yields a previewable project", () => {

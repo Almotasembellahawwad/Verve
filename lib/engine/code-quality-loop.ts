@@ -77,6 +77,17 @@ function checkMinimumStructure(code: string, framework: string): string[] {
     : ["Component output has no exported or named component"];
 }
 
+function checkDeliveryPolicies(code: string): string[] {
+  const issues: string[] = [];
+  if (/dangerouslySetInnerHTML|\.innerHTML\s*=/i.test(code)) {
+    issues.push("Unsafe HTML injection API detected; use framework rendering or safe DOM construction");
+  }
+  if (/@import\s+(?:url\()?['"]?https?:\/\/(?:fonts\.googleapis|api\.fontshare)/i.test(code)) {
+    issues.push("Render-blocking runtime font import detected; use a deliberate system stack or bundled font asset");
+  }
+  return issues;
+}
+
 function checkEntryContract(code: string, framework: string): string[] {
   if (framework === "html") return [];
   return /export\s+default\s+(?:function|class|[A-Za-z_$])/m.test(code)
@@ -147,6 +158,7 @@ export async function runCodeQualityLoop(
     ...checkUnclosedTags(stripped),
     ...checkSyntax(stripped, framework),
     ...checkInlineStyles(stripped),
+    ...checkDeliveryPolicies(stripped),
   ];
 
   // Step 3: Check signature element
@@ -192,17 +204,18 @@ export async function runCodeQualityLoop(
       ...checkDoctype(repairedStripped, framework),
       ...checkUnclosedTags(repairedStripped),
       ...checkSyntax(repairedStripped, framework),
+      ...checkDeliveryPolicies(repairedStripped),
     ];
 
     const repairedSignatureFound = checkSignatureElement(repairedStripped, signatureElement);
 
     const originalStructuralIssues = issues.filter((issue) => !issue.includes("inline styles"));
 
-    // A repair must preserve the required signature and improve or match the
-    // original structural health. This rejects empty or destructive repairs.
+    // A repair must preserve the required signature and remove at least one
+    // issue. This rejects empty, destructive, and no-op "repairs".
     if (
       repairedSignatureFound &&
-      repairedIssues.length <= originalStructuralIssues.length
+      repairedIssues.length < originalStructuralIssues.length
     ) {
       return {
         code:           repairedStripped,

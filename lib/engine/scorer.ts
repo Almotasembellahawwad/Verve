@@ -107,22 +107,34 @@ function scoreVisceral(
   score -= medSeverity.length  * 6;
 
   // Deduct for critique flags on visual elements
-  const visualFlags = finalCritique.flaggedElements.filter((e) =>
-    ["color", "type", "typography", "layout", "signature", "palette"].some((k) =>
-      e.element.toLowerCase().includes(k)
-    )
-  );
+  // Every flag produced by the design-plan critic concerns the visual concept.
+  // Word filtering missed concrete names and allowed rejected plans to score 100.
+  const visualFlags = finalCritique.flaggedElements;
   score -= visualFlags.filter((e) => e.severity === "high").length   * 12;
   score -= visualFlags.filter((e) => e.severity === "medium").length * 5;
 
+  const critiqueHigh = visualFlags.filter((e) => e.severity === "high");
+  const signatureName = plan.signatureElement.name.toLowerCase();
+  const signatureFlagged = visualFlags.some((flag) => {
+    const element = flag.element.toLowerCase();
+    return flag.severity === "high" &&
+      (element.includes("signature") || (signatureName.length > 2 && element.includes(signatureName)));
+  });
+
   // Bonus for no high-severity clichés
-  if (highSeverity.length === 0) score += 8;
+  if (highSeverity.length === 0 && critiqueHigh.length === 0) score += 8;
 
   // Bonus for positive critique elements
-  score += Math.min(finalCritique.positiveElements.length * 3, 12);
+  score += Math.min(finalCritique.positiveElements.length * 2, 8);
 
   // Bonus for strong signature element (non-empty name ≠ "None")
-  if (plan.signatureElement.name && plan.signatureElement.name !== "None") score += 6;
+  if (plan.signatureElement.name && plan.signatureElement.name !== "None" && !signatureFlagged) score += 6;
+
+  // A failed adversarial review is a hard ceiling, not a note bonuses can erase.
+  if (!finalCritique.passed) score = Math.min(score, 64);
+  if (critiqueHigh.length >= 5) score = Math.min(score, 44);
+  else if (critiqueHigh.length >= 3) score = Math.min(score, 54);
+  else if (critiqueHigh.length > 0) score = Math.min(score, 69);
 
   score = Math.max(0, Math.min(100, score));
 
@@ -242,7 +254,13 @@ function scoreReflective(
   const hasDistinctSignature = plan.signatureElement.name &&
     plan.signatureElement.name !== "None" &&
     plan.signatureElement.justification.length > 80;
-  if (hasDistinctSignature) score += 12;
+  const signatureName = plan.signatureElement.name.toLowerCase();
+  const signatureFlagged = finalCritique.flaggedElements.some((flag) => {
+    const element = flag.element.toLowerCase();
+    return flag.severity === "high" &&
+      (element.includes("signature") || (signatureName.length > 2 && element.includes(signatureName)));
+  });
+  if (hasDistinctSignature && !signatureFlagged) score += 12;
 
   // Positive critique elements (genuine specificity → shareability signal)
   score += Math.min(finalCritique.positiveElements.length * 5, 15);
@@ -253,7 +271,13 @@ function scoreReflective(
 
   // Von Restorff: if signature element is truly distinctive → shareability
   const vrCompliance = plan.cognitiveGrounding?.vonRestorffCompliance ?? "";
-  if (vrCompliance.length > 60) score += 5; // detailed justification = real isolation
+  if (vrCompliance.length > 60 && !signatureFlagged) score += 5; // detailed justification = real isolation
+
+  const highCritiqueFlags = finalCritique.flaggedElements.filter((flag) => flag.severity === "high");
+  const mediumCritiqueFlags = finalCritique.flaggedElements.filter((flag) => flag.severity === "medium");
+  score -= highCritiqueFlags.length * 7;
+  score -= mediumCritiqueFlags.length * 3;
+  if (!finalCritique.passed) score = Math.min(score, 69);
 
   score = Math.max(0, Math.min(100, score));
 
@@ -262,6 +286,7 @@ function scoreReflective(
     improvements.push(`Closing section is "${finalCritique.endingCheck.quality}" — strengthen it to improve last-impression memory`);
   }
   if (!hasDistinctSignature) improvements.push("Signature element needs a stronger, specific justification to be memorable");
+  if (signatureFlagged) improvements.push("The signature element was rejected as generic; replace it before awarding memorability credit");
   if (score < 70) improvements.push("To improve shareability: ensure the design reflects the brand archetype coherently so the audience sees their own values in it");
 
   return {
@@ -290,11 +315,18 @@ export function generateDistinctivenessReport(
   // Visceral:   35% — boldness drives first impression
   // Behavioral: 40% — usability is non-negotiable (highest weight)
   // Reflective: 25% — long-term value and brand coherence
-  const composite = Math.round(
+  const rawComposite = Math.round(
     visceral.score   * 0.35 +
     behavioral.score * 0.40 +
     reflective.score * 0.25
   );
+  const highCritiqueCount = finalCritique.flaggedElements.filter((flag) => flag.severity === "high").length;
+  const critiqueCap = highCritiqueCount >= 5 ? 49
+    : highCritiqueCount >= 3 ? 59
+      : highCritiqueCount > 0 ? 74
+        : !finalCritique.passed ? 79
+          : 100;
+  const composite = Math.min(rawComposite, critiqueCap);
   const compositeGrade = toGrade(composite);
 
   // ── Archetype coherence ───────────────────────────────────────────────────
@@ -329,13 +361,17 @@ export function generateDistinctivenessReport(
     { label: "Reflective", score: reflective.score },
   ].sort((a, b) => a.score - b.score)[0];
 
-  const normanSummary = `Weakest level: ${weakest.label} (${weakest.score}/100). ${
+  const weakestSummary = `Weakest level: ${weakest.label} (${weakest.score}/100). ${
     weakest.label === "Visceral"   ? "Focus on visual boldness — the first impression is not yet distinctive enough." :
     weakest.label === "Behavioral" ? "Usability issues are undermining the design — solve function before form." :
     "The design needs a clearer identity narrative to become shareable."
   }`;
 
   // ── Cognitive breakdown ───────────────────────────────────────────────────
+  const normanSummary = weakest.score >= 90 && finalCritique.passed
+    ? "All three Norman levels are strong; preserve the current balance while validating the delivered code."
+    : weakestSummary;
+
   const cg = plan.cognitiveGrounding;
   const cognitiveBreakdown = {
     vonRestorff: cg?.vonRestorffCompliance   ?? "Not evaluated",

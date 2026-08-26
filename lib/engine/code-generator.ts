@@ -76,13 +76,13 @@ ${plan.layoutConcept}
 === IMPLEMENTATION RULES ===
 1. EXECUTE THE PLAN ABOVE — not a generic template. The layout, sections, and structure MUST match what the plan describes.
 2. Use the EXACT color palette above as CSS custom properties. Text must be high-contrast and legible.
-3. Use the exact sourced font from AVAILABLE ASSETS when one is provided. Otherwise use a deliberate system stack; never invent a font URL.
+3. Use an exact bundled/local font from AVAILABLE ASSETS when one is provided. If the supplied font would require a runtime CDN fetch, use a deliberate system stack instead. Never invent a font URL, never use CSS @import, and limit web fonts to the two weights actually needed.
 4. The "${plan.signatureElement?.name ?? "signature element"}" must be implemented once as a purposeful focal point. Do not repeat a decorative motif across every section.
 5. Use modern CSS (Grid, clamp(), logical properties), focus-visible states, semantic landmarks, 360/768/1440 responsive behavior, and prefers-reduced-motion.
-6. Every section must contain concise, contextual copy. Never invent client names, testimonials, awards, metrics, addresses, or project facts that were not supplied.
+6. Every section must contain concise, contextual copy. Never invent client names, testimonials, awards, metrics, addresses, or project facts that were not supplied. A supplied total count does NOT authorize inventing item-level records: if names, dates, places, descriptions, or images are missing, label the UI "Project material pending" (or equivalent) and use neutral numbered placeholders rather than fabricated portfolio evidence.
 7. Use images ONLY when exact URLs are listed in AVAILABLE ASSETS. For image-dependent businesses, make honest labeled placeholders instead of pretending CSS textures are portfolio photography.
 8. Every interaction must be truthful and operational. Never show fake form success. A form without a backend must clearly say it is a demo and must not claim submission.
-9. Do not use innerHTML or dangerouslySetInnerHTML. Avoid runtime font imports and unnecessary third-party dependencies.
+9. Do not use innerHTML or dangerouslySetInnerHTML. Avoid runtime font imports and unnecessary third-party dependencies. Build dynamic content with safe DOM APIs or framework rendering.
 10. Navigation targets must exist. Include an intentional ending and a real footer when the page format needs them.
 11. Return ONLY one complete entry file for the selected framework. Verve will create the remaining project files deterministically. No markdown or explanations.
 12. Keep styling inside the entry component using a plain <style> element. Do not import a local CSS file that Verve has not supplied. Avoid package imports beyond React unless essential.
