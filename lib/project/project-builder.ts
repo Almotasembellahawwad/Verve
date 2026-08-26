@@ -1,6 +1,7 @@
 import type { BriefAnalysis } from "../engine/brief-analyzer";
 import type { GeneratedCode } from "../engine/code-generator";
 import type { DesignPlan } from "../engine/plan-generator";
+import { findUnsupportedQuantifiedClaims } from "../engine/content-safety";
 import type { GeneratedProject, ProjectFile, ProjectFramework } from "./types";
 import { validateGeneratedProject } from "./project-validator";
 
@@ -103,9 +104,10 @@ function inferredDependencies(code: string): Record<string, string> {
 }
 
 function readiness(warnings: string[]): GeneratedProject["readiness"] {
+  const blocked = warnings.some((warning) => warning.startsWith("BLOCKING:"));
   return {
-    status: warnings.length === 0 ? "ready" : "review-required",
-    score: Math.max(0, 100 - warnings.length * 18),
+    status: blocked ? "blocked" : warnings.length === 0 ? "ready" : "review-required",
+    score: blocked ? Math.min(45, Math.max(0, 100 - warnings.length * 18)) : Math.max(0, 100 - warnings.length * 18),
   };
 }
 
@@ -118,7 +120,7 @@ function finalizeProject(project: Omit<GeneratedProject, "validation"> | Generat
   } as GeneratedProject;
   const validation = validateGeneratedProject(provisional);
   const riskReadiness = readiness(provisional.warnings);
-  const status = validation.status === "blocked"
+  const status = validation.status === "blocked" || riskReadiness.status === "blocked"
     ? "blocked"
     : validation.status === "review-required" || riskReadiness.status === "review-required"
       ? "review-required"
@@ -184,7 +186,7 @@ img, svg { display: block; max-width: 100%; }
     file("README.md", projectReadme(name, "nextjs", analysis, plan, scripts), "markdown", "documentation"),
   ];
 
-  const warnings = inspectProductionRisks(generated.code);
+  const warnings = inspectProductionRisks(generated.code, analysis.rawBrief);
   return finalizeProject({ schemaVersion: 1, name, framework: "nextjs", entryFile: "app/page.tsx", files, dependencies, scripts, warnings, readiness: readiness(warnings) });
 }
 
@@ -208,7 +210,7 @@ function reactProject(
     file("README.md", projectReadme(name, "react", analysis, plan, scripts), "markdown", "documentation"),
   ];
 
-  const warnings = inspectProductionRisks(generated.code);
+  const warnings = inspectProductionRisks(generated.code, analysis.rawBrief);
   return finalizeProject({ schemaVersion: 1, name, framework: "react", entryFile: "src/App.tsx", files, dependencies, scripts, warnings, readiness: readiness(warnings) });
 }
 
@@ -223,17 +225,26 @@ function htmlProject(
     file("index.html", generated.code, "html"),
     file("README.md", projectReadme(name, "html", analysis, plan, scripts), "markdown", "documentation"),
   ];
-  const warnings = inspectProductionRisks(generated.code);
+  const warnings = inspectProductionRisks(generated.code, analysis.rawBrief);
   return finalizeProject({ schemaVersion: 1, name, framework: "html", entryFile: "index.html", files, dependencies: {}, scripts, warnings, readiness: readiness(warnings) });
 }
 
-export function inspectProductionRisks(code: string): string[] {
+export function inspectProductionRisks(code: string, rawBrief = ""): string[] {
   const warnings: string[] = [];
   if (/innerHTML|dangerouslySetInnerHTML/i.test(code)) warnings.push("Unsafe HTML injection API detected; verify every input source.");
   if (/<form\b/i.test(code) && !/action=|onSubmit=|addEventListener\(["']submit/i.test(code)) warnings.push("A form is present without a verifiable submission contract.");
   if (/alert\(["'][^"']*(success|sent|submitted)/i.test(code)) warnings.push("A success message may be simulated without a real backend.");
   if (/https?:\/\/(fonts\.googleapis|api\.fontshare|images\.unsplash)/i.test(code)) warnings.push("Runtime third-party asset dependency detected.");
   if (!/prefers-reduced-motion/i.test(code)) warnings.push("Reduced-motion handling was not detected in the generated entry file.");
+  if (/(?:^|[},\s`])(?:html|body|#root|\.site-shell|\.page-shell|\.app-shell)\s*\{[^}]*overflow(?:-x)?\s*:\s*hidden/i.test(code)) {
+    warnings.push("Root-level overflow hidden may conceal mobile clipping.");
+  }
+  if (/key\s*=\s*\{\s*[A-Za-z_$][\w$]*\.(?:label|title|name|heading|measure|result)\s*\}/i.test(code)) {
+    warnings.push("A React list key is derived from display copy and may not be unique.");
+  }
+  for (const claim of findUnsupportedQuantifiedClaims(code, rawBrief)) {
+    warnings.push(`BLOCKING: Unsupported quantified claim "${claim}" is absent from the source brief.`);
+  }
   return warnings;
 }
 

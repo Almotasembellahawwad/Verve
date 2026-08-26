@@ -204,6 +204,18 @@ const COMPETITIVE_FIELDS: CompetitiveField[] = [
     ],
   },
   {
+    industry: "Beauty / Skincare",
+    industryTemperature: "hot",
+    distinctivenessOpportunity: "Beauty is saturated with interchangeable clean-clinical language. The opportunity is verified specificity: product texture, ingredient provenance, and evidence shown without invented efficacy claims.",
+    patterns: [
+      { pattern: "Cream backdrop with warm editorial serif", dominantBrands: ["Premium DTC skincare"], whyOverused: "It became shorthand for gentle, expensive and clean", alternativeSignal: "A palette derived from verified ingredient or packaging material" },
+      { pattern: "Dropper bottle floating over a soft gradient", dominantBrands: ["Serum launch campaigns"], whyOverused: "A reusable product-render convention", alternativeSignal: "Show verified texture, use sequence, or manufacturing evidence" },
+      { pattern: "Unverified percentage result as the hero device", dominantBrands: ["Performance skincare landing pages"], whyOverused: "Large numbers create instant authority even when study context is absent", alternativeSignal: "Reserve the evidence area for supplied results and label missing values as pending" },
+      { pattern: "Ingredient icons arranged as benefit cards", dominantBrands: ["Clean beauty storefronts"], whyOverused: "It simplifies formulation into generic badge language", alternativeSignal: "Use a provenance ledger tied to supplied ingredient records" },
+      { pattern: "Before-and-after split portrait", dominantBrands: ["Clinical skincare advertising"], whyOverused: "It compresses proof into one dramatic image", alternativeSignal: "Explain the verified test method, timeframe and limitations in plain language" },
+    ],
+  },
+  {
     industry: "Wellness",
     industryTemperature: "hot",
     distinctivenessOpportunity: "Wellness is the most visually homogenized space. Muted beige/sage/ivory. Distinctive = anything that takes a position.",
@@ -299,9 +311,16 @@ export type CompetitiveAnalysis = {
   systemPromptInjection: string;
 };
 
+const INDUSTRY_ALIASES: Record<string, string[]> = {
+  "Beauty / Skincare": ["skincare", "skin care", "beauty", "cosmetic", "cosmetics", "serum", "moisturiser", "moisturizer"],
+  "Technology / SaaS": ["saas", "software", "developer tool"],
+  "Personal Brand": ["creator", "influencer", "thought leader", "personal brand"],
+};
+
 export function analyzeCompetitiveField(analysis: BriefAnalysis): CompetitiveAnalysis {
-  // Find the best matching industry (case-insensitive partial match)
-  const needle = (analysis.industry + " " + analysis.subject).toLowerCase();
+  // Prefer concrete subject/raw-brief signals over a broad LLM industry label.
+  const primaryNeedle = `${analysis.subject} ${analysis.rawBrief}`.toLowerCase();
+  const declaredNeedle = analysis.industry.toLowerCase();
 
   let best: CompetitiveField | undefined;
   let bestScore = 0;
@@ -310,7 +329,13 @@ export function analyzeCompetitiveField(analysis: BriefAnalysis): CompetitiveAna
     const industryWords = field.industry.toLowerCase().split(/[\s/]+/);
     let score = 0;
     for (const word of industryWords) {
-      if (word.length > 3 && needle.includes(word)) score++;
+      if (word.length <= 3) continue;
+      if (primaryNeedle.includes(word)) score += 1;
+      if (declaredNeedle.includes(word)) score += 2;
+    }
+    for (const alias of INDUSTRY_ALIASES[field.industry] ?? []) {
+      if (primaryNeedle.includes(alias)) score += 10;
+      if (declaredNeedle.includes(alias)) score += 3;
     }
     if (score > bestScore) { bestScore = score; best = field; }
   }

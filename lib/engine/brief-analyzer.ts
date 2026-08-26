@@ -26,6 +26,7 @@ Your goal is to identify:
 6. Any hard constraints from the brief
 
 Be specific. "An enterprise B2B SaaS dashboard for logistics managers tracking live shipments" is useful. "A website for a business" is not.
+Industry means the market category of the subject, not the requested artifact. For example, a skincare brand or skincare launch identity is "Beauty / Skincare", never "Personal Brand" merely because the word brand appears. Prefer a concrete product/service vertical over broad labels such as Portfolio, Startup, or Personal Brand whenever the brief supplies one.
 
 Respond ONLY in valid JSON matching this exact schema:
 {

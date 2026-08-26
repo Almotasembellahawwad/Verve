@@ -20,7 +20,7 @@ This document tracks shipped foundations and the next evidence-driven product wo
 - [x] Complete React 19 + Vite project output
 - [x] Standalone HTML project output
 - [x] Shared `GeneratedProject` schema across JSON, SSE, preview, and ZIP export
-- [x] Live sandbox with file explorer, editor, refresh, and responsive viewports
+- [x] Framework-safe preview: live HTML/React sandbox plus Next.js inspector/export
 - [x] Fast mode with three core model calls and deterministic preflight
 - [x] Studio mode with adversarial critique and bounded repair
 - [x] OpenRouter timeout, retry, fallback, heartbeat, truncation rejection, and recovery result

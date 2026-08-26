@@ -45,6 +45,96 @@
 .warning ul { margin: 8px 0 0; padding-inline-start: 18px; }
 .warning li + li { margin-top: 4px; }
 
+.sandboxPolicy {
+  padding: 18px 22px;
+  border-bottom: 1px solid #29463c;
+  background: #111d19;
+  color: #acd4c4;
+}
+.sandboxPolicy strong {
+  color: #75d0ae;
+  font: 0.7rem var(--font-plex-mono), monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.sandboxPolicy p { max-width: 78ch; margin: 7px 0 0; font-size: .82rem; line-height: 1.55; }
+
+.inspectorLayout {
+  min-height: 620px;
+  display: grid;
+  grid-template-columns: minmax(190px, 250px) minmax(0, 1fr);
+  background: #0c0d0f;
+}
+.fileList {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 0;
+  border-inline-end: 1px solid #2b2d32;
+  background: #111215;
+  overflow: auto;
+}
+.fileList button {
+  border: 0;
+  background: transparent;
+  color: #9b9da5;
+  padding: 9px 14px;
+  text-align: start;
+  cursor: pointer;
+  font: .68rem/1.35 var(--font-plex-mono), monospace;
+}
+.fileList button:hover,
+.fileList button:focus-visible,
+.fileList button[aria-current="page"] {
+  color: #fff;
+  background: #202227;
+  outline: 0;
+  box-shadow: inset 2px 0 #ff5a36;
+}
+.sourcePanel { min-width: 0; overflow: hidden; }
+.sourceMeta {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  border-bottom: 1px solid #2b2d32;
+  color: #85878e;
+  font: .64rem var(--font-plex-mono), monospace;
+  letter-spacing: .06em;
+}
+.sourcePanel pre {
+  height: 580px;
+  margin: 0;
+  padding: 20px;
+  overflow: auto;
+  color: #e8e4db;
+  background: #101113;
+  font: .76rem/1.65 var(--font-plex-mono), monospace;
+  tab-size: 2;
+}
+.sourcePanel pre:focus-visible { outline: 2px solid #ff5a36; outline-offset: -2px; }
+.inspectorTab {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  color: #fff;
+  background: #1c1e22;
+  box-shadow: inset 0 -2px #ff5a36;
+  font: .66rem var(--font-plex-mono), monospace;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.inspectorTab span {
+  min-width: 18px;
+  display: inline-grid;
+  place-items: center;
+  margin-inline-start: 6px;
+  padding: 2px 4px;
+  background: #2b2d32;
+  color: #ff8a70;
+}
+
 .sandpackLayout { min-height: 680px; border: 0 !important; border-radius: 0 !important; display: grid !important; grid-template-columns: 180px minmax(300px, .8fr) minmax(420px, 1.2fr); }
 .explorer { min-width: 0 !important; width: auto !important; border-inline-end: 1px solid #2b2d32; }
 .editor { min-width: 0 !important; height: 680px !important; border-inline-end: 1px solid #2b2d32; }
@@ -99,4 +189,7 @@
   .editor { height: 480px !important; border-bottom: 1px solid #2b2d32; }
   .previewRail { height: 560px; }
   .previewViewport { height: 505px; }
+  .inspectorLayout { display: block; min-height: 0; }
+  .fileList { max-height: 180px; border-inline-end: 0; border-bottom: 1px solid #2b2d32; }
+  .sourcePanel pre { height: 520px; }
 }

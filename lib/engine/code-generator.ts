@@ -86,6 +86,10 @@ ${plan.layoutConcept}
 10. Navigation targets must exist. Include an intentional ending and a real footer when the page format needs them.
 11. Return ONLY one complete entry file for the selected framework. Verve will create the remaining project files deterministically. No markdown or explanations.
 12. Keep styling inside the entry component using a plain <style> element. Do not import a local CSS file that Verve has not supplied. Avoid package imports beyond React unless essential.
+13. Every mapped React item must have an explicit unique stable id and use that id as its key. Never use visible copy such as label, title, name, result, or measurement as a key.
+14. Do not use overflow:hidden on html, body, #root, or the page shell to conceal responsive overflow. Fix the child layout, use minmax(0, 1fr), and make deliberate wide data tables individually scrollable.
+15. Do not reference a named font unless AVAILABLE ASSETS includes a bundled/local font file. A remote font name without the font file is not available. Otherwise use the exact system stack supplied by the plan. Keep all readable text at 10px or larger.
+16. FACTUAL SAFETY OVERRIDES THE DESIGN PLAN: if the plan contains a metric, clinical result, timeframe, participant count, ingredient, product, award, testimonial, or factual claim absent from the source brief below, do not render it. Replace it with an explicit "Verified value pending" label.
 
 DELIVERY MODE: ${mode === "fast" ? "FAST — concise implementation; preserve correctness before decorative depth." : "STUDIO — complete production-quality implementation with careful responsive details."}
 
@@ -95,7 +99,9 @@ Framework: ${frameworkNote}`;
 Subject: ${analysis.subject}
 Audience: ${analysis.audience}
 Primary Job: ${analysis.primaryJob}
-Tone: ${analysis.tone}`;
+Tone: ${analysis.tone}
+Source brief - the sole authority for factual claims:
+${analysis.rawBrief}`;
 
   const code = await llm.complete([{ role: "user", content: userMessage }], {
     systemPrompt,

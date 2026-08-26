@@ -82,7 +82,12 @@ const ACCESSIBILITY_CHECKS = {
       penalty: 20,
       label: "focus outline removed without a visible replacement",
     },
-    { pattern: /font-size:\s*[0-9]px;/i, penalty: 15, label: "font-size below 10px (unreadable)" },
+    {
+      test: (code: string) => [...code.matchAll(/font-size\s*:\s*(\d+(?:\.\d+)?)px/gi)]
+        .some((match) => Number(match[1]) > 0 && Number(match[1]) < 10),
+      penalty: 15,
+      label: "font-size below 10px (unreadable)",
+    },
   ],
 };
 
@@ -125,6 +130,7 @@ const CLEAN_CODE_CHECKS = {
     { pattern: /style={{[^}]{200,}}}/,    penalty: 15, label: "large inline style objects (CSS-in-JS smell)" },
     { pattern: /TODO|FIXME|HACK/i,        penalty: 5,  label: "unresolved TODO/FIXME" },
     { pattern: /console\.(log|warn|error)\(/i, penalty: 5, label: "console statements in production code" },
+    { pattern: /key\s*=\s*\{\s*[A-Za-z_$][\w$]*\.(?:label|title|name|heading|measure|result)\s*\}/i, penalty: 12, label: "React key derived from potentially duplicated display copy" },
   ],
 };
 
@@ -137,7 +143,11 @@ const RESPONSIVE_CHECKS = {
   ],
   bad: [
     { pattern: /(?:^|[;{]\s*)width:\s*(?:[7-9][0-9]{2}|1[0-9]{3})px\b/im, penalty: 25, label: "fixed large pixel width (breaks mobile)" },
-    { pattern: /overflow:\s*hidden.*overflow:\s*hidden/i, penalty: 10, label: "multiple overflow: hidden (may clip on mobile)" },
+    {
+      pattern: /(?:^|[},\s`])(?:html|body|#root|\.site-shell|\.page-shell|\.app-shell)\s*\{[^}]*overflow(?:-x)?\s*:\s*hidden/i,
+      penalty: 20,
+      label: "root-level overflow hidden may conceal mobile clipping",
+    },
   ],
 };
 

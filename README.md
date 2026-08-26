@@ -2,19 +2,19 @@
 
 ![Verve 0.2 project intelligence interface](docs/verve-0.2-preview.png)
 
-Verve is an open-source project intelligence engine for generating distinctive web projects from spoken or written briefs. It does not stop at a code block: every successful run returns a runnable multi-file project, live sandbox preview, design rationale, validation evidence, and a ZIP export.
+Verve is an open-source project intelligence engine for generating distinctive web projects from spoken or written briefs. It does not stop at a code block: every successful run returns a runnable multi-file project, design rationale, validation evidence, and a ZIP export. HTML and React projects also open in a lightweight live sandbox; complete Next.js projects use an inspect-and-export workspace for reliable local execution.
 
 [Development preview](https://verve-dev.vercel.app/) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [MIT License](LICENSE)
 
 ## What changed in 0.2
 
 - **Project Engine** — assembles complete Next.js 16, React 19 + Vite, or standalone HTML projects.
-- **Live sandbox** — browse files, edit code, run the result, refresh it, and inspect mobile/tablet/desktop layouts inside Verve.
+- **Framework-safe preview** — HTML and lightweight React run in the live sandbox; Next.js projects use a file inspector and ZIP export instead of an incompatible browser shell.
 - **Fast and Studio modes** — a three-model-call draft path and a deeper adversarial production path.
 - **Voice briefs** — dictate in Arabic or English, review the transcript, then generate.
 - **OpenRouter recovery** — per-call limits, retry/fallback routing, ten-second SSE heartbeats, truncation detection, failed-stage reporting, and a downloadable recovery draft.
 - **Complete ZIP export** — source, configuration, dependencies, `.gitignore`, and a project-specific README.
-- **Production warnings** — flags fake forms, unsafe HTML injection, runtime asset dependencies, and missing reduced-motion handling.
+- **Production warnings** — flags fake forms, unsafe HTML injection, unsupported quantified claims, runtime asset dependencies, root-level mobile clipping, weak React keys, missing fonts, tiny text, and missing reduced-motion handling.
 - **Project Validator 0.2.1** — verifies scaffold files, entry exports, relative imports, declared dependencies, fragment links, form contracts, image alternatives, button types, reduced motion, and unfinished content markers.
 - **Live Problems + Console** — revalidates the edited project inside the workbench and surfaces Sandpack runtime failures beside deterministic checks.
 - **Edit-safe export** — ZIP packages the current editor state, not the original generated snapshot.
@@ -233,7 +233,7 @@ Other public routes are documented in the in-app `/docs` page.
 - API keys remain in browser storage and are sent only to Verve’s same-origin API route for the selected request.
 - Keys are never included in results, history entries, logs, generated files, or recovery projects.
 - Logs redact common Anthropic, OpenAI, OpenRouter, Gemini, and bearer-token patterns.
-- Generated projects run inside a Sandpack iframe rather than Verve’s own React tree.
+- HTML and React previews run inside a Sandpack iframe rather than Verve’s own React tree. Next.js output is inspected and exported without starting a browser shell.
 - Project edits are revalidated in the browser and the exact edited files are used for ZIP export.
 - Remote critique URLs must be public HTTPS targets; private-network and loopback addresses are rejected.
 - Voice input requires an explicit browser microphone permission and remains editable before submission.

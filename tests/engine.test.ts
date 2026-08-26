@@ -20,6 +20,9 @@ import { generateDistinctivenessReport } from "../lib/engine/scorer";
 import { scoreEngineering } from "../lib/engine/engineering-score";
 import { critiquePlanLocally, resolveArchetypeLocally } from "../lib/engine/fast-path";
 import { runRestraintCheck } from "../lib/engine/restraint-check";
+import { analyzeCompetitiveField } from "../lib/engine/competitive-field";
+import { findUnsupportedQuantifiedClaims } from "../lib/engine/content-safety";
+import { liveSandboxTemplate, supportsLiveSandbox } from "../lib/project/live-sandbox";
 
 test("the public blocklist has truthful family and signal counts", () => {
   const data = getAllCliches();
@@ -138,6 +141,85 @@ test("project risk scan rejects deceptive form behavior", () => {
   const warnings = inspectProductionRisks(`<form><button>Send</button></form><script>alert('Success — sent')</script>`);
   assert.ok(warnings.some((warning) => warning.includes("submission contract")));
   assert.ok(warnings.some((warning) => warning.includes("simulated")));
+});
+
+test("Live Sandbox is limited to HTML and lightweight React", () => {
+  assert.equal(supportsLiveSandbox("html"), true);
+  assert.equal(supportsLiveSandbox("react"), true);
+  assert.equal(supportsLiveSandbox("nextjs"), false);
+  assert.equal(liveSandboxTemplate("html"), "static");
+  assert.equal(liveSandboxTemplate("react"), "react");
+  assert.throws(() => liveSandboxTemplate("nextjs"), /does not run full nextjs/);
+});
+
+test("skincare subject evidence overrides a broad Personal Brand classification", () => {
+  const result = analyzeCompetitiveField({
+    subject: "UK skincare brand launch identity",
+    audience: "UK skincare customers",
+    primaryJob: "Explain product evidence",
+    tone: "Warm and science-informed",
+    industry: "Personal Brand",
+    constraints: [],
+    rawBrief: "A skincare website featuring Norwegian ingredients.",
+  });
+  assert.equal(result.industry, "Beauty / Skincare");
+  assert.equal(result.matched, true);
+  assert.ok(result.patterns.some((pattern) => pattern.pattern.includes("percentage result")));
+});
+
+test("unsupported quantified claims are blocked without treating CSS percentages as claims", async () => {
+  const code = `export default function Page() { return <main><p>87% improvement in 28 days</p><style>{\`.meter { width: 92%; }\`}</style></main>; }`;
+  assert.deepEqual(findUnsupportedQuantifiedClaims(code, "A clinically demonstrated skincare launch"), ["87%", "28 days"]);
+  assert.deepEqual(findUnsupportedQuantifiedClaims(code, "87% improvement measured in 28 days"), []);
+
+  const fakeAdapter: LLMAdapter = { async complete() { throw new Error("repair disabled"); } };
+  const quality = await runCodeQualityLoop(fakeAdapter, code, "", "nextjs", false, "A clinically demonstrated skincare launch");
+  assert.ok(quality.issues.some((issue) => issue.includes('Unsupported quantified claim "87%"')));
+  assert.equal(quality.issues.some((issue) => issue.includes("92%")), false);
+
+  const warnings = inspectProductionRisks(code, "A clinically demonstrated skincare launch");
+  assert.ok(warnings.some((warning) => warning.startsWith("BLOCKING:") && warning.includes("28 days")));
+
+  const project = buildGeneratedProject(
+    { framework: "nextjs", componentName: "Page", imports: [], setupNotes: "", code },
+    {
+      subject: "Skincare launch",
+      audience: "Customers",
+      primaryJob: "Explain verified evidence",
+      tone: "Warm and precise",
+      industry: "Beauty / Skincare",
+      constraints: [],
+      rawBrief: "A clinically demonstrated skincare launch",
+    },
+    {
+      colorPalette: [{ name: "Ink", hex: "#111111", role: "text" }],
+      typePairing: { display: "ui-serif, Georgia, serif", body: "ui-sans-serif, sans-serif", rationale: "Local system stacks" },
+      layoutConcept: "An evidence-led page using only verified material.",
+      signatureElement: { name: "Evidence line", description: "A verified evidence line.", implementation: "CSS rule", justification: "Keeps proof explicit." },
+      referencesSampled: [],
+    } as unknown as DesignPlan
+  );
+  assert.equal(project.readiness.status, "blocked");
+  assert.ok(project.readiness.score <= 45);
+});
+
+test("project validation detects clipping, weak React keys, tiny text and missing font assets", () => {
+  const recovery = buildRecoveryProject("Inspection fixture", "html", "test");
+  const project = {
+    ...recovery,
+    framework: "react" as const,
+    entryFile: "src/App.tsx",
+    files: [{
+      path: "src/App.tsx",
+      content: `export default function App(){ const rows=[{label:"Same"},{label:"Same"}]; return <main className="app-shell">{rows.map((row)=><span key={row.label}>{row.label}</span>)}<style>{\`.app-shell{overflow:hidden;font-family:"Satoshi"}.note{font-size:9px}\`}</style></main> }`,
+      language: "tsx",
+      role: "source" as const,
+    }],
+  };
+  const validation = validateGeneratedProject(project);
+  for (const id of ["mobile-clipping", "react-keys", "tiny-text", "font-assets"]) {
+    assert.ok(validation.checks.some((item) => item.id === id && item.status === "warning"), id);
+  }
 });
 
 test("static HTML projects ship truthful no-build instructions", () => {

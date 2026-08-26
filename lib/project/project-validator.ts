@@ -127,6 +127,34 @@ export function validateGeneratedProject(project: GeneratedProject): ProjectVali
     ? check("reduced-motion", "Reduced motion", "pass", "A reduced-motion policy is present.")
     : check("reduced-motion", "Reduced motion", "warning", "No prefers-reduced-motion rule was detected."));
 
+  const concealsOverflow = /(?:^|[},\s`])(?:html|body|#root|\.site-shell|\.page-shell|\.app-shell)\s*\{[^}]*overflow(?:-x)?\s*:\s*hidden/i.test(combined);
+  checks.push(concealsOverflow
+    ? check("mobile-clipping", "Mobile overflow", "warning", "Root-level overflow hidden may conceal clipped content; repair the overflowing child instead.")
+    : check("mobile-clipping", "Mobile overflow", "pass", "No root-level overflow clipping policy was detected."));
+
+  const displayDerivedKey = /key\s*=\s*\{\s*[A-Za-z_$][\w$]*\.(?:label|title|name|heading|measure|result)\s*\}/i.test(combined);
+  checks.push(displayDerivedKey
+    ? check("react-keys", "React list identity", "warning", "A list key uses visible copy that may be duplicated; use a stable id.")
+    : check("react-keys", "React list identity", "pass", "No display-copy-derived React keys were detected."));
+
+  const tinyTextSizes = [...combined.matchAll(/font-size\s*:\s*(\d+(?:\.\d+)?)px/gi)]
+    .map((match) => Number(match[1]))
+    .filter((size) => size > 0 && size < 10);
+  checks.push(tinyTextSizes.length > 0
+    ? check("tiny-text", "Readable text", "warning", `Text as small as ${Math.min(...tinyTextSizes)}px was detected.`)
+    : check("tiny-text", "Readable text", "pass", "No text below 10px was detected."));
+
+  const declaredFonts = new Set(
+    [...combined.matchAll(/@font-face\s*\{[^}]*font-family\s*:\s*["']([^"']+)["']/gi)]
+      .map((match) => match[1].toLowerCase())
+  );
+  const unbackedFont = [...combined.matchAll(/font-family\s*:\s*["']([^"']+)["']/gi)]
+    .map((match) => match[1])
+    .find((family) => !declaredFonts.has(family.toLowerCase()));
+  checks.push(unbackedFont
+    ? check("font-assets", "Font assets", "warning", `Font "${unbackedFont}" is referenced without a bundled font or @font-face declaration.`)
+    : check("font-assets", "Font assets", "pass", "Every named font reference has a local declaration."));
+
   const placeholderSignals = combined.match(/\b(?:lorem ipsum|todo:|dummy content|fake testimonial|replace me)\b/gi) ?? [];
   checks.push(placeholderSignals.length === 0
     ? check("content-truth", "Content truthfulness", "pass", "No explicit fake or unfinished content markers were detected.")

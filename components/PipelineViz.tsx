@@ -61,7 +61,7 @@ const STEPS = [
   {
     id: "07",
     name: "Project Assembly",
-    description: "Builds the complete stack scaffold, resolves package imports, writes configuration and README files, computes readiness, and prepares the live sandbox and ZIP.",
+    description: "Builds the complete stack scaffold, resolves imports, computes readiness, prepares HTML/React live preview, and packages every framework as a ZIP.",
     module: "project-builder.ts",
   },
 ];

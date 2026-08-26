@@ -11,6 +11,7 @@
 // =========================================================
 
 import type { LLMAdapter } from "./llm-utils";
+import { findUnsupportedQuantifiedClaims } from "./content-safety";
 import ts from "typescript";
 
 export interface CodeQualityResult {
@@ -77,13 +78,38 @@ function checkMinimumStructure(code: string, framework: string): string[] {
     : ["Component output has no exported or named component"];
 }
 
-function checkDeliveryPolicies(code: string): string[] {
+function checkDeliveryPolicies(code: string, rawBrief = ""): string[] {
   const issues: string[] = [];
   if (/dangerouslySetInnerHTML|\.innerHTML\s*=/i.test(code)) {
     issues.push("Unsafe HTML injection API detected; use framework rendering or safe DOM construction");
   }
   if (/@import\s+(?:url\()?['"]?https?:\/\/(?:fonts\.googleapis|api\.fontshare)/i.test(code)) {
     issues.push("Render-blocking runtime font import detected; use a deliberate system stack or bundled font asset");
+  }
+  if (/(?:^|[},\s`])(?:html|body|#root|\.site-shell|\.page-shell|\.app-shell)\s*\{[^}]*overflow(?:-x)?\s*:\s*hidden/i.test(code)) {
+    issues.push("Root-level overflow hidden may conceal horizontal mobile clipping; fix the overflowing child instead");
+  }
+  if (/key\s*=\s*\{\s*[A-Za-z_$][\w$]*\.(?:label|title|name|heading|measure|result)\s*\}/i.test(code)) {
+    issues.push("React list key is derived from display copy and may not be unique; use a stable id");
+  }
+  const tinySizes = [...code.matchAll(/font-size\s*:\s*(\d+(?:\.\d+)?)px/gi)]
+    .map((match) => Number(match[1]))
+    .filter((size) => size > 0 && size < 10);
+  if (tinySizes.length > 0) {
+    issues.push(`Text below 10px detected (${Math.min(...tinySizes)}px); keep readable UI text at 10px or larger`);
+  }
+  const declaredFonts = new Set(
+    [...code.matchAll(/@font-face\s*\{[^}]*font-family\s*:\s*["']([^"']+)["']/gi)]
+      .map((match) => match[1].toLowerCase())
+  );
+  const unbackedFonts = [...code.matchAll(/font-family\s*:\s*["']([^"']+)["']/gi)]
+    .map((match) => match[1])
+    .filter((family) => !declaredFonts.has(family.toLowerCase()));
+  if (unbackedFonts.length > 0) {
+    issues.push(`Font "${unbackedFonts[0]}" is referenced without a bundled font or @font-face declaration`);
+  }
+  for (const claim of findUnsupportedQuantifiedClaims(code, rawBrief)) {
+    issues.push(`Unsupported quantified claim "${claim}" is absent from the source brief; replace it with a clearly labeled pending value`);
   }
   return issues;
 }
@@ -145,7 +171,8 @@ export async function runCodeQualityLoop(
   rawCode: string,
   signatureElement: string,
   framework: string,
-  allowRepair = true
+  allowRepair = true,
+  rawBrief = ""
 ): Promise<CodeQualityResult> {
   // Step 1: Strip fences
   const stripped = stripFences(rawCode);
@@ -158,7 +185,7 @@ export async function runCodeQualityLoop(
     ...checkUnclosedTags(stripped),
     ...checkSyntax(stripped, framework),
     ...checkInlineStyles(stripped),
-    ...checkDeliveryPolicies(stripped),
+    ...checkDeliveryPolicies(stripped, rawBrief),
   ];
 
   // Step 3: Check signature element
@@ -204,7 +231,7 @@ export async function runCodeQualityLoop(
       ...checkDoctype(repairedStripped, framework),
       ...checkUnclosedTags(repairedStripped),
       ...checkSyntax(repairedStripped, framework),
-      ...checkDeliveryPolicies(repairedStripped),
+      ...checkDeliveryPolicies(repairedStripped, rawBrief),
     ];
 
     const repairedSignatureFound = checkSignatureElement(repairedStripped, signatureElement);

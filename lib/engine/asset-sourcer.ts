@@ -50,36 +50,20 @@ export type AssetBundle = {
   warnings: string[];
 };
 
-// ── Fontshare catalog ─────────────────────────────────────────────────────────
-const FONTSHARE_CATALOG: { family: string; moods: string[]; weights: number[]; cssSlug: string }[] = [
-  { family: "Satoshi",         moods: ["modern", "tech", "clean", "startup"],           weights: [400, 500, 700, 900], cssSlug: "satoshi" },
-  { family: "Clash Display",   moods: ["bold", "editorial", "fashion", "creative"],     weights: [400, 500, 600, 700], cssSlug: "clash-display" },
-  { family: "General Sans",    moods: ["neutral", "corporate", "trustworthy", "finance"], weights: [300, 400, 500, 600], cssSlug: "general-sans" },
-  { family: "Syne",            moods: ["creative", "art", "motion", "design"],          weights: [400, 600, 700, 800], cssSlug: "syne" },
-  { family: "Cabinet Grotesk", moods: ["saas", "product", "developer", "tool"],         weights: [400, 500, 700, 800], cssSlug: "cabinet-grotesk" },
-  { family: "Switzer",         moods: ["minimal", "legal", "consulting", "professional"], weights: [400, 500, 600], cssSlug: "switzer" },
-  { family: "Zodiak",          moods: ["luxury", "premium", "finance", "wealth"],       weights: [300, 400, 700], cssSlug: "zodiak" },
-  { family: "Boska",           moods: ["editorial", "magazine", "lifestyle", "food"],   weights: [400, 500, 700, 900], cssSlug: "boska" },
-  { family: "Chillax",         moods: ["friendly", "health", "wellness", "lifestyle"],  weights: [400, 500, 600, 700], cssSlug: "chillax" },
-  { family: "Gambetta",        moods: ["environment", "sustainability", "nature"],      weights: [300, 400, 600], cssSlug: "gambetta" },
-];
-
-const BLOCKED_GOOGLE_FONTS = [
-  "Inter", "Roboto", "Open Sans", "Lato", "Montserrat", "Poppins",
-  "Nunito", "Source Sans", "Raleway", "Noto Sans",
-];
-
+// ── Platform-safe font selection ──────────────────────────────────────────────
 function selectFont(tone: string, industry: string): AssetBundle["font"] {
   const haystack = `${tone} ${industry}`.toLowerCase();
-  const match    = FONTSHARE_CATALOG.find((f) => f.moods.some((m) => haystack.includes(m)));
-  const chosen   = match ?? FONTSHARE_CATALOG[0]!;
-  const weights  = match ? chosen.weights : [400, 500, 700];
+  const family = /editorial|luxury|fashion|heritage|beauty|skincare/.test(haystack)
+    ? 'ui-serif, Georgia, Cambria, "Times New Roman", serif'
+    : /technical|data|developer|engineering/.test(haystack)
+      ? 'ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace'
+      : 'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
   return {
-    family:       chosen.family,
-    weights,
-    cssImport:    `@import url('https://api.fontshare.com/v2/css?f[]=${chosen.cssSlug}@${weights.join(",")}&display=swap');`,
+    family,
+    weights:      [400, 600, 700],
+    cssImport:    "none - platform font stack; no runtime request",
     isGoogleFont: false,
-    source:       "fontshare",
+    source:       "fallback",
   };
 }
 
@@ -149,10 +133,6 @@ export async function sourceAssets(
   const icons = getContextualIcons(analysis.industry, analysis.tone);
   const font  = selectFont(analysis.tone, analysis.industry);
 
-  if (BLOCKED_GOOGLE_FONTS.includes(font.family)) {
-    warnings.push(`Font "${font.family}" is in the blocked defaults list — using Fontshare fallback`);
-  }
-
   let photos: AssetBundle["photos"]             = [];
   let extractedPalette: AssetBundle["extractedPalette"] = [];
 
@@ -192,12 +172,12 @@ export async function sourceAssets(
     `AVAILABLE ASSETS FOR THIS DESIGN:`,
     photos.length > 0
       ? `Photos (${photos.length}): ${photos.map((p, i) => `[Photo ${i + 1}] ${p.url} (credit: ${p.credit})`).join(", ")}`
-      : "Photos: None available — use CSS-only visual treatment or gradient placeholder",
+      : "Photos: None available — use an honest labeled asset placeholder when imagery is essential",
     extractedPalette.length > 0
       ? `Palette extracted from hero photo: ${extractedPalette.map((c) => `${c.hex} (${c.role})`).join(", ")}`
       : "",
     `Icons (Lucide — use these names): ${icons.join(", ")}`,
-    `Font: "${font.family}" via ${font.source} — CSS import: ${font.cssImport}`,
+    `Font stack: ${font.family} via ${font.source}; runtime import: ${font.cssImport}`,
     warnings.length > 0 ? `Warnings: ${warnings.join("; ")}` : "",
   ]
     .filter(Boolean)

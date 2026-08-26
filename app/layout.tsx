@@ -9,7 +9,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Verve — Speak a brief. Ship a complete project.",
   description:
-    "Verve turns spoken or written briefs into distinctive, runnable multi-file web projects with live sandbox previews, Fast and Studio modes, and recoverable AI pipelines.",
+    "Verve turns spoken or written briefs into distinctive multi-file web projects with lightweight HTML/React previews, safe Next.js inspection, and recoverable AI pipelines.",
   keywords: ["AI website builder", "project generator", "Next.js generator", "React generator", "voice brief", "live code preview", "Verve", "OpenRouter"],
   authors: [{ name: "Almotasembellahawwad", url: "https://github.com/Almotasembellahawwad" }],
   openGraph: {
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Verve — Speak a brief. Ship a complete project.",
-    description: "Open-source AI project generation with Fast and Studio modes, live sandbox preview, and ZIP export.",
+    description: "Open-source AI project generation with Fast and Studio modes, framework-safe preview, and ZIP export.",
   },
   robots: "index, follow",
 };

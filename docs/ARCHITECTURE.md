@@ -88,9 +88,9 @@ Studio mode uses the full LLM archetype and adversarial critique flow, one bound
 
 ## Project and preview layer
 
-`buildGeneratedProject()` creates the complete stack scaffold after code validation. `ProjectWorkbench` maps the files into a Sandpack iframe, provides file browsing/editing and responsive viewports, and exports the same contract through JSZip. Generated code never mounts into Verve's own component tree.
+`buildGeneratedProject()` creates the complete stack scaffold after code validation. `ProjectWorkbench` sends only standalone HTML and lightweight React projects into Sandpack, with file editing and responsive viewports. Complete Next.js projects stay outside the browser runtime and use a deterministic file inspector plus JSZip export for local execution. Generated code never mounts into Verve's own component tree.
 
-Project readiness is separate from distinctiveness. The validator checks scaffold files, entry exports, relative imports, declared packages, fragment targets, form behavior, unsafe HTML injection, image alternatives, button types, motion safeguards, and unfinished content. `ProjectWorkbench` reruns those checks against the live editor state; ZIP uses that same state.
+Project readiness is separate from distinctiveness. The validator checks scaffold files, entry exports, relative imports, declared packages, fragment targets, form behavior, unsafe HTML injection, image alternatives, button types, motion safeguards, mobile clipping, React list identity, font declarations, tiny text, and unfinished content. Unsupported quantified claims absent from the source brief block production readiness. For sandboxed projects, `ProjectWorkbench` reruns checks against the live editor state and ZIP uses that same state.
 
 ## Provider terminal states
 

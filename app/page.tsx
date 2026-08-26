@@ -38,8 +38,8 @@ export default function Home() {
 
             <p className={styles.heroBody}>
               Speak or write a brief. Verve turns it into a runnable, multi-file project,
-              opens it in a live sandbox, exposes every decision, and preserves a recovery
-              draft when a provider stops halfway.
+              previews HTML and React live, inspects complete Next.js output safely, and
+              preserves a recovery draft when a provider stops halfway.
             </p>
 
             <div className={styles.heroCta}>

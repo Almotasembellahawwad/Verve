@@ -145,6 +145,7 @@ Rules:
 4. The layout concept must differ from the 4-card-grid, alternating-sections, centered-hero defaults.
 5. ALL archetype constraints above are HARD requirements — color, type, layout decisions must be coherent with the identified archetype.
 6. COLOR RULE: Provide high-contrast text and surfaces with an estimated WCAG AA ratio. Derive every color from this brief and obey the blocklist above; do not copy fixed fallback hex values or use gray on gray.
+7. SOURCE-OF-TRUTH RULE: Never invent measurements, percentages, study durations, participant counts, clinical outcomes, awards, testimonials, product names, ingredients, addresses, or business facts. If the source brief does not provide a value, the plan must say "verified value pending" rather than proposing an example number. This applies to the signature element and every line of the wireframe.
 ${critiqueNote}
 
 Respond ONLY in valid JSON with this exact schema:
@@ -185,6 +186,7 @@ Primary Job: ${analysis.primaryJob}
 Tone: ${analysis.tone}
 Industry: ${analysis.industry}
 Constraints: ${analysis.constraints.join(", ") || "none stated"}
+Source brief (the only authority for factual claims): ${analysis.rawBrief}
 
 Generate the design plan now.`;
 

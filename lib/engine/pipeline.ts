@@ -332,7 +332,8 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     generatedCode.code,
     signatureStr,
     framework,
-    mode === "studio" && provider !== "openrouter"
+    mode === "studio" && provider !== "openrouter",
+    briefAnalysis.rawBrief
   );
   emit("stage_done", {
     id: "05.5",
