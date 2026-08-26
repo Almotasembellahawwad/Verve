@@ -58,6 +58,12 @@ const UsabilityFloorSchema = z.object({
   issues: z.array(z.string()),
 });
 
+const CombinedCritiqueSchema = z.object({
+  critique: MainCritiqueSchema,
+  endingCheck: EndingCheckSchema,
+  usabilityFloor: UsabilityFloorSchema,
+});
+
 // ── Main adversarial critique prompt ─────────────────────────────────────────
 const CRITIQUE_SYSTEM_PROMPT = `You are an adversarial design critic. Your job is to identify generic, AI-default design decisions.
 
@@ -143,7 +149,8 @@ const CRITIQUE_THRESHOLD = 4;
 export async function runSelfCritique(
   llm: LLMAdapter,
   plan: DesignPlan,
-  analysis: BriefAnalysis
+  analysis: BriefAnalysis,
+  timeoutMs = 30_000
 ): Promise<CritiqueResult> {
 
   const planSummary = `Brief context (do NOT use this to judge the plan differently — just for calibration):
@@ -168,60 +175,25 @@ Typography: display=${plan.typePairing.display}, body=${plan.typePairing.body}
 Layout: ${plan.layoutConcept.slice(0, 300)}
 Usability baseline stated by designer: ${plan.cognitiveGrounding?.usabilityBaseline ?? "not stated"}`;
 
-  // Run all 3 checks in parallel
-  const [critiqueRaw, endingRaw, usabilityRaw] = await Promise.all([
-    llm.complete([{ role: "user", content: planSummary }], {
-      systemPrompt: CRITIQUE_SYSTEM_PROMPT,
-      temperature: 0.5,
-      maxTokens: 2000,
-      reasoningEffort: "low", // JSON evaluation — low reasoning saves tokens
-    }),
-    llm.complete([{ role: "user", content: planForEndingCheck }], {
-      systemPrompt: ENDING_CHECK_PROMPT,
-      temperature: 0.3,
-      maxTokens: 600,
-      reasoningEffort: "low",
-    }),
-    llm.complete([{ role: "user", content: planForUsability }], {
-      systemPrompt: USABILITY_FLOOR_PROMPT,
-      temperature: 0.2,
-      maxTokens: 600,
-      reasoningEffort: "low",
-    }),
-  ]);
+  // One combined call avoids three simultaneous provider requests, reducing
+  // rate-limit pressure and giving Studio a predictable review deadline.
+  const critiqueRaw = await llm.complete([{
+    role: "user",
+    content: `${planSummary}\n\n=== ENDING INPUT ===\n${planForEndingCheck}\n\n=== USABILITY INPUT ===\n${planForUsability}`,
+  }], {
+    systemPrompt: `${[CRITIQUE_SYSTEM_PROMPT, ENDING_CHECK_PROMPT, USABILITY_FLOOR_PROMPT]
+      .map((prompt) => prompt.split("Respond ONLY")[0])
+      .join("\n\n")}\n\nRETURN ONE JSON OBJECT ONLY:\n{\n  "critique": { "genericElementCount": 0, "flaggedElements": [], "positiveElements": [], "overallVerdict": "..." },\n  "endingCheck": { "quality": "strong | intentional | weak | filler", "description": "...", "recommendation": "..." },\n  "usabilityFloor": { "contrastOk": true, "touchTargetsOk": true, "bodyTextOk": true, "issues": [], "passed": true }\n}`,
+    temperature: 0.35,
+    maxTokens: 3000,
+    reasoningEffort: "low",
+    timeoutMs,
+  });
 
-  // Parse main critique — use extractJSON for robust extraction
-  const parsed = MainCritiqueSchema.parse(extractJSON<unknown>(critiqueRaw, "Critique"));
-
-  // Parse ending check
-  let endingCheck: EndingCheck = {
-    quality: "weak",
-    description: "Not evaluated",
-    recommendation: "Add a distinctive closing section",
-  };
-  try {
-    endingCheck = EndingCheckSchema.parse(extractJSON<unknown>(endingRaw, "Ending Check"));
-  } catch {
-    // silently use default
-  }
-
-  // Parse usability floor
-  // Default: inconclusive — if parse fails we log it but do NOT block the plan.
-  // Only a successfully-parsed passed=false should trigger a retry.
-  let usabilityFloor: UsabilityFloorCheck = {
-    passed:         true,   // inconclusive → does not block (separate from "failed")
-    contrastOk:     true,
-    touchTargetsOk: true,
-    bodyTextOk:     true,
-    issues:         ["Usability check inconclusive — could not parse LLM response"],
-  };
-  let usabilityParsed = false;
-  try {
-    usabilityFloor  = UsabilityFloorSchema.parse(extractJSON<unknown>(usabilityRaw, "Usability Floor"));
-    usabilityParsed = true;
-  } catch {
-    // Parse failed — keep passed=true so we don't block on an inconclusive check
-  }
+  const combined = CombinedCritiqueSchema.parse(extractJSON<unknown>(critiqueRaw, "Combined Critique"));
+  const parsed = combined.critique;
+  const endingCheck = combined.endingCheck;
+  const usabilityFloor = combined.usabilityFloor;
 
   // Evaluate cognitive grounding compliance
   const cognitiveEval = plan.cognitiveGrounding
@@ -234,8 +206,7 @@ Usability baseline stated by designer: ${plan.cognitiveGrounding?.usabilityBasel
 
   return {
     ...parsed,
-    // usabilityFloor only blocks if parse succeeded AND it explicitly failed
-    passed: highAndMedium <= CRITIQUE_THRESHOLD && (!usabilityParsed || usabilityFloor.passed),
+    passed: highAndMedium <= CRITIQUE_THRESHOLD && usabilityFloor.passed,
     rawCritique: critiqueRaw,
     endingCheck,
     usabilityFloor,

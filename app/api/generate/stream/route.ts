@@ -47,11 +47,19 @@ export async function POST(req: NextRequest) {
   const release = acquireConcurrentSlot(req, ROUTE_LIMITS["generate-stream"]!);
   const encoder = new TextEncoder();
   let eventSeq = 0;
+  const streamAbort = new AbortController();
 
   const stream = new ReadableStream({
     async start(controller) {
       const startedAt = Date.now();
+      let stageStartedAt = startedAt;
       let currentStage = "boot";
+      const overallCtrl = new AbortController();
+      const overallTimer = setTimeout(
+        () => overallCtrl.abort(new Error("Pipeline timed out after 240s")),
+        240_000
+      );
+      const pipelineSignal = AbortSignal.any([req.signal, streamAbort.signal, overallCtrl.signal]);
       const send = (event: string, data: unknown, stageId?: string) => {
         try {
           const id = stageId ?? String(++eventSeq);
@@ -64,7 +72,12 @@ export async function POST(req: NextRequest) {
       // Some providers and reverse proxies can stay silent for long model
       // calls. Heartbeats prove the stream is alive and prevent a blank UI.
       const heartbeat = setInterval(() => {
-        send("heartbeat", { stageId: currentStage, elapsedMs: Date.now() - startedAt });
+        const now = Date.now();
+        send("heartbeat", {
+          stageId: currentStage,
+          stageElapsedMs: now - stageStartedAt,
+          totalElapsedMs: now - startedAt,
+        });
       }, 10_000);
 
       send("connected", { requestId, mode: parsed.data.mode });
@@ -72,9 +85,12 @@ export async function POST(req: NextRequest) {
       try {
         const result = await runPipeline({
           ...parsed.data,
-          signal: req.signal,
+          signal: pipelineSignal,
           onEvent: ({ event, data, stageId }) => {
-            if (event === "stage_start" && typeof data.id === "string") currentStage = data.id;
+            if (event === "stage_start" && typeof data.id === "string") {
+              currentStage = data.id;
+              stageStartedAt = Date.now();
+            }
             send(event, data, stageId);
           },
         });
@@ -100,6 +116,7 @@ export async function POST(req: NextRequest) {
         }, "recovery");
       } finally {
         clearInterval(heartbeat);
+        clearTimeout(overallTimer);
         release();
         try {
           controller.close();
@@ -107,6 +124,11 @@ export async function POST(req: NextRequest) {
           // The browser may have cancelled the stream while the provider was
           // unwinding. The request-scoped adapter has already received abort.
         }
+      }
+    },
+    cancel(reason) {
+      if (!streamAbort.signal.aborted) {
+        streamAbort.abort(reason instanceof Error ? reason : new Error("Generation stream cancelled by client"));
       }
     },
   });

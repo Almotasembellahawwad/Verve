@@ -26,7 +26,7 @@ export class ClaudeAdapter implements LLMAdapter {
   }
 
   async complete(messages: LLMMessage[], options: LLMOptions = {}): Promise<string> {
-    const { systemPrompt, temperature = 0.7, maxTokens } = options;
+    const { systemPrompt, temperature = 0.7, maxTokens, timeoutMs } = options;
 
     const effectiveMaxTokens = Math.min(
       maxTokens ?? MODEL_MAX_TOKENS[this.model] ?? 8000,
@@ -34,8 +34,9 @@ export class ClaudeAdapter implements LLMAdapter {
     );
 
     // Combine request signal with our hard timeout
+    const effectiveTimeoutMs = Math.min(LLM_TIMEOUT_MS, Math.max(5_000, timeoutMs ?? LLM_TIMEOUT_MS));
     const timeoutCtrl = new AbortController();
-    const timer = setTimeout(() => timeoutCtrl.abort(new Error("Claude timeout")), LLM_TIMEOUT_MS);
+    const timer = setTimeout(() => timeoutCtrl.abort(new Error(`Claude request timed out after ${effectiveTimeoutMs / 1000}s`)), effectiveTimeoutMs);
     const combined = this.signal
       ? AbortSignal.any([this.signal, timeoutCtrl.signal])
       : timeoutCtrl.signal;

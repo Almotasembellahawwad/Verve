@@ -33,6 +33,7 @@ import type { Provider }                                               from "../
 import { buildGeneratedProject }                                      from "../project/project-builder";
 import type { GeneratedProject }                                      from "../project/types";
 import { critiquePlanLocally, resolveArchetypeLocally }                from "./fast-path";
+import { runOptionalProviderStep }                                    from "./provider-resilience";
 
 
 // ── Result type ───────────────────────────────────────────────────────────────
@@ -61,7 +62,7 @@ export type PipelineResult = {
 export type GenerationMode = "fast" | "studio";
 
 export type PipelineEvent = {
-  event: "stage_start" | "stage_done" | "stage_flag" | "stage_retry";
+  event: "stage_start" | "stage_done" | "stage_flag" | "stage_retry" | "stage_degraded";
   data: Record<string, unknown>;
   stageId?: string;
 };
@@ -83,7 +84,9 @@ export type PipelineInput = {
   mode?: GenerationMode;
 };
 
-const MAX_REVISION_CYCLES = 2;
+// The UI promises one Studio repair pass. More cycles add latency and cost
+// without giving code generation enough time inside the route budget.
+const MAX_REVISION_CYCLES = 1;
 
 // ── Main pipeline ─────────────────────────────────────────────────────────────
 export async function runPipeline(input: PipelineInput): Promise<PipelineResult> {
@@ -101,6 +104,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     onEvent,
     mode          = "studio",
   } = input;
+  const revisionLimit = Math.min(MAX_REVISION_CYCLES, Math.max(0, maxRevisions));
 
   let activeStageId = "boot";
   const emit = (event: PipelineEvent["event"], data: Record<string, unknown>, stageId?: string) => {
@@ -173,28 +177,51 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   let finalCritique:   CritiqueResult;
   let revisionCount  = 0;
   let previousCritique: string | undefined;
+  let studioReviewDegraded = false;
 
   emit("stage_start", { id: "03", name: "Design Plan Generation", module: "PlanGenerator + G" }, "03-start");
   elapsed = timer();
-  designPlan    = await generateDesignPlan(
+  designPlan = await generateDesignPlan(
     llm,
     briefAnalysis,
     blocklistAndAssetContext,
     previousCritique,
     archetypeContext,
-    animationContext
+    animationContext,
+    {
+      timeoutMs: mode === "fast" ? 45_000 : 55_000,
+      reasoningEffort: mode === "fast" ? "low" : "medium",
+    }
   );
-  finalCritique = mode === "fast"
-    ? critiquePlanLocally(designPlan)
-    : await runSelfCritique(llm, designPlan, briefAnalysis);
+  if (mode === "fast") {
+    finalCritique = critiquePlanLocally(designPlan);
+  } else {
+    const review = await runOptionalProviderStep(
+      () => runSelfCritique(llm, designPlan, briefAnalysis, 30_000),
+      () => critiquePlanLocally(designPlan),
+      signal
+    );
+    finalCritique = review.value;
+    studioReviewDegraded = review.degraded;
+    if (review.degraded) {
+      emit("stage_degraded", {
+        id: "03",
+        reason: review.reason,
+        message: "Remote critique exceeded its budget; deterministic review preserved the run.",
+      }, "03-degraded");
+    }
+  }
   emit("stage_done", {
     id: "03",
     name: "Design Plan",
     durationMs: elapsed(),
-    extra: { signature: designPlan.signatureElement?.name },
+    extra: {
+      signature: designPlan.signatureElement?.name,
+      review: studioReviewDegraded ? "local fallback" : mode === "fast" ? "fast preflight" : "adversarial",
+    },
   }, "03-done");
 
-  while (mode === "studio" && !finalCritique.passed && revisionCount < maxRevisions) {
+  while (mode === "studio" && !finalCritique.passed && revisionCount < revisionLimit) {
     revisionCount++;
     emit("stage_flag", {
       id: "03",
@@ -204,16 +231,56 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     emit("stage_start", { id: `03.r${revisionCount}`, name: `Plan Revision ${revisionCount}`, module: "PlanGenerator" });
     elapsed = timer();
     previousCritique = formatCritiqueForRegeneration(finalCritique);
-    designPlan = await generateDesignPlan(
-      llm,
-      briefAnalysis,
-      blocklistAndAssetContext,
-      previousCritique,
-      archetypeContext,
-      animationContext
+    const revision = await runOptionalProviderStep(
+      () => generateDesignPlan(
+        llm,
+        briefAnalysis,
+        blocklistAndAssetContext,
+        previousCritique,
+        archetypeContext,
+        animationContext,
+        { timeoutMs: 45_000, reasoningEffort: "low", allowSchemaRetry: false }
+      ),
+      () => designPlan,
+      signal
     );
-    finalCritique = await runSelfCritique(llm, designPlan, briefAnalysis);
-    emit("stage_done", { id: `03.r${revisionCount}`, name: `Plan Revision ${revisionCount}`, durationMs: elapsed() });
+    if (revision.degraded) {
+      studioReviewDegraded = true;
+      emit("stage_degraded", {
+        id: `03.r${revisionCount}`,
+        reason: revision.reason,
+        message: "The optional revision exceeded its budget; the last valid plan was retained.",
+      }, `03.r${revisionCount}-degraded`);
+      emit("stage_done", {
+        id: `03.r${revisionCount}`,
+        name: `Plan Revision ${revisionCount}`,
+        durationMs: elapsed(),
+        extra: { revision: "retained previous valid plan" },
+      });
+      break;
+    }
+
+    designPlan = revision.value;
+    const revisedReview = await runOptionalProviderStep(
+      () => runSelfCritique(llm, designPlan, briefAnalysis, 25_000),
+      () => critiquePlanLocally(designPlan),
+      signal
+    );
+    finalCritique = revisedReview.value;
+    studioReviewDegraded ||= revisedReview.degraded;
+    if (revisedReview.degraded) {
+      emit("stage_degraded", {
+        id: `03.r${revisionCount}`,
+        reason: revisedReview.reason,
+        message: "Remote re-review exceeded its budget; deterministic review accepted the valid revision.",
+      }, `03.r${revisionCount}-review-degraded`);
+    }
+    emit("stage_done", {
+      id: `03.r${revisionCount}`,
+      name: `Plan Revision ${revisionCount}`,
+      durationMs: elapsed(),
+      extra: { review: revisedReview.degraded ? "local fallback" : "adversarial" },
+    });
   }
 
   // ── [04] Contrast enforcement must run for every delivery path ────────────

@@ -101,7 +101,8 @@ Tone: ${analysis.tone}`;
     systemPrompt,
     temperature: 0.5,
     maxTokens: mode === "fast" ? 8000 : 14000,
-    reasoningEffort: "medium",
+    reasoningEffort: mode === "fast" ? "low" : "medium",
+    timeoutMs: mode === "fast" ? 90_000 : 110_000,
   });
 
   // Strip markdown code fences if present

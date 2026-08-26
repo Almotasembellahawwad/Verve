@@ -71,7 +71,7 @@ export class OpenRouterAdapter implements LLMAdapter {
   }
 
   async complete(messages: LLMMessage[], options: LLMOptions = {}): Promise<string> {
-    const { systemPrompt, temperature = 0.7, maxTokens = 4000 } = options;
+    const { systemPrompt, temperature = 0.7, maxTokens = 4000, timeoutMs } = options;
 
     const fullMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
     if (systemPrompt) fullMessages.push({ role: "system", content: systemPrompt });
@@ -83,8 +83,9 @@ export class OpenRouterAdapter implements LLMAdapter {
       : [this.primaryModel];
 
     // Global chain timeout — prevents orphaned requests on hung free models
+    const effectiveChainTimeoutMs = Math.min(CHAIN_TIMEOUT_MS, Math.max(5_000, timeoutMs ?? CHAIN_TIMEOUT_MS));
     const chainCtrl = new AbortController();
-    const chainTimer = setTimeout(() => chainCtrl.abort(new Error("OpenRouter chain timeout")), CHAIN_TIMEOUT_MS);
+    const chainTimer = setTimeout(() => chainCtrl.abort(new Error(`OpenRouter chain timed out after ${effectiveChainTimeoutMs / 1000}s`)), effectiveChainTimeoutMs);
     const chainSignal = this.signal
       ? AbortSignal.any([this.signal, chainCtrl.signal])
       : chainCtrl.signal;
@@ -101,8 +102,9 @@ export class OpenRouterAdapter implements LLMAdapter {
           if (chainSignal.aborted) throw chainSignal.reason;
 
           // Per-call timeout
+          const effectiveCallTimeoutMs = Math.min(PER_CALL_TIMEOUT_MS, effectiveChainTimeoutMs);
           const callCtrl  = new AbortController();
-          const callTimer = setTimeout(() => callCtrl.abort(new Error(`${model} call timeout`)), PER_CALL_TIMEOUT_MS);
+          const callTimer = setTimeout(() => callCtrl.abort(new Error(`${model} call timed out after ${effectiveCallTimeoutMs / 1000}s`)), effectiveCallTimeoutMs);
           const callSignal = AbortSignal.any([chainSignal, callCtrl.signal]);
 
           try {

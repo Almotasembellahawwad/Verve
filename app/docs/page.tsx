@@ -192,12 +192,13 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
             },
             {
               method: "POST", path: "/api/generate/stream",
-              desc: "SSE generation endpoint used by the workbench. Emits stage progress, retries, ten-second heartbeats, a final result, or a recovery project with the failed stage when a provider stops.",
+              desc: "SSE generation endpoint used by the workbench. Emits stage progress, retries, accurate stage/total heartbeats, optional-stage fallback telemetry, a final result, or a recovery project when a provider stops.",
               request: `Same JSON body as POST /api/generate. Prefer mode: "fast" for free OpenRouter models.`,
               response: `event: connected
 event: stage_start
-event: heartbeat
+event: heartbeat       // { stageElapsedMs, totalElapsedMs }
 event: stage_retry
+event: stage_degraded  // optional Studio review used local fallback
 event: stage_done
 event: result
 

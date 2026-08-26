@@ -14,6 +14,8 @@ import { getLocalApiKey, LOCAL_KEYS_CHANGED_EVENT } from "@/lib/client/key-stora
 import ProjectWorkbench from "./ProjectWorkbench";
 import VoiceBriefInput from "./VoiceBriefInput";
 import type { GeneratedProject } from "@/lib/project/types";
+import { buildRecoveryProject } from "@/lib/project/project-builder";
+import { readWithInactivityTimeout, StreamInactivityError } from "@/lib/client/generation-stream";
 
 const PROVIDERS: { id: Provider; label: string; icon: string }[] = [
   { id: "anthropic",  label: "Claude",     icon: "A" },
@@ -333,7 +335,7 @@ export default function GeneratePanel() {
       let receivedTerminalEvent = false;
 
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await readWithInactivityTimeout(reader);
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
@@ -369,6 +371,9 @@ export default function GeneratePanel() {
             setRetryMessage(`Attempt ${attempt} · ${retryModel} · retrying in ${waitSeconds}s`);
           } else if (eventType === "stage_flag") {
             updateStage(payload.id as string, "flagged", payload.reason as string);
+          } else if (eventType === "stage_degraded") {
+            updateStage(String(payload.id ?? ""), "running", "local fallback");
+            setRetryMessage(String(payload.message ?? "Optional provider review was replaced by the local preflight."));
           } else if (eventType === "result") {
             receivedTerminalEvent = true;
             setRetryMessage(null);
@@ -380,8 +385,9 @@ export default function GeneratePanel() {
             // ── Save to history ──────────────────────────────────────────
             try { addHistory(entryFromResult(brief, data)); } catch {}
           } else if (eventType === "heartbeat") {
-            const elapsed = Math.max(1, Math.round(Number(payload.elapsedMs ?? 0) / 1000));
-            setRetryMessage(`Provider is still working · stage ${String(payload.stageId ?? "")} · ${elapsed}s`);
+            const stageElapsed = Math.max(1, Math.round(Number(payload.stageElapsedMs ?? 0) / 1000));
+            const totalElapsed = Math.max(stageElapsed, Math.round(Number(payload.totalElapsedMs ?? 0) / 1000));
+            setRetryMessage(`Provider is working · stage ${String(payload.stageId ?? "")} ${stageElapsed}s · total ${totalElapsed}s`);
           } else if (eventType === "stage_error") {
             setRecoveryMessage(String(payload.message ?? "The provider stopped before completing this stage."));
           } else if (eventType === "recovery") {
@@ -403,10 +409,16 @@ export default function GeneratePanel() {
 
     } catch (err) {
       const wasCancelled = err instanceof DOMException && err.name === "AbortError";
+      const streamStalled = err instanceof StreamInactivityError;
+      if (streamStalled) {
+        requestController.abort(err);
+        setRecoveryMessage("The live connection stopped receiving heartbeats. A local recovery checkpoint was created immediately.");
+        setRecoveryProject(buildRecoveryProject(brief, framework, "stream"));
+      }
       if (!wasCancelled) stopTelemetry(false);
       const raw = err instanceof Error ? err.message : "Something went wrong";
       // Translate technical errors to user-friendly messages
-      let friendly = wasCancelled ? "Generation cancelled." : raw;
+      let friendly = wasCancelled ? "Generation cancelled." : streamStalled ? "The provider stream stalled; your recovery checkpoint is ready below." : raw;
       if (raw.includes("rate limit") || raw.includes("429") || raw.includes("Too Many Requests") || raw === "RATE_LIMITED") {
         friendly = "Rate limit reached. Please wait a moment and try again, or switch to a model with higher limits.";
       } else if (raw.includes("No API key") || raw.includes("ANTHROPIC_API_KEY") || raw === "NO_API_KEY") {

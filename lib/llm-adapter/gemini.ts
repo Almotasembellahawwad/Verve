@@ -26,7 +26,7 @@ export class GeminiAdapter implements LLMAdapter {
   }
 
   async complete(messages: LLMMessage[], options: LLMOptions = {}): Promise<string> {
-    const { systemPrompt, temperature = 0.7, maxTokens } = options;
+    const { systemPrompt, temperature = 0.7, maxTokens, timeoutMs } = options;
 
     const effectiveMaxTokens = Math.min(
       maxTokens ?? MODEL_MAX_TOKENS[this.model] ?? 8000,
@@ -56,9 +56,10 @@ export class GeminiAdapter implements LLMAdapter {
     const abortPromise = new Promise<never>((_, reject) => { rejectAbort = reject; });
     const abort = () => rejectAbort?.(this.signal?.reason ?? new Error("Gemini request cancelled"));
     this.signal?.addEventListener("abort", abort, { once: true });
+    const effectiveTimeoutMs = Math.min(LLM_TIMEOUT_MS, Math.max(5_000, timeoutMs ?? LLM_TIMEOUT_MS));
     const timer = setTimeout(
-      () => rejectAbort?.(new Error(`Gemini request timed out after ${LLM_TIMEOUT_MS / 1000}s (${this.model})`)),
-      LLM_TIMEOUT_MS
+      () => rejectAbort?.(new Error(`Gemini request timed out after ${effectiveTimeoutMs / 1000}s (${this.model})`)),
+      effectiveTimeoutMs
     );
 
     try {

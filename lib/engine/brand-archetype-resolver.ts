@@ -495,6 +495,7 @@ Identify the brand archetype.`;
       temperature: 0.3,
       maxTokens: 800,
       reasoningEffort: "low",
+      timeoutMs: 30_000,
     });
     parsed = extractJSON<RawResult>(raw, "Archetype Resolver");
   } catch {
@@ -506,7 +507,7 @@ Identify the brand archetype.`;
     try {
       const raw2 = await llm.complete(
         [{ role: "user", content: `${ARCHETYPE_PROMPT_COMPACT}\n\n${prompt}` }],
-        { temperature: 0.2, maxTokens: 250, reasoningEffort: "none" }
+        { temperature: 0.2, maxTokens: 250, reasoningEffort: "none", timeoutMs: 20_000 }
       );
       parsed = extractJSON<RawResult>(raw2, "Archetype Resolver (compact)");
     } catch {

@@ -4,6 +4,7 @@ import type { BriefAnalysis } from "./brief-analyzer";
 import { buildCognitiveGroundingPrompt } from "./cognitive-principles";
 import refraw from "../../data/reference-library.json";
 import { z } from "zod";
+import type { LLMOptions } from "../llm-adapter/types";
 
 type RefEntry = {
   id: string;
@@ -42,6 +43,12 @@ export type DesignPlan = {
     usabilityBaseline: string;      // contrast estimates + touch target confirmation
   };
   rawPlan: string;
+};
+
+export type PlanGenerationOptions = {
+  timeoutMs?: number;
+  reasoningEffort?: LLMOptions["reasoningEffort"];
+  allowSchemaRetry?: boolean;
 };
 
 const DesignPlanOutputSchema = z.object({
@@ -96,7 +103,8 @@ export async function generateDesignPlan(
   blocklistInjection: string,
   previousCritique?: string,
   archetypeContext?: string,   // Module I injection
-  animationContext?: string    // Module K injection
+  animationContext?: string,   // Module K injection
+  options: PlanGenerationOptions = {}
 ): Promise<DesignPlan> {
   const refs = getRelevantReferences(analysis);
 
@@ -184,11 +192,12 @@ Generate the design plan now.`;
     systemPrompt,
     temperature: 0.85,
     maxTokens: 3500,
-    reasoningEffort: "medium", // Creative design planning — medium reasoning for quality
+    reasoningEffort: options.reasoningEffort ?? "medium",
+    timeoutMs: options.timeoutMs,
   });
 
   let result = DesignPlanOutputSchema.safeParse(extractJSON<unknown>(raw, "Plan Generator"));
-  if (!result.success) {
+  if (!result.success && options.allowSchemaRetry !== false) {
     const feedback = result.error.issues.slice(0, 6)
       .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
       .join("\n");
@@ -200,6 +209,7 @@ Generate the design plan now.`;
       temperature: 0.3,
       maxTokens: 3500,
       reasoningEffort: "low",
+      timeoutMs: options.timeoutMs,
     });
     result = DesignPlanOutputSchema.safeParse(extractJSON<unknown>(raw, "Plan Generator retry"));
   }

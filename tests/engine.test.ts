@@ -12,6 +12,9 @@ import type { BriefAnalysis } from "../lib/engine/brief-analyzer";
 import type { DesignPlan } from "../lib/engine/plan-generator";
 import { validateGeneratedProject } from "../lib/project/project-validator";
 import { mergeEditorFiles } from "../lib/project/editor-project";
+import { runOptionalProviderStep } from "../lib/engine/provider-resilience";
+import { readWithInactivityTimeout, StreamInactivityError } from "../lib/client/generation-stream";
+import { runSelfCritique } from "../lib/engine/critique-loop";
 
 test("the public blocklist has truthful family and signal counts", () => {
   const data = getAllCliches();
@@ -181,4 +184,64 @@ test("ZIP project source follows the live editor state", () => {
   });
   assert.match(edited.files.find((file) => file.path === "index.html")?.content ?? "", /Edited and exported/);
   assert.notEqual(edited.files[0].content, project.files[0].content);
+});
+
+test("optional provider intelligence falls back instead of stopping delivery", async () => {
+  const result = await runOptionalProviderStep(
+    async () => { throw new Error("Provider request timed out"); },
+    () => "deterministic review"
+  );
+  assert.equal(result.value, "deterministic review");
+  assert.equal(result.degraded, true);
+  assert.equal(result.reason, "timeout");
+});
+
+test("optional provider fallback never swallows user cancellation", async () => {
+  const controller = new AbortController();
+  controller.abort(new Error("cancelled by user"));
+  await assert.rejects(
+    () => runOptionalProviderStep(
+      async () => { throw new Error("request aborted"); },
+      () => "must not run",
+      controller.signal
+    ),
+    /cancelled by user/
+  );
+});
+
+test("Studio critique uses one bounded provider call", async () => {
+  let calls = 0;
+  let observedTimeout = 0;
+  const fakeAdapter: LLMAdapter = {
+    async complete(_messages, options) {
+      calls++;
+      observedTimeout = options?.timeoutMs ?? 0;
+      return JSON.stringify({
+        critique: { genericElementCount: 0, flaggedElements: [], positiveElements: ["Specific"], overallVerdict: "Distinct." },
+        endingCheck: { quality: "intentional", description: "Purposeful close", recommendation: "Keep it." },
+        usabilityFloor: { contrastOk: true, touchTargetsOk: true, bodyTextOk: true, issues: [], passed: true },
+      });
+    },
+  };
+  const plan = {
+    colorPalette: [{ name: "Ink", hex: "#111111", role: "background" }],
+    typePairing: { display: "Arial", body: "Arial", rationale: "Legible system typography." },
+    layoutConcept: "An asymmetrical editorial path ending with one clear consultation action.",
+    signatureElement: { name: "Measured edge", description: "One calibrated edge.", implementation: "CSS border", justification: "Specific to precision." },
+  } as DesignPlan;
+  const analysis = { subject: "Studio", primaryJob: "Book", tone: "Measured", audience: "Clients", industry: "Design", constraints: [], rawBrief: "Studio" } as BriefAnalysis;
+  const result = await runSelfCritique(fakeAdapter, plan, analysis, 12_345);
+  assert.equal(result.passed, true);
+  assert.equal(calls, 1);
+  assert.equal(observedTimeout, 12_345);
+});
+
+test("generation stream watchdog detects missed heartbeats", async () => {
+  const stream = new ReadableStream<Uint8Array>({ start() {} });
+  const reader = stream.getReader();
+  await assert.rejects(
+    () => readWithInactivityTimeout(reader, 10),
+    (error: unknown) => error instanceof StreamInactivityError
+  );
+  await reader.cancel();
 });

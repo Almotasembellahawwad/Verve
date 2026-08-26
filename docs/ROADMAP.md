@@ -7,7 +7,7 @@ This document tracks shipped foundations and the next evidence-driven product wo
 - [x] Nine observable pipeline stages (`/lib/engine/pipeline.ts`)
 - [x] Cliché blocklist engine (`data/cliches.json`, 21 families / 67 signals)
 - [x] Reference library RAG context (`data/reference-library.json`, 30 entries)
-- [x] Adversarial self-critique loop with 2-cycle cap
+- [x] Adversarial self-critique loop with one bounded revision
 - [x] Standalone Design Critic mode (Module E)
 - [x] Landing page dogfooding its own rules
 - [x] All 5 API endpoints
@@ -30,6 +30,7 @@ This document tracks shipped foundations and the next evidence-driven product wo
 - [x] Live Problems and Sandpack Console panels
 - [x] ZIP export follows current editor changes
 - [x] Browser-local BYOK with no Supabase dependency
+- [x] GPT-5.6 Responses API, per-call deadlines, optional-stage fallback, accurate stage timing, and missed-heartbeat recovery
 
 ## Phase 2.1 — Quality calibration
 

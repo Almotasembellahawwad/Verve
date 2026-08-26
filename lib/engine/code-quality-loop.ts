@@ -180,7 +180,7 @@ export async function runCodeQualityLoop(
   try {
     const repaired = await llm.complete(
       [{ role: "user", content: repairPrompt }],
-      { systemPrompt: REPAIR_SYSTEM, temperature: 0.1, maxTokens: 16000 }
+      { systemPrompt: REPAIR_SYSTEM, temperature: 0.1, maxTokens: 16000, timeoutMs: 60_000 }
     );
 
     const repairedStripped = stripFences(repaired);

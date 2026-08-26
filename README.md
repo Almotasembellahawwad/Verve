@@ -18,6 +18,7 @@ Verve is an open-source project intelligence engine for generating distinctive w
 - **Project Validator 0.2.1** — verifies scaffold files, entry exports, relative imports, declared dependencies, fragment links, form contracts, image alternatives, button types, reduced motion, and unfinished content markers.
 - **Live Problems + Console** — revalidates the edited project inside the workbench and surfaces Sandpack runtime failures beside deterministic checks.
 - **Edit-safe export** — ZIP packages the current editor state, not the original generated snapshot.
+- **Provider resilience 0.2.2** — GPT-5.6 uses the Responses API, calls have stage-specific deadlines, Studio review degrades to a deterministic preflight, and a silent stream creates an immediate recovery checkpoint.
 - **Local BYOK** — provider keys are stored in the current browser only and sent only with the request that uses them.
 
 ## Why Verve exists
@@ -36,7 +37,7 @@ Distinctiveness is not allowed to hide broken behavior. A high visual score and 
 | Mode | Model calls | Best for | Behavior |
 |---|---:|---|---|
 | **Fast** | 3 core calls, plus provider/schema retries | OpenRouter free models, exploration, rapid drafts | LLM brief analysis, local archetype/preflight, design plan, code, deterministic validation |
-| **Studio** | Variable | Production candidates and complex briefs | LLM archetype, adversarial critique, bounded revisions, code generation, optional targeted repair |
+| **Studio** | Variable, bounded | Production candidates and complex briefs | LLM archetype, adversarial critique, one optional plan revision, code generation, optional targeted repair |
 
 Both modes return the same `GeneratedProject` schema, so the workbench, history, preview, API, and ZIP exporter do not need mode-specific output handling.
 
@@ -107,6 +108,8 @@ Live sandbox / ZIP / history
 ```
 
 The adapter is request-scoped: no global provider instance and no server-side key persistence. Asset sourcing, blocklist scanning, competitive analysis, contrast correction, engineering checks, project assembly, and final scoring are deterministic.
+
+Optional intelligence is fail-open: if adversarial review or its revision exceeds its call budget, Verve keeps the last valid plan, runs the local production preflight, and continues to code generation. Core generation failures still end in a visible recovery project.
 
 ## OpenRouter reliability
 
@@ -209,6 +212,7 @@ connected
 stage_start
 heartbeat       # every 10 seconds during a silent provider call
 stage_retry     # when OpenRouter retries or switches model
+stage_degraded  # optional Studio intelligence moved to local fallback
 stage_done
 result          # successful terminal event
 ```
@@ -249,6 +253,7 @@ lib/
 ├── engine/
 │   ├── pipeline.ts            # Fast/Studio orchestration
 │   ├── fast-path.ts           # local archetype and preflight
+│   ├── provider-resilience.ts # optional-stage fallback contract
 │   └── code-quality-loop.ts   # deterministic checks + Studio repair
 ├── llm-adapter/
 │   └── openrouter.ts          # timeout/retry/fallback/truncation policy
@@ -257,7 +262,9 @@ lib/
 │   ├── project-builder.ts     # complete stack scaffolds + risk scan
 │   ├── project-validator.ts   # multi-file production contract
 │   └── editor-project.ts      # editor state → validation/export project
-└── client/key-storage.ts      # browser-local BYOK storage
+└── client/
+    ├── key-storage.ts         # browser-local BYOK storage
+    └── generation-stream.ts   # missed-heartbeat watchdog
 tests/
 └── engine.test.ts
 ```

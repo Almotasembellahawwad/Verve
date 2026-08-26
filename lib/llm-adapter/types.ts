@@ -17,6 +17,8 @@ export type LLMOptions = {
   // Use 'low' for short JSON tasks, 'medium' for planning, 'high' for code.
   // If omitted, adapter defaults to 'medium'.
   reasoningEffort?: "none" | "low" | "medium" | "high" | "xhigh" | "max";
+  // Per-call deadline. Adapters clamp this to their provider safety ceiling.
+  timeoutMs?: number;
 };
 
 export interface LLMAdapter {

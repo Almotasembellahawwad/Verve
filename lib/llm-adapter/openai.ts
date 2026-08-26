@@ -3,11 +3,11 @@
 // OpenAI adapter — with AbortSignal + timeout support
 //
 // GPT-5.6 family are Reasoning Models:
-//   - Use max_completion_tokens (NOT max_tokens)
-//   - Use reasoning_effort (per-call, from LLMOptions.reasoningEffort)
+//   - Use the Responses API with max_output_tokens
+//   - Use reasoning.effort (per-call, from LLMOptions.reasoningEffort)
 //   - Do NOT set temperature (causes 400 error for reasoning models)
 //
-// max_completion_tokens includes BOTH reasoning tokens AND output tokens.
+// max_output_tokens includes BOTH reasoning tokens AND visible output tokens.
 // Set it high enough so the model has budget left for actual output.
 // =========================================================
 
@@ -38,7 +38,7 @@ export class OpenAIAdapter implements LLMAdapter {
   }
 
   async complete(messages: LLMMessage[], options: LLMOptions = {}): Promise<string> {
-    const { systemPrompt, temperature = 0.7, maxTokens, reasoningEffort } = options;
+    const { systemPrompt, temperature = 0.7, maxTokens, reasoningEffort, timeoutMs } = options;
 
     const modelCap = MODEL_MAX_COMPLETION_TOKENS[this.model] ?? 8000;
     const isReasoning = isReasoningModel(this.model);
@@ -48,30 +48,44 @@ export class OpenAIAdapter implements LLMAdapter {
       ? Math.min(modelCap, Math.max(requestedTokens + 2000, Math.ceil(requestedTokens * 1.5)))
       : Math.min(requestedTokens, modelCap);
 
-    const fullMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
-    if (systemPrompt) fullMessages.push({ role: "system", content: systemPrompt });
-    for (const m of messages) fullMessages.push({ role: m.role, content: m.content });
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const params: any = { model: this.model, messages: fullMessages };
-
-    if (isReasoning) {
-      params.max_completion_tokens = effectiveTokens;
-      params.reasoning_effort = reasoningEffort ?? "medium";
-      // Do NOT set temperature — causes 400 for reasoning models
-    } else {
-      params.max_tokens = effectiveTokens;
-      params.temperature = temperature;
-    }
-
+    const effectiveTimeoutMs = Math.min(LLM_TIMEOUT_MS, Math.max(5_000, timeoutMs ?? LLM_TIMEOUT_MS));
     const timeoutCtrl = new AbortController();
-    const timer = setTimeout(() => timeoutCtrl.abort(new Error(`OpenAI request timed out after ${LLM_TIMEOUT_MS / 1000}s (${this.model})`)), LLM_TIMEOUT_MS);
+    const timer = setTimeout(() => timeoutCtrl.abort(new Error(`OpenAI request timed out after ${effectiveTimeoutMs / 1000}s (${this.model})`)), effectiveTimeoutMs);
     const combined = this.signal
       ? AbortSignal.any([this.signal, timeoutCtrl.signal])
       : timeoutCtrl.signal;
 
     try {
-      const response = await this.client.chat.completions.create(params, { signal: combined });
+      if (isReasoning) {
+        const response = await this.client.responses.create({
+          model: this.model,
+          instructions: systemPrompt,
+          input: messages.map((message) => ({ role: message.role, content: message.content })),
+          max_output_tokens: effectiveTokens,
+          reasoning: { effort: reasoningEffort ?? "medium" },
+          store: false,
+        }, { signal: combined });
+
+        const content = response.output_text?.trim();
+        if (!content) {
+          const incompleteReason = response.incomplete_details?.reason;
+          if (response.status === "incomplete" || incompleteReason) {
+            throw new Error(`Incomplete response from ${this.model} (${incompleteReason ?? "unknown reason"}).`);
+          }
+          throw new Error(`OpenAI returned no output text (model: ${this.model}, status: ${response.status}).`);
+        }
+        return content;
+      }
+
+      const fullMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+      if (systemPrompt) fullMessages.push({ role: "system", content: systemPrompt });
+      for (const message of messages) fullMessages.push({ role: message.role, content: message.content });
+      const response = await this.client.chat.completions.create({
+        model: this.model,
+        messages: fullMessages,
+        max_tokens: effectiveTokens,
+        temperature,
+      }, { signal: combined });
 
       const choice = response.choices[0];
       const message = choice?.message;

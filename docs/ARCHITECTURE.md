@@ -76,7 +76,7 @@ Plan generation and critique run in a loop inside stage 03:
 1. Generate plan (Step 3)
 2. Critique plan (Step 4, separate LLM context)
 3. If critique fails (>3 high/medium flags), format critique as negative feedback and repeat Step 3
-4. Cap at 2 revision cycles — surface final critique to user regardless
+4. Cap at one revision cycle — surface final critique to user regardless
 
 The revision count and critique transcript are always surfaced to the user. Transparency is a differentiator.
 
@@ -84,7 +84,7 @@ The revision count and critique transcript are always surfaced to the user. Tran
 
 Fast mode uses three core generative calls: brief analysis, design plan, and entry-code generation. Archetype resolution, critique preflight, contrast, syntax, scoring, and project assembly are local. Provider and schema retries remain bounded exceptions.
 
-Studio mode uses the full LLM archetype and adversarial critique flow, bounded plan revisions, and one targeted code repair. OpenRouter deliberately skips the optional repair call because free routed capacity is less predictable.
+Studio mode uses the full LLM archetype and adversarial critique flow, one bounded plan revision, and one targeted code repair. OpenRouter deliberately skips the optional repair call because free routed capacity is less predictable. If critique or revision exceeds its provider budget, `provider-resilience.ts` keeps the last valid plan and substitutes the deterministic preflight rather than failing delivery.
 
 ## Project and preview layer
 
@@ -94,12 +94,12 @@ Project readiness is separate from distinctiveness. The validator checks scaffol
 
 ## Provider terminal states
 
-The SSE route sends a heartbeat every ten seconds. A run must end in exactly one of two user-visible paths:
+The SSE route sends a heartbeat every ten seconds with separate `stageElapsedMs` and `totalElapsedMs` values. A run must end in exactly one of two user-visible paths:
 
 - `result` with a complete pipeline response and project; or
 - `stage_error` followed by `recovery` with the failed stage and a safe HTML fallback project.
 
-The client also rejects a stream that closes without either terminal event.
+The client also rejects a stream that closes without either terminal event. If three expected heartbeats are missed, the 35-second inactivity watchdog cancels the orphaned request and creates a local recovery checkpoint. The server has a 240-second run-wide deadline below the route's 300-second ceiling.
 
 ## Design System
 

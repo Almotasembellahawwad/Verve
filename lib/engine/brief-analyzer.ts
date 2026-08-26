@@ -47,6 +47,7 @@ export async function analyzeBrief(llm: LLMAdapter, brief: string, existingCode?
     temperature:  0.3,
     maxTokens:    1000,
     reasoningEffort: "low",
+    timeoutMs: 35_000,
   });
 
   // First attempt
@@ -66,6 +67,7 @@ export async function analyzeBrief(llm: LLMAdapter, brief: string, existingCode?
       temperature:     0.1,
       maxTokens:       800,
       reasoningEffort: "low",
+      timeoutMs:       35_000,
     });
     parsed = BriefAnalysisSchema.parse(
       extractJSON<z.infer<typeof BriefAnalysisSchema>>(raw, "Brief Analyzer")
