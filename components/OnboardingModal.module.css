@@ -173,3 +173,46 @@
   text-align: right;
   margin-top: 12px;
 }
+
+/* Paper review card — one identity instead of purple/yellow/green slides. */
+.modal {
+  background: var(--paper);
+  color: var(--paper-ink);
+  border: 1px solid rgba(23, 23, 19, 0.28);
+  box-shadow: 18px 22px 0 rgb(var(--brand-rgb) / 0.24);
+}
+
+.dot { background: rgba(23, 23, 19, 0.14); }
+.dot:hover { background: rgba(23, 23, 19, 0.35); }
+.dotActive { background: var(--brand); }
+.title {
+  color: var(--paper-ink);
+  font-family: var(--font-editorial);
+  font-size: 28px;
+  font-weight: 400;
+}
+.body { color: rgba(23, 23, 19, 0.7); }
+.subtext {
+  color: rgba(23, 23, 19, 0.54);
+  border-left-color: var(--brand);
+}
+.skipBtn,
+.prevBtn { color: rgba(23, 23, 19, 0.48); }
+.skipBtn:hover,
+.prevBtn:hover { color: var(--paper-ink); }
+.nextBtn {
+  color: var(--text-inverse);
+  background: var(--brand);
+  border-color: var(--brand);
+  font-weight: 700;
+}
+.nextBtn:hover {
+  color: var(--text-inverse);
+  background: var(--brand-hover);
+  border-color: var(--brand-hover);
+}
+.counter { color: rgba(23, 23, 19, 0.34); }
+
+@media (max-width: 480px) {
+  .modal { padding: 28px 22px 22px; }
+}

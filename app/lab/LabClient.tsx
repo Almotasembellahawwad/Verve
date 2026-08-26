@@ -260,7 +260,7 @@ export default function LabClient() {
           <h2 className={styles.sectionTitle}>Sample Briefs</h2>
           <p className={styles.sectionDesc}>
             Click <strong style={{ color: "rgba(255,255,255,0.6)" }}>Copy</strong> to paste into the workspace,
-            or <strong style={{ color: "rgba(52,211,153,0.8)" }}>Run</strong> to open the workspace with this brief pre-filled.
+            or <strong style={{ color: "var(--status-success)" }}>Run</strong> to open the workspace with this brief pre-filled.
           </p>
           <div className={styles.briefGrid}>
             {SAMPLE_BRIEFS.map((s) => (

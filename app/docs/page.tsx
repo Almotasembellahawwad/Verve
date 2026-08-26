@@ -43,7 +43,7 @@ function DocsContent() {
           ))}
           <li className={styles.sidebarDivider} />
           <li>
-            <a href="https://github.com/mohasbks/Verve" target="_blank" rel="noopener noreferrer" className={styles.sidebarLink}>
+            <a href="https://github.com/Almotasembellahawwad/Verve" target="_blank" rel="noopener noreferrer" className={styles.sidebarLink}>
               GitHub ↗
             </a>
           </li>
@@ -380,19 +380,19 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
             <ul className={styles.contribList}>
               <li>No Inter as primary sans-serif — Verve uses Space Grotesk + IBM Plex Mono</li>
               <li>No soft-shadow white cards — use border + depth variation instead</li>
-              <li>No blue-to-purple gradients — amber (#D49020) is the only accent</li>
+              <li>No blue-to-purple gradients — Vermilion (#F05236) is the only brand accent</li>
               <li>Every interactive element must have a unique, descriptive <code>id</code></li>
               <li>All animations must respect <code>prefers-reduced-motion</code></li>
             </ul>
           </div>
 
           <a
-            href="https://github.com/mohasbks/Verve"
+            href="https://github.com/Almotasembellahawwad/Verve"
             target="_blank"
             rel="noopener noreferrer"
             className={styles.githubCta}
           >
-            View on GitHub → mohasbks/Verve
+            View on GitHub → Almotasembellahawwad/Verve
           </a>
         </section>
       </main>

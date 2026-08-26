@@ -27,7 +27,7 @@
   flex-direction: column;
   gap: 0;
   scrollbar-width: thin;
-  scrollbar-color: rgba(212,144,32,0.15) transparent;
+  scrollbar-color: rgb(var(--brand-rgb) / 0.15) transparent;
 }
 
 .backLink {
@@ -180,7 +180,7 @@
   color: var(--text-secondary);
   white-space: pre;
   scrollbar-width: thin;
-  scrollbar-color: rgba(212,144,32,0.15) transparent;
+  scrollbar-color: rgb(var(--brand-rgb) / 0.15) transparent;
 }
 
 /* ── Pipeline diagram ────────────────────────────────────── */
@@ -206,7 +206,7 @@
 .pipelineId {
   width: 36px;
   height: 36px;
-  border: 1px solid rgba(212, 144, 32, 0.4);
+  border: 1px solid rgb(var(--brand-rgb) / 0.4);
   background: var(--brand-dim);
   color: var(--brand);
   font-family: var(--font-display);
@@ -222,7 +222,7 @@
 .pipelineConnector {
   flex: 1;
   width: 1px;
-  background: linear-gradient(to bottom, rgba(212,144,32,0.4), rgba(212,144,32,0.08));
+  background: linear-gradient(to bottom, rgb(var(--brand-rgb) / 0.4), rgb(var(--brand-rgb) / 0.08));
   margin-block: 4px;
   min-height: 20px;
 }
@@ -253,7 +253,7 @@
   color: var(--brand);
   background: var(--brand-dim);
   padding: 2px 8px;
-  border: 1px solid rgba(212,144,32,0.3);
+  border: 1px solid rgb(var(--brand-rgb) / 0.3);
   border-radius: 2px;
   font-family: var(--font-body);
 }
@@ -293,15 +293,15 @@
 }
 
 .method-post {
-  background: rgba(212, 144, 32, 0.15);
+  background: rgb(var(--brand-rgb) / 0.15);
   color: var(--brand);
-  border: 1px solid rgba(212, 144, 32, 0.3);
+  border: 1px solid rgb(var(--brand-rgb) / 0.3);
 }
 
 .method-get {
-  background: rgba(57, 255, 20, 0.08);
-  color: #39FF14;
-  border: 1px solid rgba(57, 255, 20, 0.2);
+  background: color-mix(in srgb, var(--status-success) 8%, transparent);
+  color: var(--status-success);
+  border: 1px solid color-mix(in srgb, var(--status-success) 22%, transparent);
 }
 
 .path {
@@ -342,7 +342,7 @@
 
 .moduleCard:hover {
   background: var(--bg-raised);
-  border-color: rgba(212, 144, 32, 0.2);
+  border-color: rgb(var(--brand-rgb) / 0.2);
 }
 
 .moduleFile {
@@ -369,8 +369,8 @@
 
 .callout {
   padding: 16px 20px;
-  border: 1px solid rgba(212, 144, 32, 0.25);
-  background: rgba(212, 144, 32, 0.05);
+  border: 1px solid rgb(var(--brand-rgb) / 0.25);
+  background: rgb(var(--brand-rgb) / 0.05);
   font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.7;
@@ -421,8 +421,8 @@
 
 .contribNote {
   padding: 12px 16px;
-  border-left: 2px solid rgba(212, 144, 32, 0.4);
-  background: rgba(212, 144, 32, 0.04);
+  border-left: 2px solid rgb(var(--brand-rgb) / 0.4);
+  background: rgb(var(--brand-rgb) / 0.04);
   font-size: 12.5px;
   color: var(--text-secondary);
   line-height: 1.7;
@@ -481,7 +481,7 @@
 
 .githubCta:hover {
   background: var(--brand-hover);
-  box-shadow: 0 0 24px rgba(212, 144, 32, 0.4);
+  box-shadow: 0 0 24px rgb(var(--brand-rgb) / 0.4);
 }
 
 /* ── Responsive ──────────────────────────────────────────── */

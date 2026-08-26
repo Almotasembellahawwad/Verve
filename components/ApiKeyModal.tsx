@@ -14,12 +14,12 @@ import {
 
 type AnyProvider = LocalKeyProvider;
 
-const PROVIDERS: { id: AnyProvider; label: string; description: string; color: string; keyPrefix: string }[] = [
-  { id: "anthropic",   label: "Anthropic / Claude",    description: "Claude Sonnet, Opus, Haiku",        color: "#D49020", keyPrefix: "sk-ant-" },
-  { id: "openai",      label: "OpenAI / GPT",           description: "GPT-5.6 Terra, Sol, Luna",          color: "#74B87E", keyPrefix: "sk-"     },
-  { id: "gemini",      label: "Google / Gemini",         description: "Gemini 3.7, 3.5 & Pro Preview",      color: "#6B9FE4", keyPrefix: "AIza"    },
-  { id: "openrouter",  label: "OpenRouter",              description: "Automatic free-model router",        color: "#9A6FF0", keyPrefix: "sk-or-"  },
-  { id: "pexels",      label: "Pexels",                  description: "Contextual photography",             color: "#05A081", keyPrefix: ""        },
+const PROVIDERS: { id: AnyProvider; label: string; description: string; keyPrefix: string }[] = [
+  { id: "anthropic",  label: "Anthropic / Claude", description: "Claude Sonnet, Opus, Haiku",    keyPrefix: "sk-ant-" },
+  { id: "openai",     label: "OpenAI / GPT",       description: "GPT-5.6 Terra, Sol, Luna",      keyPrefix: "sk-" },
+  { id: "gemini",     label: "Google / Gemini",    description: "Gemini 3.7, 3.5 & Pro Preview", keyPrefix: "AIza" },
+  { id: "openrouter", label: "OpenRouter",         description: "Automatic free-model router",   keyPrefix: "sk-or-" },
+  { id: "pexels",     label: "Pexels",             description: "Contextual photography",        keyPrefix: "" },
 ];
 
 export function useApiKey() {
@@ -151,7 +151,6 @@ export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
                   aria-selected={isActive}
                   className={`${styles.providerRow} ${isActive ? styles.providerRowActive : ""}`}
                   onClick={() => { setActiveProvider(p.id); setVisible(false); }}
-                  style={isActive ? { "--c": p.color } as React.CSSProperties : undefined}
                 >
                   <div className={styles.providerInfo}>
                     <span className={styles.providerLabel}>{p.label}</span>
@@ -159,7 +158,7 @@ export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
                   </div>
                   <div className={styles.providerStatus}>
                     {hasKey
-                      ? <span className={styles.statusSet} style={{ color: p.color }}>&#10003; set</span>
+                      ? <span className={styles.statusSet}>&#10003; set</span>
                       : <span className={styles.statusEmpty}>not set</span>
                     }
                   </div>
@@ -172,8 +171,8 @@ export function ApiKeyModal({ isOpen, onClose, onSave }: Props) {
           <div className={styles.keyPanel}>
 
             {/* Provider header */}
-            <div className={styles.keyPanelHeader} style={{ borderColor: `${providerConfig.color}30` }}>
-              <span className={styles.keyPanelName} style={{ color: providerConfig.color }}>
+            <div className={styles.keyPanelHeader}>
+              <span className={styles.keyPanelName}>
                 {providerConfig.label}
               </span>
               <a

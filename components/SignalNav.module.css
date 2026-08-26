@@ -183,13 +183,13 @@
 }
 
 .apiKeyBtnActive {
-  border-color: rgba(212, 144, 32, 0.5);
+  border-color: rgb(var(--brand-rgb) / 0.5);
   color: var(--brand);
   background: var(--brand-dim);
 }
 
 .apiKeyBtnActive:hover {
-  background: rgba(212, 144, 32, 0.15);
+  background: rgb(var(--brand-rgb) / 0.15);
   color: var(--brand);
   border-color: var(--brand);
 }
@@ -212,9 +212,9 @@
 }
 
 @keyframes key-dot-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(212, 144, 32, 0.5); }
-  70% { box-shadow: 0 0 0 6px rgba(212, 144, 32, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(212, 144, 32, 0); }
+  0% { box-shadow: 0 0 0 0 rgb(var(--brand-rgb) / 0.5); }
+  70% { box-shadow: 0 0 0 6px rgb(var(--brand-rgb) / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(var(--brand-rgb) / 0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -324,7 +324,7 @@
 
 .mobileLink:hover {
   color: var(--text-primary);
-  background: rgba(212, 144, 32, 0.04);
+  background: rgb(var(--brand-rgb) / 0.04);
 }
 
 .mobileLinkBtn {
@@ -343,7 +343,7 @@
 
 .mobileLinkBtn:hover {
   color: var(--brand);
-  background: rgba(212, 144, 32, 0.04);
+  background: rgb(var(--brand-rgb) / 0.04);
 }
 
 .mobileDivider {

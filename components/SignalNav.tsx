@@ -110,7 +110,7 @@ export function SignalNav() {
             </button>
 
             <a
-              href="https://github.com/mohasbks/Verve"
+              href="https://github.com/Almotasembellahawwad/Verve"
               target="_blank"
               rel="noopener noreferrer"
               className={styles.githubLink}
@@ -150,7 +150,7 @@ export function SignalNav() {
             ))}
             <div className={styles.mobileDivider} />
             <a
-              href="https://github.com/mohasbks/Verve"
+              href="https://github.com/Almotasembellahawwad/Verve"
               target="_blank"
               rel="noopener noreferrer"
               className={styles.mobileLink}

@@ -118,17 +118,17 @@
   width: 100%;
 }
 .moduleBtn:hover { background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.7); }
-.moduleBtn.active { background: rgba(167,139,250,0.08); color: rgba(255,255,255,0.92); border-right: 2px solid #A78BFA; }
+.moduleBtn.active { background: var(--brand-dim); color: var(--text-primary); border-right: 2px solid var(--brand); }
 
 .moduleId {
   font-size: 9px;
   letter-spacing: 0.08em;
-  color: #A78BFA;
+  color: var(--brand);
   font-family: 'Courier New', monospace;
   flex-shrink: 0;
   width: 36px;
 }
-.moduleBtn.active .moduleId { color: #A78BFA; }
+.moduleBtn.active .moduleId { color: var(--brand); }
 
 .moduleName {
   font-size: 11px;
@@ -148,7 +148,7 @@
 
 .detailId {
   font-size: 11px;
-  color: #A78BFA;
+  color: var(--brand);
   font-family: 'Courier New', monospace;
   letter-spacing: 0.08em;
 }
@@ -214,7 +214,7 @@
   padding-left: 8px;
 }
 
-.ioItemOut { border-left-color: #34D399; color: rgba(52,211,153,0.7); }
+.ioItemOut { border-left-color: var(--status-success); color: var(--status-success); }
 
 /* ── Archetype Explorer ──────────────────────── */
 .archetypeLayout {
@@ -243,9 +243,9 @@
 }
 .archetypeBtn:hover { background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.7); }
 .archetypeBtn.archetypeActive {
-  background: rgba(251,191,36,0.07);
-  color: #FBBF24;
-  border-right: 2px solid #FBBF24;
+  background: color-mix(in srgb, var(--status-warning) 8%, transparent);
+  color: var(--status-warning);
+  border-right: 2px solid var(--status-warning);
 }
 
 .archetypeDetail {
@@ -354,7 +354,7 @@
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(167,139,250,0.8);
+  color: var(--brand);
 }
 
 .briefText {
@@ -367,11 +367,11 @@
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(52,211,153,0.5);
+  color: color-mix(in srgb, var(--status-success) 62%, transparent);
   margin-top: auto;
   transition: color 0.2s;
 }
-.briefCard:hover .briefCopy { color: rgba(52,211,153,0.9); }
+.briefCard:hover .briefCopy { color: var(--status-success); }
 
 @media (max-width: 768px) {
   .moduleLayout,
@@ -411,15 +411,15 @@
   font-size: 9px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(52,211,153,0.75);
-  background: rgba(52,211,153,0.06);
-  border: 0.5px solid rgba(52,211,153,0.2);
+  color: var(--status-success);
+  background: color-mix(in srgb, var(--status-success) 7%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--status-success) 22%, transparent);
   padding: 5px 10px;
   cursor: pointer;
   transition: all 0.18s;
 }
 .briefRunBtn:hover {
-  color: #34d399;
-  border-color: rgba(52,211,153,0.4);
-  background: rgba(52,211,153,0.1);
+  color: var(--status-success);
+  border-color: color-mix(in srgb, var(--status-success) 42%, transparent);
+  background: color-mix(in srgb, var(--status-success) 11%, transparent);
 }

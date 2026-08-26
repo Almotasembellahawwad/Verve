@@ -143,7 +143,7 @@ export function ClicheList() {
           Missing a pattern? The blocklist grows with community PRs.
         </p>
         <a
-          href="https://github.com/mohasbks/Verve/blob/main/docs/CONTRIBUTING.md"
+          href="https://github.com/Almotasembellahawwad/Verve/blob/main/docs/CONTRIBUTING.md"
           target="_blank"
           rel="noopener noreferrer"
           className={styles.contributeLink}

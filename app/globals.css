@@ -1,71 +1,63 @@
 @import "tailwindcss";
 
 /* =========================================================
-   VERVE DESIGN SYSTEM — v1.1
-   
-   Color correction applied after self-critique:
-   Initial design used near-black + phosphor green — exactly
-   the pattern listed as HIGH risk in our own blocklist (color-002).
-   
-   Signature Element: "Editorial Calibration" — annotation amber
-   on warm charcoal. Derived from the act of design criticism:
-   the color of a red pen, a markup, a margin note. Not terminal
-   aesthetics. Not neon. A tool that corrects defaults should not
-   look like a default.
-   
-   Phosphor green (#39FF14) is RETAINED but scoped to data-only
-   contexts: severity badges, pass/fail indicators, live signals.
-   It is NOT the brand accent.
+   VERVE DESIGN SYSTEM — Ink / Paper / Correction
+   One brand accent, two materials, and restrained status colors.
    ========================================================= */
 
 @layer base {
   :root {
     /* -- Primary surface: warm near-black (slight brown undertone) -- */
-    --bg-void: #0B0D0C;
-    --bg-surface: #111412;
-    --bg-raised: #181C19;
-    --bg-overlay: #20251F;
+    --bg-void: #10100E;
+    --bg-surface: #161613;
+    --bg-raised: #1D1D19;
+    --bg-overlay: #272620;
 
     /* -- Third accent: warm slate — depth layering for cards (NOT brand, NOT data) -- */
     /* Derived from: oxidized copper, architectural concrete with warm undertone */
     /* Used ONLY as card background variant to prevent flat monotony */
-    --bg-card-depth: #191714;       /* 1 step warmer/darker than --bg-surface */
-    --bg-card-accent: #1A1916;      /* slate variant — copper-grey undertone */
-    --border-depth: rgba(212,144,32,0.08); /* very faint amber depth separator */
+    --bg-card-depth: #1A1915;
+    --bg-card-accent: #201F1A;
+    --border-depth: rgb(var(--brand-rgb) / 0.09);
 
     /* -- Brand accent: editorial amber — annotation, precision, marking -- */
     /* Derived from: ink annotation tools, calibration marks, editorial judgment */
     /* Not: neon, cyber, terminal green, "AI aesthetic" */
-    --brand: #FF5A36;               /* editorial correction mark */
-    --brand-hover: #FF785C;
-    --brand-dim: rgba(255,90,54,0.12);
-    --paper: #F0EBDC;
-    --paper-ink: #141613;
-    --electric: #CCFF4A;
+    --brand: #F05236;
+    --brand-rgb: 240 82 54;
+    --brand-hover: #FF6E52;
+    --brand-dim: rgb(var(--brand-rgb) / 0.12);
+    --paper: #F2EEE4;
+    --paper-muted: #E7E0D1;
+    --paper-ink: #171713;
 
     /* -- Data-only colors (functional, NOT brand) -- */
-    --data-pass: #39FF14;           /* phosphor — used ONLY for pass/live indicators */
-    --data-fail: #C05540;           /* brick — used ONLY for high-severity flags */
-    --data-warn: #D49020;           /* same amber — medium severity */
-    --data-muted: #6E6A60;          /* warm static — low severity */
+    --status-success: #79B08B;
+    --status-danger: #D96758;
+    --status-warning: #D1A45E;
+    --status-info: #8DAAC7;
+    --data-pass: var(--status-success);
+    --data-fail: var(--status-danger);
+    --data-warn: var(--status-warning);
+    --data-muted: #88847A;
 
     /* -- Legacy alias (for any component still using --signal-green) -- */
-    --signal-green: #39FF14;        /* data-only alias — do not use as brand */
-    --signal-amber: #D49020;        /* same as --brand */
-    --signal-static: #6E6A60;
-    --signal-dim: #2A2218;
+    --signal-green: var(--status-success);
+    --signal-amber: var(--brand);
+    --signal-static: var(--data-muted);
+    --signal-dim: rgb(var(--brand-rgb) / 0.14);
 
     /* -- Text: warm cream, not cold white -- */
     /* Raised --text-secondary from #9E9A88 → #A8A49A for WCAG AA on dark bg */
     --text-primary: #F2EEE4;
-    --text-secondary: #B6B3A9;
-    --text-muted: #76766E;
-    --text-inverse: #111310;
+    --text-secondary: #C0BDB4;
+    --text-muted: #918E85;
+    --text-inverse: #171713;
 
     /* -- Structural -- */
-    --border-subtle: rgba(255,255,255,0.05);
-    --border-active: rgba(255, 90, 54, 0.42);
-    --border-brand: #FF5A36;
+    --border-subtle: rgba(255,255,255,0.09);
+    --border-active: rgb(var(--brand-rgb) / 0.52);
+    --border-brand: var(--brand);
 
     /* -- Typography -- */
     /* 
@@ -114,7 +106,7 @@
     overflow-x: hidden;
   }
 
-  /* Editorial grid: structural background — amber-tinted, not green */
+  /* A quiet editorial grid, intentionally secondary to the content. */
   body::before {
     content: '';
     position: fixed;
@@ -211,7 +203,7 @@
     font-size: 13px;
   }
 
-  /* Cursor blink — amber, not green */
+  /* Cursor blink uses the single brand accent. */
   @keyframes cursor-blink {
     0%, 100% { opacity: 1; }
     50% { opacity: 0; }
@@ -224,18 +216,18 @@
     margin-left: 2px;
   }
 
-  /* Brand pulse — amber glow for interactive elements */
+  /* Brand pulse */
   @keyframes brand-pulse {
-    0% { box-shadow: 0 0 0 0 rgba(212, 144, 32, 0.45); }
-    70% { box-shadow: 0 0 0 8px rgba(212, 144, 32, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(212, 144, 32, 0); }
+    0% { box-shadow: 0 0 0 0 rgb(var(--brand-rgb) / 0.45); }
+    70% { box-shadow: 0 0 0 8px rgb(var(--brand-rgb) / 0); }
+    100% { box-shadow: 0 0 0 0 rgb(var(--brand-rgb) / 0); }
   }
 
-  /* Data pulse — green ONLY for live data/pass state indicators */
+  /* Status pulse — reserved for live/pass indicators. */
   @keyframes data-pulse {
-    0% { box-shadow: 0 0 0 0 rgba(57, 255, 20, 0.4); }
-    70% { box-shadow: 0 0 0 8px rgba(57, 255, 20, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(57, 255, 20, 0); }
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--status-success) 42%, transparent); }
+    70% { box-shadow: 0 0 0 8px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
   }
 
   .signal-pulse {
@@ -270,7 +262,7 @@
     position: absolute;
     inset-block: 0;
     width: 60px;
-    background: linear-gradient(90deg, transparent, rgba(212, 144, 32, 0.06), transparent);
+    background: linear-gradient(90deg, transparent, rgb(var(--brand-rgb) / 0.06), transparent);
     animation: scan-sweep 3s linear infinite;
   }
 
@@ -373,7 +365,7 @@
   padding: 10px 20px; border-bottom: 1px solid #2A261F;
 }
 .vrv1-audit-title { font-family: 'DM Mono', monospace; font-size: 9px; color: #6E6459; letter-spacing: 0.1em; }
-.vrv1-audit-status { font-size: 9px; color: #39FF14; letter-spacing: 0.1em; }
+.vrv1-audit-status { font-size: 9px; color: var(--status-success); letter-spacing: 0.1em; }
 .vrv1-row {
   display: grid; grid-template-columns: 60px 1fr 80px 50px;
   padding: 9px 20px; border-bottom: 1px solid #1C1815; align-items: center;
@@ -382,8 +374,8 @@
 .vrv1-scope { font-size: 9px; color: #6E6459; letter-spacing: 0.06em; font-family: 'DM Mono', monospace; }
 .vrv1-val { font-family: 'DM Mono', monospace; font-size: 11px; color: #E8DCC8; font-weight: 500; }
 .vrv1-status { font-size: 8px; letter-spacing: 0.1em; font-weight: 700; padding: 2px 6px; text-align: center; }
-.vrv1-status-compliant { color: #39FF14; background: rgba(57,255,20,0.06); }
-.vrv1-status-review { color: #D49020; background: rgba(212,144,32,0.1); }
+.vrv1-status-compliant { color: var(--status-success); background: color-mix(in srgb, var(--status-success) 7%, transparent); }
+.vrv1-status-review { color: var(--brand); background: var(--brand-dim); }
 .vrv1-delta { font-family: 'DM Mono', monospace; font-size: 10px; color: #6E6459; text-align: right; }
 
 /* ── BASIC 2: Generic Portfolio ────────────────────────── */

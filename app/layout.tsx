@@ -11,12 +11,12 @@ export const metadata: Metadata = {
   description:
     "Verve is an open-source design taste layer that turns a brief into distinctive, validated interface code through nine observable design stages.",
   keywords: ["AI design", "UI generation", "design system", "LLM UI", "anti-cliché", "Verve", "design taste", "Claude API", "Next.js design tool"],
-  authors: [{ name: "mohasbks", url: "https://github.com/mohasbks" }],
+  authors: [{ name: "Almotasembellahawwad", url: "https://github.com/Almotasembellahawwad" }],
   openGraph: {
     title: "Verve — Every AI website looks the same. Yours won't.",
     description: "An open-source taste engine for distinctive, validated UI output from multiple LLM providers.",
     type: "website",
-    url: "https://github.com/mohasbks/Verve",
+    url: "https://github.com/Almotasembellahawwad/Verve",
   },
   twitter: {
     card: "summary_large_image",

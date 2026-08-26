@@ -5,7 +5,6 @@ import styles from "./page.module.css";
 import GeneratePanel from "@/components/GeneratePanel";
 import CritiquePanel from "@/components/CritiquePanel";
 import ComparePanel from "@/components/ComparePanel";
-import { BeforeAfterHero } from "@/components/BeforeAfterHero";
 import { PipelineViz } from "@/components/PipelineViz";
 import { ClicheList } from "@/components/ClicheList";
 import { SignalNav } from "@/components/SignalNav";
@@ -19,7 +18,7 @@ export default function Home() {
       <SignalNav />
       <OnboardingModal />
 
-      {/* HERO — Signature element: live before/after transformation */}
+      {/* HERO — Signature element: editorial calibration trace */}
       <section className={styles.hero} id="hero">
         <div className={styles.calibrationRail} aria-hidden="true">
           <span>V</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100</span>
@@ -48,7 +47,7 @@ export default function Home() {
                 Open the workbench <span aria-hidden="true">↘</span>
               </a>
               <a
-                href="https://github.com/mohasbks/Verve"
+                href="https://github.com/Almotasembellahawwad/Verve"
                 className={styles.ctaSecondary}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -90,8 +89,26 @@ export default function Home() {
           </aside>
         </div>
 
-        {/* Signature Element: Live before/after */}
-        <BeforeAfterHero />
+        <div className={styles.thesisBand} aria-label="The Verve method">
+          <div className={styles.thesisIntro}>
+            <span className={styles.thesisEyebrow}>THE VERVE METHOD</span>
+            <p>Not another before/after trick. A traceable argument for every design decision.</p>
+          </div>
+          <ol className={styles.thesisSteps}>
+            <li>
+              <span>01</span>
+              <div><strong>Reject the median</strong><small>Detect the defaults the category already overuses.</small></div>
+            </li>
+            <li>
+              <span>02</span>
+              <div><strong>Build a thesis</strong><small>Choose one coherent point of view and make it visible.</small></div>
+            </li>
+            <li>
+              <span>03</span>
+              <div><strong>Prove it in code</strong><small>Validate contrast, syntax, restraint, and implementation quality.</small></div>
+            </li>
+          </ol>
+        </div>
       </section>
 
       {/* HOW IT WORKS */}
@@ -232,17 +249,17 @@ export default function Home() {
               </div>
               <div className={styles.footerNavCol}>
                 <span className={styles.footerNavLabel}>Contribute</span>
-                <a href="https://github.com/mohasbks/Verve/blob/main/docs/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">Add a cliché</a>
-                <a href="https://github.com/mohasbks/Verve/blob/main/docs/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">Add a reference</a>
-                <a href="https://github.com/mohasbks/Verve/issues" target="_blank" rel="noopener noreferrer">Open an issue</a>
-                <a href="https://github.com/mohasbks/Verve/blob/main/docs/ROADMAP.md" target="_blank" rel="noopener noreferrer">Roadmap</a>
+                <a href="https://github.com/Almotasembellahawwad/Verve/blob/main/docs/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">Add a cliché</a>
+                <a href="https://github.com/Almotasembellahawwad/Verve/blob/main/docs/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">Add a reference</a>
+                <a href="https://github.com/Almotasembellahawwad/Verve/issues" target="_blank" rel="noopener noreferrer">Open an issue</a>
+                <a href="https://github.com/Almotasembellahawwad/Verve/blob/main/docs/ROADMAP.md" target="_blank" rel="noopener noreferrer">Roadmap</a>
               </div>
               <div className={styles.footerNavCol}>
                 <span className={styles.footerNavLabel}>API</span>
                 <a href="/api/cliches" target="_blank" rel="noopener noreferrer">GET /api/cliches</a>
                 <a href="/api/library" target="_blank" rel="noopener noreferrer">GET /api/library</a>
-                <a href="https://github.com/mohasbks/Verve/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener noreferrer">Architecture</a>
-                <a href="https://github.com/mohasbks/Verve" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+                <a href="https://github.com/Almotasembellahawwad/Verve/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener noreferrer">Architecture</a>
+                <a href="https://github.com/Almotasembellahawwad/Verve" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
               </div>
             </nav>
           </div>

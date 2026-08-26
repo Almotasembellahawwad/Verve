@@ -222,7 +222,7 @@
 
 .compareBtn:hover:not(:disabled) {
   background: var(--brand-hover);
-  box-shadow: 0 0 20px rgba(212, 144, 32, 0.35);
+  box-shadow: 0 0 20px rgb(var(--brand-rgb) / 0.35);
 }
 
 .compareBtn:disabled {
@@ -278,7 +278,7 @@
   position: absolute;
   inset-block: 0;
   width: 60px;
-  background: linear-gradient(90deg, transparent, rgba(212,144,32,0.04), transparent);
+  background: linear-gradient(90deg, transparent, rgb(var(--brand-rgb) / 0.04), transparent);
   animation: sweep 2.5s linear infinite;
   pointer-events: none;
 }
@@ -344,7 +344,7 @@
 /* Telemetry line states */
 .tl-waiting .tlName { color: rgba(110,100,89,0.4); }
 .tl-running .tlName { color: var(--brand); }
-.tl-running         { background: rgba(212,144,32,0.03); }
+.tl-running         { background: rgb(var(--brand-rgb) / 0.03); }
 .tl-done .tlName    { color: var(--text-muted); }
 
 /* â”€â”€ Results â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -361,7 +361,7 @@
   justify-content: space-between;
   padding: 20px 24px;
   background: var(--bg-raised);
-  border: 1px solid rgba(212,144,32,0.2);
+  border: 1px solid rgb(var(--brand-rgb) / 0.2);
   flex-wrap: wrap;
   gap: 12px;
 }
@@ -555,9 +555,9 @@
 }
 
 .clicheTag[data-side="verve"] {
-  background: rgba(57,255,20,0.06);
+  background: color-mix(in srgb, var(--status-success) 7%, transparent);
   color: var(--data-pass);
-  border: 1px solid rgba(57,255,20,0.15);
+  border: 1px solid color-mix(in srgb, var(--status-success) 18%, transparent);
 }
 
 /* Generic AI mockup â€” illustrates what plain AI produces */
@@ -738,7 +738,7 @@
   align-items: flex-start;
   padding: 10px 12px;
   background: var(--brand-dim);
-  border: 1px solid rgba(212,144,32,0.2);
+  border: 1px solid rgb(var(--brand-rgb) / 0.2);
 }
 
 .signatureMiniIcon {
@@ -787,7 +787,7 @@
   font-size: 10px;
   color: var(--brand);
   background: transparent;
-  border: 1px solid rgba(212,144,32,0.3);
+  border: 1px solid rgb(var(--brand-rgb) / 0.3);
   cursor: pointer;
   padding: 2px 8px;
   transition: background var(--transition-fast);
@@ -808,7 +808,7 @@
   flex: 1;
   max-height: 500px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(212,144,32,0.2) transparent;
+  scrollbar-color: rgb(var(--brand-rgb) / 0.2) transparent;
 }
 
 /* â”€â”€ Responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */

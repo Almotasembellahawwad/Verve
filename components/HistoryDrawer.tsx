@@ -42,7 +42,13 @@ export default function HistoryDrawer({ open, onClose, onRestore }: Props) {
   };
 
   const gradeColor = (grade: string) => {
-    const map: Record<string, string> = { S: "#A78BFA", A: "#34D399", B: "#FBBF24", C: "#F97316", D: "#FF5050" };
+    const map: Record<string, string> = {
+      S: "var(--brand)",
+      A: "var(--status-success)",
+      B: "var(--status-warning)",
+      C: "var(--status-info)",
+      D: "var(--status-danger)",
+    };
     return map[grade] ?? "rgba(255,255,255,0.4)";
   };
 

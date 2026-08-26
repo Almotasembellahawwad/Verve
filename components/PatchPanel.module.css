@@ -111,8 +111,8 @@
 }
 
 .bubbleUser .bubbleText {
-  background: rgba(var(--signal-rgb, 212, 144, 32), 0.12);
-  border: 1px solid rgba(var(--signal-rgb, 212, 144, 32), 0.2);
+  background: var(--brand-dim);
+  border: 1px solid rgb(var(--brand-rgb) / 0.2);
   color: var(--text-primary);
   border-bottom-right-radius: 3px;
 }
@@ -126,7 +126,7 @@
 
 /* Success / Error states */
 .bubbleSuccess .bubbleText {
-  color: var(--signal-green, #7EE2A8);
+  color: var(--status-success);
   border-color: rgba(126, 226, 168, 0.2);
   background: rgba(126, 226, 168, 0.05);
 }

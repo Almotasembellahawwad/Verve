@@ -13,7 +13,7 @@ const SLIDES = [
   {
     id: 1,
     icon: "◈",
-    iconColor: "#A78BFA",
+    iconColor: "var(--brand)",
     title: "Verve is a design intelligence pipeline",
     body: "It exposes 9 observable stages — archetype analysis, competitive field mapping, adversarial critique, contrast enforcement, syntax repair, and dual scoring — around the code generation step.",
     subtext: "Not a template generator. A system that thinks before it designs.",
@@ -21,7 +21,7 @@ const SLIDES = [
   {
     id: 2,
     icon: "⚑",
-    iconColor: "#FBBF24",
+    iconColor: "var(--brand)",
     title: "Generic defaults are the enemy",
     body: "The pipeline maintains 21 curated cliché families with 67 concrete detection signals, plus a competitive-field dataset of dominant industry patterns.",
     subtext: "Every design is measured against what the field already does — then forced to differentiate.",
@@ -29,7 +29,7 @@ const SLIDES = [
   {
     id: 3,
     icon: "▶",
-    iconColor: "#34D399",
+    iconColor: "var(--brand)",
     title: "Write a specific brief. Get a distinctive design.",
     body: "The quality of the output is proportional to the specificity of the input. Generic brief → generic plan (and the critique loop will flag it). Specific brief → archetype-matched, competitively-aware design.",
     subtext: "Use the sample briefs to see the difference. Start with 'Interior Design' or 'Motion Portfolio'.",

@@ -190,7 +190,7 @@
 
 .apiKeyBannerIcon {
   font-size: 18px;
-  color: var(--signal-amber);
+  color: var(--brand);
   flex-shrink: 0;
   margin-top: 1px;
 }
@@ -203,12 +203,12 @@
 }
 
 .apiKeyBannerText strong {
-  color: var(--signal-amber);
+  color: var(--brand);
   font-weight: 600;
 }
 
 .apiKeyBannerGetLink {
-  color: var(--signal-amber);
+  color: var(--brand);
   font-size: 12px;
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -221,7 +221,7 @@
 
 .apiKeyBannerBtn {
   flex-shrink: 0;
-  background: var(--signal-amber);
+  background: var(--brand);
   color: #0C0C0E;
   border: none;
   font-family: var(--font-display);
@@ -260,7 +260,7 @@
 
 .generateBtn:hover:not(:disabled) {
   background: var(--brand-hover);
-  box-shadow: 0 0 32px rgba(212, 144, 32, 0.35);
+  box-shadow: 0 0 32px rgb(var(--brand-rgb) / 0.35);
 }
 
 .generateBtn:disabled {
@@ -363,7 +363,7 @@
   font-size: 11px;
   padding: 3px 8px;
   background: rgba(255, 171, 0, 0.1);
-  color: var(--signal-amber);
+  color: var(--brand);
   border: 1px solid rgba(255, 171, 0, 0.3);
   border-radius: 999px;
   letter-spacing: 0.04em;
@@ -590,7 +590,7 @@
   font-size: 12px;
   color: var(--brand);
   background: transparent;
-  border: 1px solid rgba(212, 144, 32, 0.4);
+  border: 1px solid rgb(var(--brand-rgb) / 0.4);
   padding: 4px 12px;
   cursor: pointer;
   border-radius: 2px;
@@ -783,7 +783,7 @@
 
 .telemetry {
   background: #0A0908;
-  border: 1px solid rgba(212, 144, 32, 0.2);
+  border: 1px solid rgb(var(--brand-rgb) / 0.2);
   padding: 16px 20px;
   font-family: var(--font-body);
   font-size: 12px;
@@ -791,7 +791,7 @@
   overflow-y: auto;
   position: relative;
   scrollbar-width: thin;
-  scrollbar-color: rgba(212, 144, 32, 0.2) transparent;
+  scrollbar-color: rgb(var(--brand-rgb) / 0.2) transparent;
   /* Scanline sweep effect — amber, subtle */
   overflow: hidden;
 }
@@ -802,7 +802,7 @@
   position: absolute;
   inset-block: 0;
   width: 80px;
-  background: linear-gradient(90deg, transparent, rgba(212, 144, 32, 0.04), transparent);
+  background: linear-gradient(90deg, transparent, rgb(var(--brand-rgb) / 0.04), transparent);
   animation: tl-sweep 2.5s linear infinite;
   pointer-events: none;
 }
@@ -818,7 +818,7 @@
   justify-content: space-between;
   margin-bottom: 12px;
   padding-bottom: 10px;
-  border-bottom: 1px solid rgba(212, 144, 32, 0.12);
+  border-bottom: 1px solid rgb(var(--brand-rgb) / 0.12);
 }
 
 .telemetryTitle {
@@ -930,8 +930,8 @@
 
 /* Active line styles */
 .tl-running .tlName   { color: var(--brand); }
-.tl-running .tlModule { color: rgba(212, 144, 32, 0.45); }
-.tl-running           { background: rgba(212, 144, 32, 0.03); }
+.tl-running .tlModule { color: rgb(var(--brand-rgb) / 0.45); }
+.tl-running           { background: rgb(var(--brand-rgb) / 0.03); }
 
 .tl-done .tlName   { color: var(--text-secondary); }
 .tl-done .tlModule { color: var(--text-muted); }
@@ -1199,17 +1199,17 @@
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(52,211,153,0.7);
-  background: rgba(52,211,153,0.05);
-  border: 0.5px solid rgba(52,211,153,0.2);
+  color: var(--status-success);
+  background: color-mix(in srgb, var(--status-success) 6%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--status-success) 22%, transparent);
   padding: 6px 12px;
   cursor: pointer;
   transition: all 0.2s;
 }
 .exportBtn:hover {
-  background: rgba(52,211,153,0.1);
-  border-color: rgba(52,211,153,0.4);
-  color: rgba(52,211,153,1);
+  background: color-mix(in srgb, var(--status-success) 10%, transparent);
+  border-color: color-mix(in srgb, var(--status-success) 42%, transparent);
+  color: var(--status-success);
 }
 
 /* Competitive Field chips */
@@ -1443,17 +1443,17 @@
 }
 /* ── Provider tab with color variable */
 .providerTabActive {
-  border-color: var(--provider-color, var(--brand));
-  color: var(--provider-color, var(--text-primary));
+  border-color: var(--brand);
+  color: var(--brand);
 }
 
 /* FREE badge on OpenRouter tab */
 .freeTag {
   font-size: 8px;
   letter-spacing: 0.1em;
-  background: rgba(52, 211, 153, 0.12);
-  color: rgba(52, 211, 153, 0.85);
-  border: 0.5px solid rgba(52, 211, 153, 0.25);
+  background: color-mix(in srgb, var(--status-success) 12%, transparent);
+  color: var(--status-success);
+  border: 0.5px solid color-mix(in srgb, var(--status-success) 28%, transparent);
   padding: 1px 5px;
   margin-left: 5px;
   vertical-align: middle;
@@ -1468,37 +1468,37 @@
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(52, 211, 153, 0.75);
-  background: rgba(52, 211, 153, 0.05);
-  border: 0.5px solid rgba(52, 211, 153, 0.2);
+  color: var(--status-success);
+  background: color-mix(in srgb, var(--status-success) 6%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--status-success) 22%, transparent);
   padding: 7px 12px;
   cursor: pointer;
   transition: all 0.18s;
   white-space: nowrap;
 }
 .keySetBadge:hover {
-  background: rgba(52, 211, 153, 0.09);
-  border-color: rgba(52, 211, 153, 0.35);
-  color: rgba(52, 211, 153, 1);
+  background: color-mix(in srgb, var(--status-success) 10%, transparent);
+  border-color: color-mix(in srgb, var(--status-success) 38%, transparent);
+  color: var(--status-success);
 }
 
 .keySetDot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: rgba(52, 211, 153, 0.8);
+  background: var(--status-success);
   flex-shrink: 0;
-  box-shadow: 0 0 5px rgba(52, 211, 153, 0.5);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--status-success) 50%, transparent);
 }
 
 .keyManageHint {
-  color: rgba(52, 211, 153, 0.4);
+  color: color-mix(in srgb, var(--status-success) 52%, transparent);
   font-size: 9px;
   margin-left: 2px;
   transition: color 0.18s;
 }
 .keySetBadge:hover .keyManageHint {
-  color: rgba(52, 211, 153, 0.8);
+  color: var(--status-success);
 }
 
 .keyMissingBadge {

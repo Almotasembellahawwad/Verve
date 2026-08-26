@@ -42,7 +42,7 @@
 .stepId {
   width: 40px;
   height: 40px;
-  border: 1px solid rgba(212, 144, 32, 0.2);
+  border: 1px solid rgb(var(--brand-rgb) / 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -62,10 +62,10 @@
 }
 
 .stepIdActive {
-  border-color: rgba(212, 144, 32, 0.5);
+  border-color: rgb(var(--brand-rgb) / 0.5);
   color: var(--brand);
   background: var(--brand-dim);
-  box-shadow: 0 0 12px rgba(212, 144, 32, 0.15);
+  box-shadow: 0 0 12px rgb(var(--brand-rgb) / 0.15);
 }
 
 .stepIdNum {
@@ -100,10 +100,10 @@
   background: linear-gradient(
     to bottom,
     var(--brand) 0%,
-    rgba(212, 144, 32, 0.3) 100%
+    rgb(var(--brand-rgb) / 0.3) 100%
   );
   transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 0 6px rgba(212, 144, 32, 0.4);
+  box-shadow: 0 0 6px rgb(var(--brand-rgb) / 0.4);
 }
 
 .connectorFillActive {
@@ -172,7 +172,7 @@
 
 .stepModuleActive {
   color: var(--brand);
-  border-color: rgba(212, 144, 32, 0.3);
+  border-color: rgb(var(--brand-rgb) / 0.3);
   background: var(--brand-dim);
 }
 

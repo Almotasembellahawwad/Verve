@@ -232,9 +232,9 @@
 }
 
 .annotation[data-verve] {
-  background: rgba(212,144,32,0.08);
+  background: rgb(var(--brand-rgb) / 0.08);
   color: var(--brand);
-  border-color: rgba(212,144,32,0.2);
+  border-color: rgb(var(--brand-rgb) / 0.2);
 }
 
 /* Mockup container */
@@ -362,7 +362,7 @@
 
 .ctaBtn:hover {
   background: var(--brand-hover);
-  box-shadow: 0 0 28px rgba(212, 144, 32, 0.4);
+  box-shadow: 0 0 28px rgb(var(--brand-rgb) / 0.4);
 }
 
 /* ── Responsive ─────────────────────────────────────────── */

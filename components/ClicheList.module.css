@@ -81,7 +81,7 @@
 
 .filterActive .filterCount {
   background: var(--brand-dim);
-  border-color: rgba(212, 144, 32, 0.3);
+  border-color: rgb(var(--brand-rgb) / 0.3);
   color: var(--brand);
 }
 
@@ -132,12 +132,12 @@
 .cardFocused {
   background: var(--bg-raised) !important;
   /* Mechanical snap border — 2px amber, applied instantly */
-  outline: 2px solid rgba(212, 144, 32, 0.4);
+  outline: 2px solid rgb(var(--brand-rgb) / 0.4);
   outline-offset: -2px;
   z-index: 2;
   /* Subtle scale — just enough to signal focus without layout shift */
   transform: scale(1.012);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(212, 144, 32, 0.15);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.16), 0 0 0 1px rgb(var(--brand-rgb) / 0.15);
 }
 
 /* DIMMED: surrounding cards fade out */
@@ -187,9 +187,9 @@
 }
 
 .sev-medium {
-  background: rgba(212, 144, 32, 0.12);
+  background: rgb(var(--brand-rgb) / 0.12);
   color: var(--brand);
-  border: 1px solid rgba(212, 144, 32, 0.3);
+  border: 1px solid rgb(var(--brand-rgb) / 0.3);
 }
 
 .sev-low {

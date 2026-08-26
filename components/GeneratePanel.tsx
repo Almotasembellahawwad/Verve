@@ -12,11 +12,11 @@ import Certificate  from "./Certificate";
 import PatchPanel   from "./PatchPanel";
 import { getLocalApiKey, LOCAL_KEYS_CHANGED_EVENT } from "@/lib/client/key-storage";
 
-const PROVIDERS: { id: Provider; label: string; icon: string; color: string }[] = [
-  { id: "anthropic",  label: "Claude",      icon: "◆", color: "#D49020" },
-  { id: "openai",     label: "GPT",         icon: "◎", color: "#74B87E" },
-  { id: "gemini",     label: "Gemini",      icon: "✦", color: "#6B9FE4" },
-  { id: "openrouter", label: "OpenRouter",   icon: "⬡", color: "#9A6FF0" },
+const PROVIDERS: { id: Provider; label: string; icon: string }[] = [
+  { id: "anthropic",  label: "Claude",     icon: "A" },
+  { id: "openai",     label: "GPT",        icon: "O" },
+  { id: "gemini",     label: "Gemini",     icon: "G" },
+  { id: "openrouter", label: "OpenRouter", icon: "R" },
 ];
 
 // ─── Pipeline telemetry stages (SSE real events now power this) ───────────────
@@ -411,11 +411,11 @@ export default function GeneratePanel() {
 
   const gradeColor = (grade: string) => {
     switch (grade) {
-      case "S": return "var(--signal-green)";
-      case "A": return "#7EE2A8";
-      case "B": return "var(--signal-amber)";
-      case "C": return "#FF9040";
-      case "D": return "#FF5050";
+      case "S": return "var(--brand)";
+      case "A": return "var(--status-success)";
+      case "B": return "var(--status-warning)";
+      case "C": return "var(--status-info)";
+      case "D": return "var(--status-danger)";
       default: return "var(--text-muted)";
     }
   };
@@ -477,7 +477,6 @@ export default function GeneratePanel() {
                 onClick={() => handleProviderChange(p.id)}
                 type="button"
                 disabled={loading}
-                style={provider === p.id ? { "--provider-color": p.color } as React.CSSProperties : undefined}
               >
                 <span aria-hidden="true">{p.icon}</span>
                 {p.label}
@@ -995,14 +994,14 @@ export default function GeneratePanel() {
                 <div className={styles.reportSection}>
                   <h3 className={styles.reportSectionTitle}>Don Norman 3-Level Analysis — Module J</h3>
                   {result.distinctivenessReport.normanSummary && (
-                    <p style={{ fontSize: "12px", color: "var(--text-dim)", marginBottom: "12px", lineHeight: 1.6 }}>
+                    <p style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "12px", lineHeight: 1.6 }}>
                       {result.distinctivenessReport.normanSummary}
                     </p>
                   )}
                   {([
-                    { key: "visceral",   label: "Visceral",   desc: "First impression — visual boldness",      color: "#A78BFA" },
-                    { key: "behavioral", label: "Behavioral", desc: "Usability — function, clarity (evaluated blind to aesthetics)", color: "#34D399" },
-                    { key: "reflective", label: "Reflective", desc: "Shareability — would someone be proud to show this?", color: "#FBBF24" },
+                    { key: "visceral",   label: "Visceral",   desc: "First impression — visual boldness", color: "var(--brand)" },
+                    { key: "behavioral", label: "Behavioral", desc: "Usability — function, clarity (evaluated blind to aesthetics)", color: "var(--status-success)" },
+                    { key: "reflective", label: "Reflective", desc: "Shareability — would someone be proud to show this?", color: "var(--status-info)" },
                   ] as const).map(({ key, label, desc, color }) => {
                     const level = result.distinctivenessReport.normanLevels![key];
                     return (

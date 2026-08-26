@@ -195,12 +195,12 @@
   font-size: 11px;
   line-height: 1.65;
   color: rgba(255, 255, 255, 0.45);
-  background: rgba(5, 160, 129, 0.07);
-  border: 0.5px solid rgba(5, 160, 129, 0.2);
+  background: var(--brand-dim);
+  border: 0.5px solid rgb(var(--brand-rgb) / 0.2);
   padding: 10px 12px;
 }
 .pexelsNote strong {
-  color: rgba(5, 160, 129, 0.9);
+  color: var(--brand);
   font-weight: 600;
 }
 
@@ -265,12 +265,12 @@
 
 .keyWarning {
   font-size: 11px;
-  color: rgba(251, 191, 36, 0.7);
+  color: var(--status-warning);
   margin: 0;
 }
 .keyWarning code {
   font-family: "SF Mono", "Fira Code", monospace;
-  color: rgba(251, 191, 36, 0.9);
+  color: var(--status-warning);
 }
 
 .securityNote {
@@ -378,21 +378,89 @@
   font-size: 11px;
   line-height: 1.65;
   color: rgba(255, 255, 255, 0.45);
-  background: rgba(154, 111, 240, 0.07);
-  border: 0.5px solid rgba(154, 111, 240, 0.2);
+  background: var(--brand-dim);
+  border: 0.5px solid rgb(var(--brand-rgb) / 0.2);
   padding: 10px 12px;
 }
 .openrouterNote strong {
-  color: rgba(154, 111, 240, 0.9);
+  color: var(--brand);
   font-weight: 600;
 }
 
 .inlineLink {
-  color: rgba(154, 111, 240, 0.8);
+  color: var(--brand);
   text-decoration: underline;
   text-underline-offset: 2px;
   transition: color 0.18s;
 }
 .inlineLink:hover {
-  color: rgba(154, 111, 240, 1);
+  color: var(--brand-hover);
+}
+
+/* Verve material pass: provider identity is textual, not color-coded. */
+.modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 20px 24px 0 rgba(0, 0, 0, 0.32);
+}
+
+.header,
+.providerList,
+.keyPanelHeader,
+.actions { border-color: var(--border-subtle); }
+
+.title { color: var(--text-primary); }
+.titleSub,
+.providerDesc,
+.keyLabel,
+.maskedPreview,
+.securityNote { color: var(--text-muted); }
+.providerLabel { color: var(--text-secondary); }
+
+.providerRow:hover { background: rgba(255, 255, 255, 0.035); }
+.providerRowActive {
+  background: var(--brand-dim);
+  border-left-color: var(--brand);
+}
+
+.statusSet,
+.keyPanelName,
+.inlineLink { color: var(--brand); }
+
+.pexelsNote,
+.openrouterNote {
+  color: var(--text-secondary);
+  background: var(--brand-dim);
+  border-color: rgb(var(--brand-rgb) / 0.24);
+}
+
+.pexelsNote strong,
+.openrouterNote strong { color: var(--brand); }
+.keyWarning,
+.keyWarning code { color: var(--status-warning); }
+
+.input {
+  background: var(--bg-raised);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+}
+
+.saveBtn {
+  color: var(--text-inverse);
+  background: var(--brand);
+  border-color: var(--brand);
+  font-weight: 700;
+}
+
+.saveBtn:hover:not(:disabled) {
+  background: var(--brand-hover);
+  border-color: var(--brand-hover);
+}
+
+@media (max-width: 560px) {
+  .providerRowActive {
+    border-left: none;
+    border-top-color: var(--brand);
+  }
 }

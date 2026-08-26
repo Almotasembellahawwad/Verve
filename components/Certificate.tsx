@@ -44,11 +44,11 @@ type Props = {
 };
 
 const GRADE_COLORS: Record<string, string> = {
-  S: "#A78BFA",
-  A: "#34D399",
-  B: "#FBBF24",
-  C: "#F97316",
-  D: "#FF5050",
+  S: "var(--brand)",
+  A: "var(--status-success)",
+  B: "var(--status-warning)",
+  C: "var(--status-info)",
+  D: "var(--status-danger)",
 };
 
 function Bar({ score, color, label, grade }: { score: number; color: string; label: string; grade: string }) {
@@ -178,9 +178,9 @@ export default function Certificate({ data, onClose }: Props) {
             <div className={styles.certSection}>
               <div className={styles.certSectionTitle}>Don Norman 3-Level</div>
               <div className={styles.bars}>
-                <Bar score={data.normanLevels.visceral.score}   color="#A78BFA" label="Visceral"   grade={data.normanLevels.visceral.grade}   />
-                <Bar score={data.normanLevels.behavioral.score} color="#34D399" label="Behavioral" grade={data.normanLevels.behavioral.grade} />
-                <Bar score={data.normanLevels.reflective.score} color="#FBBF24" label="Reflective" grade={data.normanLevels.reflective.grade} />
+                <Bar score={data.normanLevels.visceral.score}   color="var(--brand)" label="Visceral"   grade={data.normanLevels.visceral.grade}   />
+                <Bar score={data.normanLevels.behavioral.score} color="var(--status-success)" label="Behavioral" grade={data.normanLevels.behavioral.grade} />
+                <Bar score={data.normanLevels.reflective.score} color="var(--status-info)" label="Reflective" grade={data.normanLevels.reflective.grade} />
               </div>
             </div>
           )}
