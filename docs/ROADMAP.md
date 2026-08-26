@@ -1,8 +1,8 @@
 # Roadmap
 
-This document tracks planned development phases. Phase 3 only starts after Phase 1 has real users.
+This document tracks shipped foundations and the next evidence-driven product work.
 
-## Phase 1 — MVP (current)
+## Phase 1 — MVP foundation (shipped)
 
 - [x] Nine observable pipeline stages (`/lib/engine/pipeline.ts`)
 - [x] Cliché blocklist engine (`data/cliches.json`, 21 families / 67 signals)
@@ -14,12 +14,35 @@ This document tracks planned development phases. Phase 3 only starts after Phase
 - [x] Community contribution guide (CONTRIBUTING.md)
 - [x] MIT license, README with quickstart
 
-## Phase 2 — After first users
+## Phase 2 — Project Engine (shipped)
+
+- [x] Complete Next.js 16 project output
+- [x] Complete React 19 + Vite project output
+- [x] Standalone HTML project output
+- [x] Shared `GeneratedProject` schema across JSON, SSE, preview, and ZIP export
+- [x] Live sandbox with file explorer, editor, refresh, and responsive viewports
+- [x] Fast mode with three core model calls and deterministic preflight
+- [x] Studio mode with adversarial critique and bounded repair
+- [x] OpenRouter timeout, retry, fallback, heartbeat, truncation rejection, and recovery result
+- [x] Arabic and English browser speech-to-text input
+- [x] Project readiness warnings independent of distinctiveness score
+- [x] Browser-local BYOK with no Supabase dependency
+
+## Phase 2.1 — Quality calibration
+
+- [ ] Rendered screenshot audit at 360, 768, and 1440 pixels
+- [ ] Browser console and broken-navigation evidence in the readiness report
+- [ ] Form-contract adapters for explicit email, webhook, or server-action behavior
+- [ ] Section-level regeneration without replacing the whole project
+- [ ] Persistent editable project snapshots in IndexedDB rather than large localStorage records
+- [ ] User acceptance/rejection signals to calibrate scoring against real outcomes
+
+## Phase 2.2 — Collaboration and delivery
 
 - [ ] **Community submission UI** — Web form to submit cliché patterns without opening a PR. Currently: server logs + manual PR. Target: form → admin queue → auto-PR creation via GitHub API.
 - [ ] **Optional encrypted sync** — only as an explicit opt-in; local browser storage remains the default.
 - [ ] **Public API with rate limiting** — Generous anonymous tier, API key for heavy use. Implement with Upstash for Redis-backed rate limiting.
-- [ ] **Distinctiveness scoring v2** — Calibrate scores against real usage data. Current scoring is heuristic; v2 should learn from user acceptance/rejection of plans.
+- [ ] **Distinctiveness scoring v2** — Calibrate scores against real usage data while keeping project readiness a separate axis.
 - [ ] **CI/CD** — GitHub Actions: typecheck, lint, build on PR. Deploy preview on Vercel for each PR.
 - [ ] **More cliché entries** — Target: 50 entries. Focus areas: motion (more specific timing patterns), copy (more LLM-specific phrasing tells), component-level layout tells (pricing table layouts, testimonial patterns).
 

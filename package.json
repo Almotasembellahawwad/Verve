@@ -1,6 +1,6 @@
 {
   "name": "verve",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
+    "@codesandbox/sandpack-react": "^2.20.0",
     "@fontsource-variable/manrope": "^5.3.0",
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "@fontsource/instrument-serif": "^5.3.0",
@@ -20,6 +21,7 @@
     "colorthief": "^3.5.0",
     "framer-motion": "^12.43.0",
     "html2canvas": "^1.4.1",
+    "jszip": "^3.10.1",
     "lucide-react": "^1.28.0",
     "next": "^16.3.1",
     "openai": "^7.3.0",

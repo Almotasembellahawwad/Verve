@@ -11,6 +11,9 @@ import HistoryDrawer from "./HistoryDrawer";
 import Certificate  from "./Certificate";
 import PatchPanel   from "./PatchPanel";
 import { getLocalApiKey, LOCAL_KEYS_CHANGED_EVENT } from "@/lib/client/key-storage";
+import ProjectWorkbench from "./ProjectWorkbench";
+import VoiceBriefInput from "./VoiceBriefInput";
+import type { GeneratedProject } from "@/lib/project/types";
 
 const PROVIDERS: { id: Provider; label: string; icon: string }[] = [
   { id: "anthropic",  label: "Claude",     icon: "A" },
@@ -30,6 +33,7 @@ const PIPELINE_STAGES = [
   { id: "05",   name: "CODE GENERATION",         module: "code-generator.ts",   status: "COMPILING"   },
   { id: "05.5", name: "CODE VALIDATION",         module: "CodeQualityLoop",     status: "REPAIRING"    },
   { id: "06",   name: "NORMAN 3-LEVEL SCORE",    module: "scorer.ts",           status: "SCORING"     },
+  { id: "07",   name: "PROJECT ASSEMBLY",        module: "ProjectEngine",       status: "PACKAGING"   },
 ] as const;
 
 // ─── Sample Briefs ────────────────────────────────────────────────────────────
@@ -45,6 +49,7 @@ const SAMPLE_BRIEFS = [
 type StageState = "waiting" | "running" | "done" | "flagged";
 
 type PipelineResult = {
+  mode: "fast" | "studio";
   briefAnalysis: {
     subject: string;
     audience: string;
@@ -128,6 +133,7 @@ type PipelineResult = {
   };
   revisionCount: number;
   durationMs: number;
+  project: GeneratedProject;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- used as type source below
@@ -179,12 +185,13 @@ export default function GeneratePanel() {
   });
   const [existingCode, setExistingCode] = useState("");
   const [framework, setFramework] = useState<Framework>("nextjs");
+  const [mode, setMode] = useState<"fast" | "studio">("studio");
   const [showCode, setShowCode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PipelineResult | null>(null);
   const [patchedCode, setPatchedCode] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<"plan" | "code" | "report">("plan");
+  const [activeView, setActiveView] = useState<"project" | "plan" | "code" | "report">("project");
   const [provider, setProvider] = useState<Provider>("anthropic");
   const [model, setModel] = useState<string>(DEFAULT_MODEL.anthropic);
   // Initialize apiKey from localStorage (lazy initializer avoids setState-in-effect)
@@ -197,6 +204,8 @@ export default function GeneratePanel() {
   const [stageStates, setStageStates] = useState<StageState[]>([]);
   const [stageExtras, setStageExtras] = useState<Record<string, string>>({});
   const [retryMessage, setRetryMessage] = useState<string | null>(null);
+  const [recoveryProject, setRecoveryProject] = useState<GeneratedProject | null>(null);
+  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
   const [historyOpen,  setHistoryOpen]  = useState(false);
   const [certOpen,     setCertOpen]     = useState(false);
   const telemetryTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -240,6 +249,7 @@ export default function GeneratePanel() {
     const stored = getLocalApiKey(p);
     setApiKey(stored);
     setMissingKey(false);
+    if (p === "openrouter") setMode("fast");
   };
 
   const openApiKeyModal = () => {
@@ -261,12 +271,12 @@ export default function GeneratePanel() {
     }
   };
 
-  const stopTelemetry = () => {
+  const stopTelemetry = (completed = true) => {
     telemetryTimers.current.forEach(clearTimeout);
-    setStageStates(PIPELINE_STAGES.map(() => "done"));
+    if (completed) setStageStates(PIPELINE_STAGES.map(() => "done"));
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (requestedMode: "fast" | "studio" = mode) => {
     if (!brief.trim() || brief.length < 10) {
       setError("Please enter a design brief (at least 10 characters).");
       return;
@@ -283,6 +293,8 @@ export default function GeneratePanel() {
     setError(null);
     setMissingKey(false);
     setResult(null);
+    setRecoveryProject(null);
+    setRecoveryMessage(null);
     setPatchedCode(null); // reset patched code on new generation
     setRetryMessage(null);
     setStageExtras({});
@@ -304,6 +316,7 @@ export default function GeneratePanel() {
           apiKey: currentKey,
           provider,
           model,
+          mode: requestedMode,
           pexelsKey: getLocalApiKey("pexels") || undefined,
         }),
       });
@@ -317,6 +330,7 @@ export default function GeneratePanel() {
       const reader  = res.body.getReader();
       const decoder = new TextDecoder();
       let   buffer  = "";
+      let receivedTerminalEvent = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -356,14 +370,25 @@ export default function GeneratePanel() {
           } else if (eventType === "stage_flag") {
             updateStage(payload.id as string, "flagged", payload.reason as string);
           } else if (eventType === "result") {
+            receivedTerminalEvent = true;
             setRetryMessage(null);
             stopTelemetry();
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const data = payload as any;
             setResult(data);
-            setActiveView("plan");
+            setActiveView("project");
             // ── Save to history ──────────────────────────────────────────
             try { addHistory(entryFromResult(brief, data)); } catch {}
+          } else if (eventType === "heartbeat") {
+            const elapsed = Math.max(1, Math.round(Number(payload.elapsedMs ?? 0) / 1000));
+            setRetryMessage(`Provider is still working · stage ${String(payload.stageId ?? "")} · ${elapsed}s`);
+          } else if (eventType === "stage_error") {
+            setRecoveryMessage(String(payload.message ?? "The provider stopped before completing this stage."));
+          } else if (eventType === "recovery") {
+            receivedTerminalEvent = true;
+            stopTelemetry(false);
+            setRecoveryMessage(String(payload.message ?? "A recovery draft was preserved."));
+            setRecoveryProject(payload.project as GeneratedProject);
           } else if (eventType === "error") {
             const errPayload = payload as Record<string, string>;
             const msg = errPayload.message || errPayload.error || errPayload.code || "Pipeline error";
@@ -372,9 +397,13 @@ export default function GeneratePanel() {
         }
       }
 
+      if (!receivedTerminalEvent) {
+        throw new Error("Pipeline stream ended before delivering a result.");
+      }
+
     } catch (err) {
       const wasCancelled = err instanceof DOMException && err.name === "AbortError";
-      if (!wasCancelled) stopTelemetry();
+      if (!wasCancelled) stopTelemetry(false);
       const raw = err instanceof Error ? err.message : "Something went wrong";
       // Translate technical errors to user-friendly messages
       let friendly = wasCancelled ? "Generation cancelled." : raw;
@@ -406,7 +435,7 @@ export default function GeneratePanel() {
     setHistoryOpen(false);
     setBrief(entry.brief);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (entry.fullResult) { setResult(entry.fullResult as any); setActiveView("plan"); }
+    if (entry.fullResult) { setResult(entry.fullResult as any); setActiveView("project"); }
   };
 
   const gradeColor = (grade: string) => {
@@ -540,6 +569,11 @@ export default function GeneratePanel() {
             ))}
           </div>
 
+          <VoiceBriefInput
+            disabled={loading}
+            onTranscript={(transcript) => setBrief((current) => `${current}${current.trim() ? " " : ""}${transcript}`)}
+          />
+
           <textarea
             id="brief-input"
             className={styles.textarea}
@@ -556,6 +590,24 @@ export default function GeneratePanel() {
         </div>
 
         <div className={styles.optionsRow}>
+          <div className={styles.inputGroup}>
+            <label htmlFor="mode-select" className={styles.label}>
+              Generation mode
+            </label>
+            <select
+              id="mode-select"
+              className={styles.select}
+              value={mode}
+              onChange={(event) => setMode(event.target.value as "fast" | "studio")}
+              disabled={loading}
+            >
+              <option value="fast">Fast · 3 core model calls</option>
+              <option value="studio">Studio · adversarial review</option>
+            </select>
+            <span className={styles.hint}>
+              {mode === "fast" ? "Best for OpenRouter and rapid drafts." : "Deeper critique and one repair pass."}
+            </span>
+          </div>
           <div className={styles.inputGroup}>
             <label htmlFor="framework-select" className={styles.label}>
               Framework
@@ -644,7 +696,7 @@ export default function GeneratePanel() {
 
         <button
           className={`${styles.generateBtn} ${loading ? styles.cancelBtn : ""}`}
-          onClick={loading ? () => abortRef.current?.abort() : handleGenerate}
+          onClick={loading ? () => abortRef.current?.abort() : () => void handleGenerate()}
           disabled={!loading && !brief.trim()}
           id="generate-submit"
           aria-busy={loading}
@@ -688,6 +740,22 @@ export default function GeneratePanel() {
       )}
 
       {/* ── Results ───────────────────────────────────────────────────────── */}
+      {recoveryProject && (
+        <div className={styles.recoveryResult}>
+          <div className={styles.recoveryHeader} role="alert">
+            <div>
+              <span>RECOVERY CHECKPOINT</span>
+              <strong>The run stopped, but Verve did not discard your work.</strong>
+              <p>{recoveryMessage}</p>
+            </div>
+            <button type="button" onClick={() => { setMode("fast"); void handleGenerate("fast"); }}>
+              Retry in Fast mode
+            </button>
+          </div>
+          <ProjectWorkbench project={recoveryProject} />
+        </div>
+      )}
+
       {result && (
         <div className={styles.results}>
           {/* Score Banner */}
@@ -730,7 +798,7 @@ export default function GeneratePanel() {
 
           {/* View Tabs */}
           <div className={styles.viewTabs} role="tablist">
-            {(["plan", "code", "report"] as const).map((v) => (
+            {(["project", "plan", "code", "report"] as const).map((v) => (
               <button
                 key={v}
                 role="tab"
@@ -738,12 +806,19 @@ export default function GeneratePanel() {
                 className={`${styles.viewTab} ${activeView === v ? styles.viewTabActive : ""}`}
                 onClick={() => setActiveView(v)}
               >
+                {v === "project" && "Live Project"}
                 {v === "plan" && "Design Plan"}
                 {v === "code" && (patchedCode ? "Code ✎" : "Code")}
                 {v === "report" && "Critique Report"}
               </button>
             ))}
           </div>
+
+          {activeView === "project" && result.project && (
+            <div role="tabpanel" className={styles.projectView}>
+              <ProjectWorkbench project={result.project} />
+            </div>
+          )}
 
           {/* Plan View */}
           {activeView === "plan" && (

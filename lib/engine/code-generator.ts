@@ -11,8 +11,8 @@ export type GeneratedCode = {
 };
 
 const FRAMEWORK_NOTES: Record<string, string> = {
-  nextjs: "Next.js 16 App Router component on React 19. Add 'use client' only when browser state, effects, or event handlers require it.",
-  react: "React 19 functional component with TypeScript and accessible semantic markup.",
+  nextjs: "Next.js 16 App Router app/page.tsx on React 19. It MUST have a default export. Add 'use client' only when browser state, effects, or event handlers require it.",
+  react: "React 19 src/App.tsx with TypeScript and accessible semantic markup. It MUST have a default export.",
   html: "Pure valid HTML5 + CSS with no build step.",
 };
 
@@ -21,7 +21,8 @@ export async function generateCode(
   analysis: BriefAnalysis,
   plan: DesignPlan,
   injectionContext: string,
-  framework = "nextjs"
+  framework = "nextjs",
+  mode: "fast" | "studio" = "studio"
 ): Promise<GeneratedCode> {
   const frameworkNote = FRAMEWORK_NOTES[framework] ?? FRAMEWORK_NOTES.nextjs;
 
@@ -51,7 +52,7 @@ Justification: ${plan.signatureElement.justification ?? ""}`
   // KEY CHANGE: Removed fixed 5-section template, forced Unsplash images,
   // "150+ lines" requirement, and "Awwwards" buzzword soup.
   // The prompt now tells the LLM to execute the PLAN, not a generic template.
-  const systemPrompt = `You are a senior frontend developer implementing a specific design plan into complete, working code.
+  const systemPrompt = `You are a senior frontend developer implementing a specific design plan into production-minded, working code.
 
 ${injectionContext}
 
@@ -76,11 +77,17 @@ ${plan.layoutConcept}
 1. EXECUTE THE PLAN ABOVE — not a generic template. The layout, sections, and structure MUST match what the plan describes.
 2. Use the EXACT color palette above as CSS custom properties. Text must be high-contrast and legible.
 3. Use the exact sourced font from AVAILABLE ASSETS when one is provided. Otherwise use a deliberate system stack; never invent a font URL.
-4. The "${plan.signatureElement?.name ?? "signature element"}" MUST be visually prominent and faithfully implemented as described above.
-5. Use modern CSS (Grid, clamp(), logical properties). Mobile-responsive. Include prefers-reduced-motion.
-6. Every section must have real, contextual copy — not lorem ipsum, not empty divs.
-7. Use images ONLY if the design concept calls for them and ONLY use exact URLs listed in AVAILABLE ASSETS. Otherwise create a CSS-only treatment.
-8. Return ONLY the complete, standalone code file. No markdown wrapping, no explanations outside the code.
+4. The "${plan.signatureElement?.name ?? "signature element"}" must be implemented once as a purposeful focal point. Do not repeat a decorative motif across every section.
+5. Use modern CSS (Grid, clamp(), logical properties), focus-visible states, semantic landmarks, 360/768/1440 responsive behavior, and prefers-reduced-motion.
+6. Every section must contain concise, contextual copy. Never invent client names, testimonials, awards, metrics, addresses, or project facts that were not supplied.
+7. Use images ONLY when exact URLs are listed in AVAILABLE ASSETS. For image-dependent businesses, make honest labeled placeholders instead of pretending CSS textures are portfolio photography.
+8. Every interaction must be truthful and operational. Never show fake form success. A form without a backend must clearly say it is a demo and must not claim submission.
+9. Do not use innerHTML or dangerouslySetInnerHTML. Avoid runtime font imports and unnecessary third-party dependencies.
+10. Navigation targets must exist. Include an intentional ending and a real footer when the page format needs them.
+11. Return ONLY one complete entry file for the selected framework. Verve will create the remaining project files deterministically. No markdown or explanations.
+12. Keep styling inside the entry component using a plain <style> element. Do not import a local CSS file that Verve has not supplied. Avoid package imports beyond React unless essential.
+
+DELIVERY MODE: ${mode === "fast" ? "FAST — concise implementation; preserve correctness before decorative depth." : "STUDIO — complete production-quality implementation with careful responsive details."}
 
 Framework: ${frameworkNote}`;
 
@@ -93,7 +100,7 @@ Tone: ${analysis.tone}`;
   const code = await llm.complete([{ role: "user", content: userMessage }], {
     systemPrompt,
     temperature: 0.5,
-    maxTokens: 12000,
+    maxTokens: mode === "fast" ? 8000 : 14000,
     reasoningEffort: "medium",
   });
 

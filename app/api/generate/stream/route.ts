@@ -5,6 +5,7 @@ import { runPipeline } from "@/lib/engine/pipeline";
 import { checkRateLimit, acquireConcurrentSlot, ROUTE_LIMITS } from "@/lib/middleware/rate-limit";
 import { classifyError, logSanitizedError } from "@/lib/middleware/error-handler";
 import { serializePipelineResult } from "@/lib/api/pipeline-response";
+import { buildRecoveryProject } from "@/lib/project/project-builder";
 
 export const maxDuration = 300;
 
@@ -16,6 +17,7 @@ const RequestSchema = z.object({
   provider: z.enum(["anthropic", "openai", "gemini", "openrouter"]).optional().default("anthropic"),
   model: z.string().max(100).optional(),
   pexelsKey: z.string().max(500).optional(),
+  mode: z.enum(["fast", "studio"]).optional().default("studio"),
 });
 
 export async function POST(req: NextRequest) {
@@ -48,6 +50,8 @@ export async function POST(req: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
+      const startedAt = Date.now();
+      let currentStage = "boot";
       const send = (event: string, data: unknown, stageId?: string) => {
         try {
           const id = stageId ?? String(++eventSeq);
@@ -57,21 +61,52 @@ export async function POST(req: NextRequest) {
         }
       };
 
+      // Some providers and reverse proxies can stay silent for long model
+      // calls. Heartbeats prove the stream is alive and prevent a blank UI.
+      const heartbeat = setInterval(() => {
+        send("heartbeat", { stageId: currentStage, elapsedMs: Date.now() - startedAt });
+      }, 10_000);
+
+      send("connected", { requestId, mode: parsed.data.mode });
+
       try {
         const result = await runPipeline({
           ...parsed.data,
           signal: req.signal,
-          onEvent: ({ event, data, stageId }) => send(event, data, stageId),
+          onEvent: ({ event, data, stageId }) => {
+            if (event === "stage_start" && typeof data.id === "string") currentStage = data.id;
+            send(event, data, stageId);
+          },
         });
 
         send("result", serializePipelineResult(result, requestId), "result");
       } catch (err) {
         const { code } = classifyError(err);
         logSanitizedError(err, code, requestId);
-        send("error", { code, requestId });
+        const message = code === "TIMEOUT"
+          ? "The provider exceeded the time budget for this stage. A recovery draft was preserved."
+          : code === "RATE_LIMITED"
+            ? "The provider is rate-limited. A recovery draft was preserved; retry in Fast mode or switch models."
+            : code === "PROVIDER_ERROR"
+              ? "The model stopped or returned an incomplete response. A recovery draft was preserved."
+              : "The pipeline could not finish this stage. A recovery draft was preserved.";
+        send("stage_error", { code, requestId, stageId: currentStage, message }, `${currentStage}-error`);
+        send("recovery", {
+          code,
+          requestId,
+          failedStage: currentStage,
+          message,
+          project: buildRecoveryProject(parsed.data.brief, parsed.data.framework, currentStage),
+        }, "recovery");
       } finally {
+        clearInterval(heartbeat);
         release();
-        controller.close();
+        try {
+          controller.close();
+        } catch {
+          // The browser may have cancelled the stream while the provider was
+          // unwinding. The request-scoped adapter has already received abort.
+        }
       }
     },
   });

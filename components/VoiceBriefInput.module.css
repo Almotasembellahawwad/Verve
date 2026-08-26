@@ -1,0 +1,11 @@
+.voiceRow { display: flex; align-items: center; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+.voiceButton,
+.voiceRow select { min-height: 38px; border: 1px solid var(--line); background: var(--surface-raised); color: var(--text); padding: 0 12px; font: .7rem var(--font-plex-mono), monospace; }
+.voiceButton { cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+.voiceButton span { color: var(--brand); }
+.voiceButton:hover,
+.voiceButton:focus-visible { border-color: var(--brand); outline: none; }
+.listening { color: var(--brand); border-color: var(--brand); animation: listeningPulse 1.2s ease-in-out infinite; }
+.note { color: var(--text-muted); font-size: .72rem; }
+@keyframes listeningPulse { 50% { opacity: .62; } }
+@media (prefers-reduced-motion: reduce) { .listening { animation: none; } }

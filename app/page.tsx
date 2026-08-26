@@ -27,19 +27,19 @@ export default function Home() {
           <div className={styles.heroCopy}>
             <div className={styles.heroLabel}>
               <span className={styles.statusDot} aria-hidden="true" />
-              <span>Independent taste engine / build 01.1</span>
+              <span>Project intelligence engine / build 02.0</span>
             </div>
 
             <h1 className={styles.heroHeading}>
-              <span className={styles.heroSans}>AI can build it.</span>
-              <span className={styles.heroSerif}>Can it have</span>
-              <span className={styles.heroSerifItalic}>a point of view?</span>
+              <span className={styles.heroSans}>A site is not</span>
+              <span className={styles.heroSerif}>a block of code.</span>
+              <span className={styles.heroSerifItalic}>Ship the system.</span>
             </h1>
 
             <p className={styles.heroBody}>
-              Verve interrupts the statistical average between your brief and the code.
-              It rejects familiar defaults, forms a visual thesis, critiques it, validates
-              the implementation, and shows its work.
+              Speak or write a brief. Verve turns it into a runnable, multi-file project,
+              opens it in a live sandbox, exposes every decision, and preserves a recovery
+              draft when a provider stops halfway.
             </p>
 
             <div className={styles.heroCta}>
@@ -59,32 +59,32 @@ export default function Home() {
             </div>
 
             <div className={styles.proofStrip} aria-label="Verve facts">
-              <span><b>21</b> pattern families</span>
-              <span><b>67</b> concrete signals</span>
-              <span><b>09</b> observable stages</span>
-              <span><b>00</b> accounts required</span>
+              <span><b>03</b> stack profiles</span>
+              <span><b>02</b> generation modes</span>
+              <span><b>LIVE</b> sandbox preview</span>
+              <span><b>LOCAL</b> key storage</span>
             </div>
           </div>
 
           <aside className={styles.tasteCard} aria-label="Live taste diagnostic example">
             <div className={styles.tasteCardTop}>
-              <span>VERVE / TASTE TRACE</span>
+              <span>VERVE / PROJECT RECEIPT</span>
               <span className={styles.liveTag}><i /> LIVE</span>
             </div>
             <div className={styles.tasteScoreRow}>
-              <span className={styles.tasteScore}>91</span>
+              <span className={styles.tasteScore}>09</span>
               <div>
-                <span className={styles.scoreLabel}>DISTINCTIVENESS</span>
-                <strong>Point of view detected</strong>
+                <span className={styles.scoreLabel}>PROJECT FILES</span>
+                <strong>Runnable system delivered</strong>
               </div>
             </div>
             <div className={styles.traceRows}>
-              <div><span>Generic hero gradient</span><del>accepted</del><b>rejected</b></div>
-              <div><span>Archetype coherence</span><em>88 / 100</em></div>
-              <div><span>Contrast floor</span><em>AA · pass</em></div>
-              <div><span>Signature element</span><em>locked</em></div>
+              <div><span>Single code blob</span><del>accepted</del><b>rejected</b></div>
+              <div><span>Build configuration</span><em>included</em></div>
+              <div><span>Runtime preview</span><em>sandboxed</em></div>
+              <div><span>Provider recovery</span><em>armed</em></div>
             </div>
-            <p className={styles.redNote}>“Make one decision impossible to forget.”</p>
+            <p className={styles.redNote}>“If it cannot run, it is not finished.”</p>
             <span className={styles.cardIndex} aria-hidden="true">V/01</span>
           </aside>
         </div>
@@ -92,20 +92,20 @@ export default function Home() {
         <div className={styles.thesisBand} aria-label="The Verve method">
           <div className={styles.thesisIntro}>
             <span className={styles.thesisEyebrow}>THE VERVE METHOD</span>
-            <p>Not another before/after trick. A traceable argument for every design decision.</p>
+            <p>From an unfinished thought to a project you can inspect, run, download, and continue.</p>
           </div>
           <ol className={styles.thesisSteps}>
             <li>
               <span>01</span>
-              <div><strong>Reject the median</strong><small>Detect the defaults the category already overuses.</small></div>
+              <div><strong>Speak the intent</strong><small>Dictate in Arabic or English, then correct the structured brief.</small></div>
             </li>
             <li>
               <span>02</span>
-              <div><strong>Build a thesis</strong><small>Choose one coherent point of view and make it visible.</small></div>
+              <div><strong>Generate the system</strong><small>Fast drafts or Studio critique, under one project contract.</small></div>
             </li>
             <li>
               <span>03</span>
-              <div><strong>Prove it in code</strong><small>Validate contrast, syntax, restraint, and implementation quality.</small></div>
+              <div><strong>Run the evidence</strong><small>Inspect files, preview breakpoints, review risks, and export the ZIP.</small></div>
             </li>
           </ol>
         </div>
@@ -118,8 +118,8 @@ export default function Home() {
             <span className="muted-text">{"// how it works"}</span>
           </div>
           <h2 className={styles.sectionHeading}>
-            Nine observable stages between your brief and something{" "}
-            <span className="amber-text">impossible to mistake</span>.
+            Two execution paths. One contract: a project that is{" "}
+            <span className="amber-text">visible, recoverable, and yours</span>.
           </h2>
           <PipelineViz />
         </div>
@@ -132,8 +132,8 @@ export default function Home() {
             <span className="muted-text">{"// workspace"}</span>
           </div>
           <h2 className={styles.sectionHeading}>
-            Generate or critique.{" "}
-            <span className="signal-text">No signup required.</span>
+            Generate, run, inspect, and export.{" "}
+            <span className="signal-text">No account required.</span>
           </h2>
 
           <div className={styles.tabBar} role="tablist">
@@ -203,24 +203,24 @@ export default function Home() {
         <div className="container">
           <div className={styles.statsGrid}>
             <div className={styles.statItem}>
-              <span className={styles.statNum}>21</span>
-              <span className={styles.statLabel}>pattern families</span>
-              <span className={styles.statMeta}>67 concrete signals across color · type · layout · motion · copy</span>
+              <span className={styles.statNum}>03</span>
+              <span className={styles.statLabel}>project stacks</span>
+              <span className={styles.statMeta}>Next.js 16 · React 19 + Vite · HTML</span>
             </div>
             <div className={styles.statItem}>
-              <span className={styles.statNum}>30</span>
-              <span className={styles.statLabel}>reference designs</span>
-              <span className={styles.statMeta}>grounding the plan generator</span>
+              <span className={styles.statNum}>02</span>
+              <span className={styles.statLabel}>execution modes</span>
+              <span className={styles.statMeta}>Fast for velocity · Studio for scrutiny</span>
             </div>
             <div className={styles.statItem}>
-              <span className={styles.statNum}>09</span>
-              <span className={styles.statLabel}>observable stages</span>
-              <span className={styles.statMeta}>brief → critique → validated code</span>
+              <span className={styles.statNum}>LIVE</span>
+              <span className={styles.statLabel}>sandbox preview</span>
+              <span className={styles.statMeta}>files · editor · responsive viewport · console</span>
             </div>
             <div className={styles.statItem}>
-              <span className={styles.statNum}>MIT</span>
-              <span className={styles.statLabel}>license</span>
-              <span className={styles.statMeta}>fork it, extend it, ship it</span>
+              <span className={styles.statNum}>ZIP</span>
+              <span className={styles.statLabel}>complete export</span>
+              <span className={styles.statMeta}>source · configs · dependencies · project README</span>
             </div>
           </div>
         </div>

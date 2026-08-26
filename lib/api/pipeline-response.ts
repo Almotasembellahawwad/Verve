@@ -3,6 +3,7 @@ import type { PipelineResult } from "@/lib/engine/pipeline";
 /** One public response contract shared by JSON, SSE, and background jobs. */
 export function serializePipelineResult(result: PipelineResult, requestId?: string) {
   return {
+    mode: result.mode,
     briefAnalysis: result.briefAnalysis,
     plan: result.designPlan,
     inputBlocklistMatches: result.inputBlocklistResult.matches,
@@ -59,6 +60,7 @@ export function serializePipelineResult(result: PipelineResult, requestId?: stri
     },
     revisionCount: result.revisionCount,
     durationMs: result.durationMs,
+    project: result.project,
     ...(requestId ? { requestId } : {}),
   };
 }

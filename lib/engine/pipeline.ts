@@ -30,10 +30,14 @@ import { runCodeQualityLoop, type CodeQualityResult }             from "./code-q
 import { fixPaletteContrast, type ContrastFixReport }             from "./contrast-fixer";
 import { createAdapter }                                              from "../llm-adapter";
 import type { Provider }                                               from "../llm-adapter/types";
+import { buildGeneratedProject }                                      from "../project/project-builder";
+import type { GeneratedProject }                                      from "../project/types";
+import { critiquePlanLocally, resolveArchetypeLocally }                from "./fast-path";
 
 
 // ── Result type ───────────────────────────────────────────────────────────────
 export type PipelineResult = {
+  mode:                   GenerationMode;
   briefAnalysis:          BriefAnalysis;
   inputBlocklistResult:   BlocklistResult;
   blocklistResult:        BlocklistResult;
@@ -51,7 +55,10 @@ export type PipelineResult = {
   contrastReport:         ContrastFixReport;
   revisionCount:          number;
   durationMs:             number;
+  project:                GeneratedProject;
 };
+
+export type GenerationMode = "fast" | "studio";
 
 export type PipelineEvent = {
   event: "stage_start" | "stage_done" | "stage_flag" | "stage_retry";
@@ -73,6 +80,7 @@ export type PipelineInput = {
   pexelsKey?: string;
   signal?: AbortSignal;
   onEvent?: (event: PipelineEvent) => void;
+  mode?: GenerationMode;
 };
 
 const MAX_REVISION_CYCLES = 2;
@@ -91,9 +99,12 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     pexelsKey,
     signal,
     onEvent,
+    mode          = "studio",
   } = input;
 
+  let activeStageId = "boot";
   const emit = (event: PipelineEvent["event"], data: Record<string, unknown>, stageId?: string) => {
+    if (event === "stage_start" && typeof data.id === "string") activeStageId = data.id;
     onEvent?.({ event, data, stageId });
   };
 
@@ -105,7 +116,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   // -- Create per-request LLM adapter (no singleton, no process.env leak) ----
   if (!apiKey) throw new Error("API key is required");
   const llm = createAdapter(provider, apiKey, model, signal, (attempt, waitMs, retryModel) => {
-    emit("stage_retry", { attempt, waitMs, model: retryModel });
+    emit("stage_retry", { attempt, waitMs, model: retryModel, stageId: activeStageId }, `${activeStageId}-retry-${attempt}`);
   });
 
   // ── [01] Brief Analysis ──────────────────────────────────────────────────
@@ -127,7 +138,9 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   // ── [02.5] Brand Archetype Resolution (Module I) ─────────────────────────
   emit("stage_start", { id: "02.5", name: "Brand Archetype Resolution", module: "Module I" }, "025-start");
   elapsed = timer();
-  const archetypeResolution = await resolveArchetype(llm, briefAnalysis);
+  const archetypeResolution = mode === "fast"
+    ? resolveArchetypeLocally(briefAnalysis)
+    : await resolveArchetype(llm, briefAnalysis);
   emit("stage_done", {
     id: "02.5",
     name: "Brand Archetype",
@@ -171,7 +184,9 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     archetypeContext,
     animationContext
   );
-  finalCritique = await runSelfCritique(llm, designPlan, briefAnalysis);
+  finalCritique = mode === "fast"
+    ? critiquePlanLocally(designPlan)
+    : await runSelfCritique(llm, designPlan, briefAnalysis);
   emit("stage_done", {
     id: "03",
     name: "Design Plan",
@@ -179,7 +194,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     extra: { signature: designPlan.signatureElement?.name },
   }, "03-done");
 
-  while (!finalCritique.passed && revisionCount < maxRevisions) {
+  while (mode === "studio" && !finalCritique.passed && revisionCount < maxRevisions) {
     revisionCount++;
     emit("stage_flag", {
       id: "03",
@@ -229,7 +244,8 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     briefAnalysis,
     designPlan,
     fullCodeContext,
-    framework
+    framework,
+    mode
   );
   emit("stage_done", {
     id: "05",
@@ -248,7 +264,8 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     llm,
     generatedCode.code,
     signatureStr,
-    framework
+    framework,
+    mode === "studio" && provider !== "openrouter"
   );
   emit("stage_done", {
     id: "05.5",
@@ -262,7 +279,6 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     ...generatedCode,
     code: codeQualityResult.code,
   };
-
   // Score the delivered code, not the user's brief/input. The input scan is
   // retained only as generation guidance and prompt-injection context.
   const blocklistResult = runBlocklistFilter(finalCode.code);
@@ -298,7 +314,22 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     extra: { score: distinctivenessReport.score, grade: distinctivenessReport.grade },
   }, "06-done");
 
+  emit("stage_start", { id: "07", name: "Project Assembly", module: "ProjectEngine" }, "07-start");
+  const project = buildGeneratedProject(
+    finalCode,
+    briefAnalysis,
+    designPlan,
+    codeQualityResult.wasRepaired ? [] : codeQualityResult.issues
+  );
+  emit("stage_done", {
+    id: "07",
+    name: "Project Assembly",
+    durationMs: 0,
+    extra: { files: project.files.length, readiness: project.readiness.score },
+  }, "07-done");
+
   return {
+    mode,
     briefAnalysis,
     inputBlocklistResult,
     blocklistResult,
@@ -316,5 +347,6 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     engineeringResult,
     revisionCount,
     durationMs: Date.now() - start,
+    project,
   };
 }

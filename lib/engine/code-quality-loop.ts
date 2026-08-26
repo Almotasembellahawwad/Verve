@@ -77,6 +77,13 @@ function checkMinimumStructure(code: string, framework: string): string[] {
     : ["Component output has no exported or named component"];
 }
 
+function checkEntryContract(code: string, framework: string): string[] {
+  if (framework === "html") return [];
+  return /export\s+default\s+(?:function|class|[A-Za-z_$])/m.test(code)
+    ? []
+    : [`${framework === "nextjs" ? "app/page.tsx" : "src/App.tsx"} requires a default export`];
+}
+
 function checkSyntax(code: string, framework: string): string[] {
   if (framework === "html" || !code.trim()) return [];
 
@@ -126,7 +133,8 @@ export async function runCodeQualityLoop(
   llm: LLMAdapter,
   rawCode: string,
   signatureElement: string,
-  framework: string
+  framework: string,
+  allowRepair = true
 ): Promise<CodeQualityResult> {
   // Step 1: Strip fences
   const stripped = stripFences(rawCode);
@@ -134,6 +142,7 @@ export async function runCodeQualityLoop(
   // Step 2: Run structural checks
   const issues: string[] = [
     ...checkMinimumStructure(stripped, framework),
+    ...checkEntryContract(stripped, framework),
     ...checkDoctype(stripped, framework),
     ...checkUnclosedTags(stripped),
     ...checkSyntax(stripped, framework),
@@ -149,6 +158,12 @@ export async function runCodeQualityLoop(
   // Step 4: If no issues — return as-is
   if (issues.length === 0) {
     return { code: stripped, wasRepaired: false, issues: [], signatureFound };
+  }
+
+  // Fast mode deliberately stops at deterministic validation to preserve its
+  // three-call budget. Studio mode may spend one additional call on repair.
+  if (!allowRepair) {
+    return { code: stripped, wasRepaired: false, issues, signatureFound };
   }
 
   // Step 5: One targeted repair pass
@@ -173,6 +188,7 @@ export async function runCodeQualityLoop(
     // Verify repair actually helped
     const repairedIssues = [
       ...checkMinimumStructure(repairedStripped, framework),
+      ...checkEntryContract(repairedStripped, framework),
       ...checkDoctype(repairedStripped, framework),
       ...checkUnclosedTags(repairedStripped),
       ...checkSyntax(repairedStripped, framework),

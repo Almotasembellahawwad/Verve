@@ -19,7 +19,7 @@ const STEPS = [
   {
     id: "02.5",
     name: "Brand Archetype",
-    description: "Resolves the emotional job and archetype constraints so the result has a coherent identity, not a pasted-on visual style.",
+    description: "Resolves the emotional job and archetype constraints locally in Fast mode or through a dedicated Studio review.",
     module: "brand-archetype-resolver.ts",
   },
   {
@@ -31,7 +31,7 @@ const STEPS = [
   {
     id: "03",
     name: "Plan + Adversarial Review",
-    description: "Builds the token system and one signature element, then asks whether a generic prompt could have produced the same plan. Failed plans loop back.",
+    description: "Builds the token system and one signature element. Fast runs a local preflight; Studio asks whether a generic prompt could have produced the plan and loops failed plans back.",
     module: "PlanGenerator + Critique",
   },
   {
@@ -49,7 +49,7 @@ const STEPS = [
   {
     id: "05.5",
     name: "Syntax + Repair",
-    description: "Parses the final TSX with TypeScript, checks structure and the signature element, and performs one bounded repair pass when necessary.",
+    description: "Parses the final TSX with TypeScript and checks the entry contract. Studio can spend one bounded repair call; Fast reports unresolved risks without hiding them.",
     module: "code-quality-loop.ts",
   },
   {
@@ -57,6 +57,12 @@ const STEPS = [
     name: "Dual Score",
     description: "Scores the delivered code—not the brief—across Norman’s three design levels and a separate engineering quality axis.",
     module: "Scorer + Engineering",
+  },
+  {
+    id: "07",
+    name: "Project Assembly",
+    description: "Builds the complete stack scaffold, resolves package imports, writes configuration and README files, computes readiness, and prepares the live sandbox and ZIP.",
+    module: "project-builder.ts",
   },
 ];
 

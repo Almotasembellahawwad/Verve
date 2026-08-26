@@ -7,6 +7,9 @@ import { runCodeQualityLoop } from "../lib/engine/code-quality-loop";
 import { PROVIDER_MODELS } from "../lib/llm-adapter/types";
 import { fetchPublicDesignSource } from "../lib/security/safe-url";
 import type { LLMAdapter } from "../lib/llm-adapter/types";
+import { buildGeneratedProject, buildRecoveryProject, inspectProductionRisks } from "../lib/project/project-builder";
+import type { BriefAnalysis } from "../lib/engine/brief-analyzer";
+import type { DesignPlan } from "../lib/engine/plan-generator";
 
 test("the public blocklist has truthful family and signal counts", () => {
   const data = getAllCliches();
@@ -70,4 +73,71 @@ test("provider registry contains no retired model IDs", () => {
 test("URL critic rejects insecure and private-network targets before fetching", async () => {
   await assert.rejects(() => fetchPublicDesignSource("http://example.com"), /public HTTPS/);
   await assert.rejects(() => fetchPublicDesignSource("https://127.0.0.1"), /private network/);
+});
+
+test("project engine assembles a runnable Next.js file contract", () => {
+  const analysis = {
+    subject: "Precision Architecture Studio",
+    audience: "Property developers",
+    primaryJob: "Book a consultation",
+    tone: "measured and architectural",
+    industry: "Architecture",
+    constraints: [],
+    rawBrief: "Architecture studio",
+  } as BriefAnalysis;
+  const plan = {
+    colorPalette: [
+      { name: "Ink", hex: "#111111", role: "background" },
+      { name: "Paper", hex: "#f5f2ea", role: "text" },
+      { name: "Signal", hex: "#ff5a36", role: "accent" },
+    ],
+    typePairing: { display: "Arial", body: "Arial", rationale: "System reliability" },
+    layoutConcept: "A clear editorial sequence with an intentional closing consultation section.",
+    signatureElement: { name: "Measured edge", description: "A single calibrated edge.", implementation: "CSS border", justification: "Fits architectural precision." },
+    referencesSampled: [],
+  } as unknown as DesignPlan;
+  const project = buildGeneratedProject(
+    {
+      framework: "nextjs",
+      componentName: "StudioPage",
+      imports: [],
+      setupNotes: "",
+      code: "export default function StudioPage() { return <main><h1>Studio</h1></main>; }",
+    },
+    analysis,
+    plan
+  );
+
+  const paths = project.files.map((entry) => entry.path);
+  assert.ok(paths.includes("app/page.tsx"));
+  assert.ok(paths.includes("app/layout.tsx"));
+  assert.ok(paths.includes("package.json"));
+  assert.ok(paths.includes("tsconfig.json"));
+  assert.ok(paths.includes("README.md"));
+  assert.equal(project.entryFile, "app/page.tsx");
+  assert.equal(project.readiness.status, "review-required");
+  assert.ok(project.warnings.some((warning) => warning.includes("Reduced-motion")));
+});
+
+test("project risk scan rejects deceptive form behavior", () => {
+  const warnings = inspectProductionRisks(`<form><button>Send</button></form><script>alert('Success — sent')</script>`);
+  assert.ok(warnings.some((warning) => warning.includes("submission contract")));
+  assert.ok(warnings.some((warning) => warning.includes("simulated")));
+});
+
+test("Fast mode validation never spends an extra repair call", async () => {
+  let calls = 0;
+  const fakeAdapter: LLMAdapter = { async complete() { calls++; return "export default function App() { return <main />; }"; } };
+  const result = await runCodeQualityLoop(fakeAdapter, "function App() { return <main />; }", "", "react", false);
+  assert.equal(calls, 0);
+  assert.equal(result.wasRepaired, false);
+  assert.ok(result.issues.some((issue) => issue.includes("default export")));
+});
+
+test("provider recovery always yields a previewable project", () => {
+  const project = buildRecoveryProject("A studio portfolio with a real contact path", "nextjs", "05");
+  assert.equal(project.framework, "html");
+  assert.equal(project.entryFile, "index.html");
+  assert.equal(project.readiness.status, "review-required");
+  assert.match(project.files[0].content, /Generation can resume/);
 });

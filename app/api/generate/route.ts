@@ -6,7 +6,7 @@ import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { serializePipelineResult } from "@/lib/api/pipeline-response";
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 const RequestSchema = z.object({
   brief:        z.string().min(10).max(5000),
@@ -16,6 +16,7 @@ const RequestSchema = z.object({
   provider:     z.enum(["anthropic", "openai", "gemini", "openrouter"]).optional().default("anthropic"),
   model:        z.string().max(100).optional(),
   pexelsKey:    z.string().max(500).optional(),
+  mode:         z.enum(["fast", "studio"]).optional().default("studio"),
 });
 
 export async function POST(req: NextRequest) {

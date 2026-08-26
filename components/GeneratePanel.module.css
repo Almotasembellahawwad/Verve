@@ -1521,3 +1521,42 @@
   border-color: rgba(255, 171, 0, 0.4);
   color: rgba(255, 171, 0, 1);
 }
+
+.projectView {
+  padding: 18px;
+  background: var(--surface);
+}
+
+.recoveryResult {
+  margin-top: 18px;
+  border: 1px solid color-mix(in srgb, var(--status-warning) 45%, var(--line));
+}
+
+.recoveryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 20px;
+  background: color-mix(in srgb, var(--status-warning) 7%, var(--surface-raised));
+}
+
+.recoveryHeader div { display: grid; gap: 5px; }
+.recoveryHeader span { color: var(--status-warning); font: .62rem var(--font-plex-mono), monospace; letter-spacing: .14em; }
+.recoveryHeader strong { color: var(--text); }
+.recoveryHeader p { margin: 0; color: var(--text-muted); font-size: .78rem; }
+.recoveryHeader button {
+  flex: none;
+  min-height: 42px;
+  border: 1px solid var(--status-warning);
+  background: transparent;
+  color: var(--status-warning);
+  padding: 0 15px;
+  cursor: pointer;
+  font: .68rem var(--font-plex-mono), monospace;
+}
+
+@media (max-width: 700px) {
+  .projectView { padding: 8px; }
+  .recoveryHeader { align-items: flex-start; flex-direction: column; }
+}

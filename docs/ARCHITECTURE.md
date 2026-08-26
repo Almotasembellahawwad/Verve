@@ -2,7 +2,7 @@
 
 ## Overview
 
-Verve is a Next.js 16 App Router application with nine observable pipeline stages that turn design briefs into distinctive, validated UI code.
+Verve is a Next.js 16 App Router application that turns spoken or written briefs into distinctive, validated, multi-file web projects. Fast and Studio execution paths converge on one `GeneratedProject` contract.
 
 ## Pipeline Architecture
 
@@ -23,7 +23,12 @@ lib/engine/
 ├── code-quality-loop.ts        05.5 — TypeScript syntax check and repair
 ├── scorer.ts                   06 — final-code distinctiveness score
 ├── engineering-score.ts        06 — engineering score
+├── fast-path.ts                 local archetype and deterministic preflight
 └── pipeline.ts                 request-scoped orchestration
+
+lib/project/
+├── types.ts                    07 — public GeneratedProject contract
+└── project-builder.ts          07 — Next.js, React/Vite, and HTML assembly
 ```
 
 ## LLM Adapter
@@ -47,13 +52,13 @@ To add a provider, implement `LLMAdapter` and register it in `createAdapter()`. 
 - `data/cliches.json` — Community-maintained blocklist
 - `data/reference-library.json` — Curated design references for RAG
 
-**Current persistence:** project history and API keys remain in browser `localStorage`. No database or account is required; remote sync can be added later only as an explicit opt-in.
+**Current persistence:** project history and API keys remain in browser `localStorage`. No database, Supabase client, or account is required; remote sync can be added later only as an explicit opt-in.
 
 ## API Routes
 
 ```
 app/api/generate/route.ts          POST — full JSON pipeline
-app/api/generate/stream/route.ts   POST — SSE pipeline telemetry
+app/api/generate/stream/route.ts   POST — SSE telemetry, heartbeat, and recovery project
 app/api/critique/route.ts          POST — standalone design critic
 app/api/compare/route.ts           POST — plain-model versus Verve comparison
 app/api/cliches/route.ts           GET  — public blocklist
@@ -73,10 +78,31 @@ Plan generation and critique run in a loop inside stage 03:
 
 The revision count and critique transcript are always surfaced to the user. Transparency is a differentiator.
 
+## Fast and Studio
+
+Fast mode uses three core generative calls: brief analysis, design plan, and entry-code generation. Archetype resolution, critique preflight, contrast, syntax, scoring, and project assembly are local. Provider and schema retries remain bounded exceptions.
+
+Studio mode uses the full LLM archetype and adversarial critique flow, bounded plan revisions, and one targeted code repair. OpenRouter deliberately skips the optional repair call because free routed capacity is less predictable.
+
+## Project and preview layer
+
+`buildGeneratedProject()` creates the complete stack scaffold after code validation. `ProjectWorkbench` maps the files into a Sandpack iframe, provides file browsing/editing and responsive viewports, and exports the same contract through JSZip. Generated code never mounts into Verve's own component tree.
+
+Project readiness is separate from distinctiveness. Runtime dependencies, fake form behavior, unsafe HTML injection, missing motion safeguards, and unresolved validation findings lower readiness and remain visible to the user.
+
+## Provider terminal states
+
+The SSE route sends a heartbeat every ten seconds. A run must end in exactly one of two user-visible paths:
+
+- `result` with a complete pipeline response and project; or
+- `stage_error` followed by `recovery` with the failed stage and a safe HTML fallback project.
+
+The client also rejects a stream that closes without either terminal event.
+
 ## Design System
 
 The landing page implements Verve's own rules:
-- **Signature Element:** an editorial calibration rail connected to a live "Taste Trace" review card
+- **Signature Element:** an editorial calibration rail connected to a live project receipt
 - **Colors:** ink black, warm paper, and correction vermilion; green is reserved for pass/live data
 - **Type:** Manrope (interface), Instrument Serif (editorial thesis), and IBM Plex Mono (telemetry)
 - **No:** Inter, blue-to-purple gradients, soft-shadow cards, 4-feature-card grids

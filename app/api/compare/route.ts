@@ -4,7 +4,7 @@
 //
 // The baseline call sends a simple, unenhanced prompt to the same model
 // the user chose — this is exactly what they'd get from ChatGPT/Claude
-// without Verve. The Verve call runs the full nine-stage pipeline.
+// without Verve. The Verve call runs the Studio pipeline and Project Engine.
 // Both run in parallel via Promise.allSettled for resilience.
 // =========================================================
 
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
         { systemPrompt: BASELINE_SYSTEM, temperature: 0.8, maxTokens: 4000 }
       ),
 
-      // 2. Verve: full nine-stage pipeline
+      // 2. Verve: Studio pipeline + complete project assembly
       runPipeline({ brief, framework, apiKey, provider, model }),
     ]);
 

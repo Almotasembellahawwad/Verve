@@ -74,7 +74,7 @@ function DocsContent() {
         <section id="architecture" className={styles.section}>
           <h2 className={styles.sectionTitle}>Architecture</h2>
           <p className={styles.sectionLead}>
-            Verve exposes nine ordered milestones. Generative stages use a request-scoped LLM adapter; asset, contrast, validation, and scoring stages are deterministic. Distinctiveness comes from the constraints and review loop, not arbitrary randomness.
+            Verve exposes an observable generation pipeline followed by a deterministic Project Engine. Fast mode uses three model calls and local preflight rules; Studio mode adds archetype resolution, adversarial critique, revision, and bounded repair. Both modes return the same runnable project contract.
           </p>
 
           <div className={styles.pipeline}>
@@ -88,6 +88,7 @@ function DocsContent() {
               { id: "05", name: "Code Generation",       file: "code-generator.ts",  desc: "Generates full component code — responsive, accessible, prefers-reduced-motion aware. Output only produced after plan passes critique. Supports Next.js, React, and HTML+CSS." },
               { id: "05.5", name: "Syntax + Repair",     file: "code-quality-loop.ts", desc: "Parses TSX with TypeScript, verifies structure and the signature element, and performs one bounded repair pass." },
               { id: "06", name: "Dual Score",            file: "scorer.ts + engineering-score.ts", desc: "Scores the delivered code across Norman's three levels and a separate engineering axis; full evidence remains visible." },
+              { id: "07", name: "Project Assembly",       file: "project-builder.ts", desc: "Creates the complete Next.js, React/Vite, or HTML project: source, runtime entry, package manifest, TypeScript configuration, gitignore, and project-specific README." },
             ].map((step, i, arr) => (
               <div key={step.id} className={styles.pipelineStep}>
                 <div className={styles.pipelineLeft}>
@@ -114,11 +115,16 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   const llm = createAdapter(input.provider, input.apiKey, input.model, input.signal);
   const briefAnalysis = await analyzeBrief(llm, input.brief, input.existingCode);
   const inputBlocklist = runBlocklistFilter(input.brief, input.existingCode);
-  
+  const fast = input.mode === "fast";
+  const archetype = fast
+    ? resolveArchetypeLocally(briefAnalysis)
+    : await resolveArchetype(llm, briefAnalysis);
   let designPlan = await generateDesignPlan(llm, briefAnalysis, inputBlocklist.systemPromptInjection);
-  let finalCritique = await runSelfCritique(llm, designPlan, briefAnalysis);
+  let finalCritique = fast
+    ? critiquePlanLocally(designPlan)
+    : await runSelfCritique(llm, designPlan, briefAnalysis);
   
-  while (!finalCritique.passed && revisionCount < maxRevisions) {
+  while (!fast && !finalCritique.passed && revisionCount < maxRevisions) {
     revisionCount++;
     designPlan = await generateDesignPlan(llm, briefAnalysis, inputBlocklist.systemPromptInjection, previousCritique);
     finalCritique = await runSelfCritique(llm, designPlan, briefAnalysis);
@@ -126,9 +132,10 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   
   designPlan.colorPalette = fixPaletteContrast(designPlan.colorPalette).fixedPalette;
   const generatedCode = await generateCode(llm, briefAnalysis, designPlan, ...);
-  const quality = await runCodeQualityLoop(llm, generatedCode.code, ...);
+  const quality = await runCodeQualityLoop(llm, generatedCode.code, ..., !fast);
   const finalBlocklist = runBlocklistFilter(quality.code);
-  return scoreAndSerialize({ briefAnalysis, designPlan, finalCritique, quality, finalBlocklist });
+  const project = buildGeneratedProject(generatedCode, briefAnalysis, designPlan);
+  return scoreAndSerialize({ briefAnalysis, designPlan, finalCritique, quality, finalBlocklist, project });
 }`}</pre>
           </div>
         </section>
@@ -143,11 +150,12 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
           {[
             {
               method: "POST", path: "/api/generate",
-              desc: "Run the full nine-stage pipeline. Returns the plan, critique, validated code, contrast report, and both scoring axes.",
+              desc: "Run Fast or Studio generation. Returns the plan, validated entry code, complete project files, warnings, contrast report, and both scoring axes.",
               request: `{
   "brief": "A landing page for a carbon accounting SaaS targeting manufacturing CFOs.",
   "existingCode": "<optional — HTML/JSX/CSS to redesign>",
   "framework": "nextjs",  // "nextjs" | "react" | "html"
+  "mode": "fast",         // "fast" | "studio"
   "apiKey": "sk-ant-api03-..."
 }`,
               response: `{
@@ -169,10 +177,33 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   },
   "critique": { "passed": true, "flaggedElements": [], "verdict": "..." },
   "code": { "code": "...", "framework": "nextjs", "componentName": "CarbonDashboard", "setupNotes": "..." },
+  "project": {
+    "name": "carbon-accounting-dashboard",
+    "framework": "nextjs",
+    "entryFile": "app/page.tsx",
+    "files": [{ "path": "app/page.tsx", "content": "...", "language": "tsx", "role": "source" }],
+    "dependencies": { "next": "^16.3.1", "react": "^19.2.4" },
+    "warnings": []
+  },
   "distinctivenessReport": { "score": 91, "grade": "A", "clichesAvoided": [], "recommendations": [] },
   "revisionCount": 0,
   "durationMs": 14200
 }`,
+            },
+            {
+              method: "POST", path: "/api/generate/stream",
+              desc: "SSE generation endpoint used by the workbench. Emits stage progress, retries, ten-second heartbeats, a final result, or a recovery project with the failed stage when a provider stops.",
+              request: `Same JSON body as POST /api/generate. Prefer mode: "fast" for free OpenRouter models.`,
+              response: `event: connected
+event: stage_start
+event: heartbeat
+event: stage_retry
+event: stage_done
+event: result
+
+// Provider failure terminal path:
+event: stage_error
+event: recovery`,
             },
             {
               method: "POST", path: "/api/critique",

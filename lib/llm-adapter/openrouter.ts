@@ -19,10 +19,10 @@ import OpenAI from "openai";
 import type { LLMAdapter, LLMMessage, LLMOptions } from "./types";
 
 const OPENROUTER_BASE    = "https://openrouter.ai/api/v1";
-const MAX_RETRIES_PER_MODEL = 2;
-const BASE_DELAY_MS         = 2000;
-const CHAIN_TIMEOUT_MS      = 90_000; // 90s total across all retries + fallbacks
-const PER_CALL_TIMEOUT_MS   = 25_000; // 25s per individual API call
+const MAX_RETRIES_PER_MODEL = 1;
+const BASE_DELAY_MS         = 1200;
+const CHAIN_TIMEOUT_MS      = 70_000;
+const PER_CALL_TIMEOUT_MS   = 35_000;
 
 const FREE_FALLBACK_CHAIN = ["openrouter/free", "openai/gpt-oss-20b:free"];
 
@@ -44,7 +44,8 @@ function isRetryableError(err: unknown): boolean {
     s === 429 || s === 500 || s === 502 || s === 503 || s === 504 ||
     msg.includes("429") || msg.includes("rate limit") || msg.includes("too many requests") ||
     msg.includes("provider returned error") || msg.includes("empty response") ||
-    msg.includes("overloaded") || msg.includes("no content")
+    msg.includes("overloaded") || msg.includes("no content") ||
+    msg.includes("timeout") || msg.includes("truncated") || msg.includes("length limit")
   );
 }
 
@@ -121,6 +122,12 @@ export class OpenRouterAdapter implements LLMAdapter {
               throw new Error(`Empty response from ${model} (reasoning content withheld per policy)`);
             }
 
+            // Returning a half-written project is worse than returning a
+            // recoverable provider error. Let the fallback chain try again.
+            if (choice.finish_reason === "length") {
+              throw new Error(`Truncated response from ${model}: output reached its length limit`);
+            }
+
             if (model !== this.primaryModel) {
               console.info(`[OpenRouter] Fallback succeeded: ${model}`);
             }
@@ -166,7 +173,7 @@ export class OpenRouterAdapter implements LLMAdapter {
     }
 
     throw new Error(
-      `All OpenRouter models unavailable. Tried: ${chain.map((m) => m.split("/")[1] ?? m).join(", ")}.`
+      `OpenRouter exhausted its fallback chain (${chain.map((m) => m.split("/")[1] ?? m).join(", ")}). Last error: ${lastError.message}`
     );
   }
 }
