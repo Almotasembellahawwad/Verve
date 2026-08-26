@@ -12,6 +12,7 @@ Verve is an open-source project intelligence engine for generating distinctive w
 - **Native HTML runtime** — HTML/CSS uses an isolated browser frame with zero package downloads; React remains on the lightweight Sandpack runtime.
 - **Discoverable release surface** — canonical metadata, generated social cards, sitemap, robots policy, manifest, and SoftwareApplication structured data.
 - **Public engineering contract** — CI, issue forms, changelog, security policy, and an explicit disclosure of the browser-local BYOK request path.
+- **Shareable launch receipt** — every completed result can produce a 1200 × 630 PNG score card, a privacy-bounded share summary, and a direct Public Beta feedback path.
 
 ## What changed in 0.2
 

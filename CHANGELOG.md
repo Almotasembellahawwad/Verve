@@ -2,7 +2,18 @@
 
 All notable changes to Verve are documented here.
 
-## [0.3.0] — Unreleased Public Beta
+## [0.3.1] — Unreleased
+
+### Added
+
+- Privacy-bounded Share Kit for every completed result.
+- One-click 1200 × 630 PNG score card, native share/copy fallback, and GitHub Public Beta feedback path.
+
+### Security
+
+- Share artifacts exclude the design brief, provider details, and API keys by contract.
+
+## [0.3.0] — 2026-08-27 Public Beta
 
 ### Added
 

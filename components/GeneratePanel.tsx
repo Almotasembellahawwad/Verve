@@ -22,6 +22,7 @@ import {
   type PipelineCheckpoint,
 } from "@/lib/engine/pipeline-checkpoint";
 import { PUBLIC_DEMO_BRIEF, PUBLIC_DEMO_RESULT } from "@/lib/demo/public-demo";
+import ResultShareKit from "./ResultShareKit";
 
 const PROVIDERS: { id: Provider; label: string; icon: string }[] = [
   { id: "anthropic",  label: "Claude",     icon: "A" },
@@ -880,6 +881,14 @@ export default function GeneratePanel() {
               </button>
             </div>
           </div>
+
+          <ResultShareKit
+            projectName={result.project.name}
+            framework={result.project.framework}
+            score={result.distinctivenessReport.score}
+            grade={result.distinctivenessReport.grade}
+            engineeringScore={result.engineeringResult?.compositeScore}
+          />
 
           {/* View Tabs */}
           <div className={styles.viewTabs} role="tablist">

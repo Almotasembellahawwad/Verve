@@ -26,6 +26,7 @@ import { findUnsupportedQuantifiedClaims } from "../lib/engine/content-safety";
 import { liveSandboxTemplate, supportsLiveSandbox } from "../lib/project/live-sandbox";
 import { instrumentSandboxFiles, isRenderGateReport } from "../lib/project/render-gate";
 import { buildHtmlPreviewDocument } from "../lib/project/html-preview";
+import { buildFeedbackUrl, buildResultCardFilename, buildResultShareText, normalizeResultShareInput } from "../lib/share/result-share";
 import { runPipeline } from "../lib/engine/pipeline";
 import {
   checkpointMatchesInput,
@@ -96,6 +97,24 @@ test("provider registry contains no retired model IDs", () => {
 test("URL critic rejects insecure and private-network targets before fetching", async () => {
   await assert.rejects(() => fetchPublicDesignSource("http://example.com"), /public HTTPS/);
   await assert.rejects(() => fetchPublicDesignSource("https://127.0.0.1"), /private network/);
+});
+
+test("result sharing publishes bounded evidence without the private brief", () => {
+  const input = normalizeResultShareInput({
+    projectName: "Cairo restaurant\nprivate direction",
+    framework: "html",
+    score: 145,
+    grade: "a",
+    engineeringScore: -4,
+  });
+  const text = buildResultShareText(input);
+  assert.equal(input.score, 100);
+  assert.equal(input.engineeringScore, 0);
+  assert.doesNotMatch(text, /API key|Design brief/i);
+  assert.match(text, /Cairo restaurant private direction/);
+  assert.match(text, /verve-dev\.vercel\.app/);
+  assert.equal(buildResultCardFilename("Cairo Restaurant"), "cairo-restaurant-verve-score.png");
+  assert.match(buildFeedbackUrl(), /github\.com\/Almotasembellahawwad\/Verve\/issues\/new/);
 });
 
 test("OpenRouter uses one gateway-managed free fallback chain", () => {

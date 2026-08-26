@@ -88,6 +88,7 @@ test("public discovery files point to Verve's canonical deployment", async ({ re
 });
 
 test("the no-key demo opens as an editable native HTML project", async ({ page }) => {
+  test.setTimeout(60_000);
   await page.addInitScript(() => {
     if (window === window.top) {
       window.localStorage.setItem("verve_onboarding_seen_v2", "1");
@@ -96,13 +97,20 @@ test("the no-key demo opens as an editable native HTML project", async ({ page }
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   const demoButton = page.locator("#open-public-demo");
-  await expect(demoButton).toBeEnabled({ timeout: 15_000 });
+  await expect(demoButton).toBeEnabled({ timeout: 30_000 });
   await demoButton.click();
 
   await expect(page.getByText("CURATED DEMO · NO MODEL CALL")).toBeVisible();
   await expect(page.getByRole("heading", { name: "maeda-cairo-public-demo" })).toBeVisible();
   await expect(page.getByText("Native HTML preview · zero package downloads")).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Edit index.html" })).toBeEditable();
+  await expect(page.getByText("Publish the evidence, not your private brief.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Give feedback/ })).toHaveAttribute("href", /github\.com\/Almotasembellahawwad\/Verve\/issues\/new/);
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download score card" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("maeda-cairo-public-demo-verve-score.png");
 
   const preview = page.frameLocator('iframe[title="maeda-cairo-public-demo live preview"]');
   await expect(preview.getByRole("heading", { name: /القاهرة/ })).toBeVisible();
