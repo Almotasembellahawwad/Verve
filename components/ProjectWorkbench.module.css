@@ -168,6 +168,7 @@
 .problemFail span,
 .problemWarning span { color: #a1a3aa; }
 .noProblems { margin: 0; padding: 22px 16px; color: #73c9a9; font: .72rem var(--font-plex-mono), monospace; }
+.renderPending { margin: 0; padding: 22px 16px; color: #d4a75c; font: .72rem var(--font-plex-mono), monospace; }
 .consolePanel { min-height: 180px; max-height: 300px; overflow: auto; }
 .consolePanel > div { height: 240px !important; border: 0 !important; }
 

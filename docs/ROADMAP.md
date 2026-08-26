@@ -21,6 +21,8 @@ This document tracks shipped foundations and the next evidence-driven product wo
 - [x] Standalone HTML project output
 - [x] Shared `GeneratedProject` schema across JSON, SSE, preview, and ZIP export
 - [x] Framework-safe preview: live HTML/React sandbox plus Next.js inspector/export
+- [x] Rendered-result gate for live overflow, runtime, text-size, and accessibility evidence
+- [x] Playwright desktop/mobile smoke tests and security-header checks
 - [x] Fast mode with three core model calls and deterministic preflight
 - [x] Studio mode with adversarial critique and bounded repair
 - [x] OpenRouter timeout, retry, fallback, heartbeat, truncation rejection, and recovery result

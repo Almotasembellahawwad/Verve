@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
   SandpackCodeEditor,
   SandpackConsole,
@@ -15,6 +15,7 @@ import type { GeneratedProject } from "@/lib/project/types";
 import { validateGeneratedProject } from "@/lib/project/project-validator";
 import { mergeEditorFiles } from "@/lib/project/editor-project";
 import { liveSandboxTemplate, supportsLiveSandbox } from "@/lib/project/live-sandbox";
+import { instrumentSandboxFiles, isRenderGateReport, type RenderGateReport } from "@/lib/project/render-gate";
 import styles from "./ProjectWorkbench.module.css";
 
 type Viewport = "mobile" | "tablet" | "desktop";
@@ -131,11 +132,12 @@ function NextProjectInspector({ project }: { project: GeneratedProject }) {
   );
 }
 
-function ProjectWorkspaceBody({ project }: { project: GeneratedProject }) {
+function ProjectWorkspaceBody({ project, probeId }: { project: GeneratedProject; probeId: string }) {
   const { sandpack } = useSandpack();
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [bottomPanel, setBottomPanel] = useState<BottomPanel>("problems");
   const [downloading, setDownloading] = useState(false);
+  const [renderReport, setRenderReport] = useState<RenderGateReport | null>(null);
   const selectedViewport = VIEWPORT_LABELS.find((item) => item.id === viewport)!;
 
   const editedProject = useMemo<GeneratedProject>(
@@ -145,14 +147,29 @@ function ProjectWorkspaceBody({ project }: { project: GeneratedProject }) {
   const validation = useMemo(() => validateGeneratedProject(editedProject), [editedProject]);
   const problemChecks = validation.checks.filter((item) => item.status !== "pass");
   const runtimeError = sandpack.error?.message ?? null;
-  const totalProblems = problemChecks.length + (runtimeError ? 1 : 0);
+  const renderProblems = renderReport?.checks.filter((item) => item.status !== "pass") ?? [];
+  const renderFailures = renderProblems.filter((item) => item.status === "fail").length;
+  const renderWarnings = renderProblems.filter((item) => item.status === "warning").length;
+  const totalProblems = problemChecks.length + renderProblems.length + (runtimeError ? 1 : 0);
   const riskScore = Math.max(0, 100 - project.warnings.length * 18);
-  const readinessScore = Math.min(validation.score, riskScore);
-  const readinessStatus = validation.status === "blocked"
+  const renderScore = renderReport ? Math.max(0, 100 - renderFailures * 35 - renderWarnings * 8) : 85;
+  const readinessScore = Math.min(validation.score, riskScore, renderScore);
+  const readinessStatus = validation.status === "blocked" || renderFailures > 0 || runtimeError
     ? "blocked"
-    : validation.status === "review-required" || project.warnings.length > 0
+    : !renderReport
+      ? "verifying"
+    : validation.status === "review-required" || project.warnings.length > 0 || renderWarnings > 0
       ? "review-required"
       : "ready";
+  const renderGateStatus = !renderReport ? "WAITING" : renderFailures > 0 ? "FAIL" : renderWarnings > 0 ? "REVIEW" : "PASS";
+
+  useEffect(() => {
+    const receiveReport = (event: MessageEvent<unknown>) => {
+      if (isRenderGateReport(event.data, probeId)) setRenderReport(event.data);
+    };
+    window.addEventListener("message", receiveReport);
+    return () => window.removeEventListener("message", receiveReport);
+  }, [probeId]);
 
   const downloadProject = async () => {
     setDownloading(true);
@@ -181,7 +198,10 @@ function ProjectWorkspaceBody({ project }: { project: GeneratedProject }) {
                 type="button"
                 key={item.id}
                 className={viewport === item.id ? styles.activeViewport : ""}
-                onClick={() => setViewport(item.id)}
+                onClick={() => {
+                  setRenderReport(null);
+                  setViewport(item.id);
+                }}
               >
                 {item.label}
               </button>
@@ -208,7 +228,7 @@ function ProjectWorkspaceBody({ project }: { project: GeneratedProject }) {
         <SandpackCodeEditor className={styles.editor} showTabs showLineNumbers wrapContent />
         <div className={styles.previewRail}>
           <div className={styles.previewMeta}>
-            <span>LIVE SANDBOX · {sandpack.status.toUpperCase()}</span>
+            <span>LIVE SANDBOX · {sandpack.status.toUpperCase()} / RENDER GATE · {renderGateStatus}</span>
             <span>{selectedViewport.width}</span>
           </div>
           <div className={styles.previewViewport} style={{ maxWidth: selectedViewport.width }}>
@@ -246,7 +266,14 @@ function ProjectWorkspaceBody({ project }: { project: GeneratedProject }) {
                 <span>{item.message}{item.file ? ` · ${item.file}` : ""}</span>
               </div>
             ))}
-            {totalProblems === 0 && <p className={styles.noProblems}>No deterministic or runtime problems detected.</p>}
+            {renderProblems.map((item) => (
+              <div key={`render-${item.id}`} className={item.status === "fail" ? styles.problemFail : styles.problemWarning}>
+                <b>Render · {item.title}</b>
+                <span>{item.message}</span>
+              </div>
+            ))}
+            {totalProblems === 0 && renderReport && <p className={styles.noProblems}>Static validation and the rendered result both passed.</p>}
+            {totalProblems === 0 && !renderReport && <p className={styles.renderPending}>Render Gate is waiting for the preview document.</p>}
           </div>
         ) : (
           <div role="tabpanel" className={styles.consolePanel}>
@@ -259,9 +286,10 @@ function ProjectWorkspaceBody({ project }: { project: GeneratedProject }) {
 }
 
 export default function ProjectWorkbench({ project }: { project: GeneratedProject }) {
+  const probeId = useId();
   const files = useMemo(
-    () => Object.fromEntries(project.files.map((item) => [`/${item.path}`, { code: item.content }])),
-    [project]
+    () => instrumentSandboxFiles(project, probeId),
+    [project, probeId]
   );
 
   if (!supportsLiveSandbox(project.framework)) {
@@ -302,7 +330,7 @@ export default function ProjectWorkbench({ project }: { project: GeneratedProjec
       }}
       options={{ activeFile: `/${project.entryFile}`, visibleFiles: project.files.map((item) => `/${item.path}`) }}
     >
-      <ProjectWorkspaceBody project={project} />
+      <ProjectWorkspaceBody project={project} probeId={probeId} />
     </SandpackProvider>
   );
 }

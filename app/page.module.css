@@ -388,7 +388,7 @@
 .hero::after {
   content: "TASTE / NOT STYLE";
   position: absolute;
-  right: -18px;
+  right: 10px;
   top: 148px;
   color: rgba(255, 255, 255, 0.14);
   font-size: 9px;

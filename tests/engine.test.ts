@@ -23,6 +23,7 @@ import { runRestraintCheck } from "../lib/engine/restraint-check";
 import { analyzeCompetitiveField } from "../lib/engine/competitive-field";
 import { findUnsupportedQuantifiedClaims } from "../lib/engine/content-safety";
 import { liveSandboxTemplate, supportsLiveSandbox } from "../lib/project/live-sandbox";
+import { instrumentSandboxFiles, isRenderGateReport } from "../lib/project/render-gate";
 
 test("the public blocklist has truthful family and signal counts", () => {
   const data = getAllCliches();
@@ -150,6 +151,41 @@ test("Live Sandbox is limited to HTML and lightweight React", () => {
   assert.equal(liveSandboxTemplate("html"), "static");
   assert.equal(liveSandboxTemplate("react"), "react");
   assert.throws(() => liveSandboxTemplate("nextjs"), /does not run full nextjs/);
+});
+
+test("Render Gate instrumentation stays ephemeral and supports HTML and React previews", () => {
+  const htmlProject = buildRecoveryProject("Render probe fixture", "html", "test");
+  const originalHtml = htmlProject.files[0].content;
+  const htmlFiles = instrumentSandboxFiles(htmlProject, "probe-html");
+  assert.match(htmlFiles["/index.html"].code, /__verve_render_probe\.js/);
+  assert.match(htmlFiles["/__verve_render_probe.js"].code, /parent\.postMessage/);
+  assert.equal(htmlProject.files[0].content, originalHtml);
+
+  const reactProject = {
+    ...htmlProject,
+    framework: "react" as const,
+    entryFile: "src/App.tsx",
+    files: [
+      { path: "src/main.tsx", content: "import App from './App';", language: "tsx", role: "source" as const },
+      { path: "src/App.tsx", content: "export default function App(){ return <main />; }", language: "tsx", role: "source" as const },
+    ],
+  };
+  const reactFiles = instrumentSandboxFiles(reactProject, "probe-react");
+  assert.match(reactFiles["/src/main.tsx"].code, /import "\.\/__verve_render_probe"/);
+  assert.match(reactFiles["/src/__verve_render_probe.js"].code, /horizontal-overflow/);
+});
+
+test("Render Gate accepts only reports for the active probe", () => {
+  const report = {
+    source: "verve-render-gate",
+    probeId: "active",
+    sequence: 1,
+    viewport: { width: 360, height: 640, documentWidth: 420 },
+    checks: [{ id: "horizontal-overflow", title: "Rendered mobile width", status: "fail", message: "Overflow" }],
+  };
+  assert.equal(isRenderGateReport(report, "active"), true);
+  assert.equal(isRenderGateReport(report, "other"), false);
+  assert.equal(isRenderGateReport({ ...report, checks: [{ ...report.checks[0], status: "unknown" }] }, "active"), false);
 });
 
 test("skincare subject evidence overrides a broad Personal Brand classification", () => {
