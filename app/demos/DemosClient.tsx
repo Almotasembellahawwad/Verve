@@ -24,9 +24,9 @@ export default function DemosClient() {
       <SignalNav />
       <header className={styles.hero}>
         <div className={styles.rail} aria-hidden="true"><span>V</span><i /><span>03</span></div>
-        <div className={styles.heroMeta}><span>PUBLIC EVIDENCE ROOM / V0.4</span><span>NO ACCOUNT · NO MODEL CALL</span></div>
-        <h1>Three briefs.<br /><em>Three complete systems.</em></h1>
-        <p>These are not screenshots. Choose a project, inspect its files, run it at three breakpoints, edit the source, read Render Gate, and export the ZIP.</p>
+        <div className={styles.heroMeta}><span>PUBLIC EVIDENCE ROOM / V0.6</span><span>NO ACCOUNT · NO MODEL CALL</span></div>
+        <h1>Three briefs.<br /><em>Three different topologies.</em></h1>
+        <p>These are executable structure and interface proofs—not invented client case studies. Inspect the files, test laptop and mobile behavior, read the media requirement, and export the ZIP.</p>
       </header>
 
       <section className={styles.chooser} aria-labelledby="choose-demo-title">
@@ -42,15 +42,18 @@ export default function DemosClient() {
                 type="button"
                 className={styles.demoCard}
                 data-active={active || undefined}
+                data-demo={demo.id}
                 aria-pressed={active}
                 onClick={() => selectDemo(demo.id)}
                 id={`select-demo-${demo.id}`}
                 key={demo.id}
               >
                 <span className={styles.cardIndex}>{demo.index}</span>
+                <span className={styles.cardVisual} data-demo-visual aria-hidden="true"><i /><i /><i /></span>
                 <small>{demo.category}</small>
                 <strong>{demo.title}</strong>
                 <p>{demo.description}</p>
+                <em className={styles.proofLabel}>{demo.proof}</em>
                 <b aria-hidden="true">{active ? "SELECTED" : "OPEN ↘"}</b>
               </button>
             );

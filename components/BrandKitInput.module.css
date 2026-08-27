@@ -1,0 +1,41 @@
+.panel { border: 1px solid var(--border-subtle); background: var(--bg-raised); }
+.panel summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 52px; padding: 0 16px; cursor: pointer; list-style: none; }
+.panel summary::-webkit-details-marker { display: none; }
+.panel summary span { color: var(--text-primary); font: 650 12px/1 var(--font-display); }
+.panel summary small { color: var(--text-muted); font: 500 10px/1.3 var(--font-body); letter-spacing: .05em; }
+.panel summary::before { content: "+"; color: var(--brand); font: 700 18px/1 var(--font-display); }
+.panel[open] summary::before { content: "−"; }
+.body { display: grid; gap: 16px; padding: 16px; border-top: 1px solid var(--border-subtle); }
+.identityGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.identityGrid label, .assetList label { display: grid; gap: 6px; }
+.identityGrid label > span, .assetList label > span { color: var(--text-muted); font: 650 10px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; }
+.identityGrid input, .identityGrid textarea, .assetList input, .assetList select { width: 100%; border: 1px solid var(--border-subtle); background: var(--bg-surface); color: var(--text-primary); padding: 10px 12px; font: 12px/1.5 var(--font-body); }
+.identityGrid input:focus, .identityGrid textarea:focus, .assetList input:focus, .assetList select:focus { outline: 2px solid var(--brand); outline-offset: 1px; }
+.notes { grid-column: 1 / -1; }
+.notes textarea { resize: vertical; }
+.uploadRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 18px; padding: 14px; border: 1px dashed var(--border-active); }
+.uploadRow strong { color: var(--text-primary); font-size: 12px; }
+.uploadRow p { margin: 5px 0 0; color: var(--text-muted); font: 11px/1.5 var(--font-body); }
+.uploadRow button { min-height: 40px; border: 1px solid var(--brand); background: transparent; color: var(--brand); padding: 0 14px; cursor: pointer; }
+.uploadRow button:disabled { opacity: .45; cursor: not-allowed; }
+.fileInput { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.error { margin: 0; color: var(--status-error); font-size: 12px; }
+.assetList { display: grid; gap: 8px; }
+.assetList article { display: grid; grid-template-columns: 92px minmax(0, 1fr) 36px; gap: 14px; align-items: center; padding: 10px; border: 1px solid var(--border-subtle); }
+.assetList article > img { width: 92px; height: 72px; object-fit: cover; background: #fff; }
+.assetList article > div { display: grid; grid-template-columns: minmax(120px, .45fr) minmax(180px, 1fr); gap: 10px; align-items: end; min-width: 0; }
+.assetList article > div > strong { grid-column: 1 / -1; overflow: hidden; color: var(--text-secondary); font: 11px/1.3 var(--font-body); text-overflow: ellipsis; white-space: nowrap; }
+.assetList article > button { align-self: start; width: 34px; height: 34px; border: 1px solid var(--border-subtle); background: transparent; color: var(--text-muted); cursor: pointer; font-size: 18px; }
+.assetList article > button:hover { color: var(--status-error); border-color: var(--status-error); }
+
+@media (max-width: 700px) {
+  .panel summary { align-items: flex-start; flex-direction: column; justify-content: center; padding-block: 12px; }
+  .identityGrid { grid-template-columns: 1fr; }
+  .notes { grid-column: 1; }
+  .uploadRow { grid-template-columns: 1fr; }
+  .uploadRow button { justify-self: start; }
+  .assetList article { grid-template-columns: 72px minmax(0, 1fr) 34px; }
+  .assetList article > img { width: 72px; height: 72px; }
+  .assetList article > div { grid-template-columns: 1fr; }
+  .assetList article > div > strong { grid-column: 1; }
+}

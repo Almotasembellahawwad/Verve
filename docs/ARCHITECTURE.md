@@ -4,6 +4,8 @@
 
 Verve is a Next.js 16 App Router application that turns spoken or written briefs into distinctive, validated, multi-file web projects. Fast and Studio execution paths converge on one `GeneratedProject` contract.
 
+The user-facing mental model has four macro phases: **Understand → Direct → Build → Prove**. The numbered internal modules below are deterministic or bounded checks inside those phases, not nine independent LLM agents. Fast mode still requires only two core generative calls.
+
 ## Pipeline Architecture
 
 Engine functions receive a request-scoped LLM adapter explicitly. Deterministic stages remain pure; generative stages make bounded provider calls.
@@ -24,6 +26,7 @@ lib/engine/
 ├── code-quality-loop.ts        05.5 — TypeScript syntax check and repair
 ├── scorer.ts                   06 — final-code distinctiveness score
 ├── engineering-score.ts        06 — engineering score
+├── design-diversity.ts         06 — recurring Verve-template fingerprint gate
 ├── fast-path.ts                 local archetype and deterministic preflight
 └── pipeline.ts                 request-scoped orchestration
 
@@ -31,7 +34,8 @@ lib/project/
 ├── types.ts                    07 — public GeneratedProject contract
 ├── project-builder.ts          07 — Next.js, React/Vite, and HTML assembly
 ├── project-validator.ts        07 — multi-file production contract
-└── editor-project.ts           workbench edits merged before validation/export
+├── editor-project.ts           workbench edits merged before validation/export
+└── brand-kit.ts                owned-media manifest, preview hydration, and binary export
 ```
 
 ## LLM Adapter
@@ -69,7 +73,7 @@ app/api/cliches/suggest/route.ts   POST — community submission
 app/api/library/route.ts           GET  — reference library
 ```
 
-All routes validate input with Zod schemas before processing.
+Both generation routes validate the same `GenerationRequestSchema`; JSON and SSE cannot drift into different brand-asset or checkpoint contracts.
 
 ## Revision Loop
 
@@ -96,6 +100,8 @@ Studio mode uses the full LLM archetype and adversarial critique flow, one bound
 For sandboxed projects, `render-gate.ts` adds an ephemeral probe to the in-memory preview files only. The probe reports actual document width, runtime/console errors, computed text sizes, image alternatives, duplicate IDs, and button names through a scoped `postMessage` contract. Probe files never enter history or ZIP exports, and readiness remains `verifying` until a matching rendered report arrives.
 
 Project readiness is separate from distinctiveness. The validator checks scaffold files, entry exports, relative imports, declared packages, fragment targets, form behavior, unsafe HTML injection, image alternatives, button types, motion safeguards, mobile clipping, React list identity, font declarations, tiny text, and unfinished content. Unsupported quantified claims absent from the source brief block production readiness. The deterministic Media Gate also blocks image-dependent briefs until their minimum approved asset count is met. For sandboxed projects, `ProjectWorkbench` reruns code checks against the live editor state and ZIP uses that same state; media warnings remain explicit project-level launch requirements.
+
+Owned image bytes never cross the generation API. The browser sends a bounded manifest (role, path, media type, and user-authored alt direction), attaches the original base64 payload to the returned `GeneratedProject`, hydrates local paths as data URLs only inside the preview, and writes the original bytes into ZIP. HTML assets export under `assets/`; React and Next.js assets export under `public/assets/`.
 
 ## Provider terminal states
 

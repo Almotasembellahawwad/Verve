@@ -231,7 +231,7 @@ export function SignalNav() {
                   GitHub <span aria-hidden="true">↗</span>
                 </a>
               </div>
-              <p className={styles.mobileMenuFoot}>LOCAL KEYS · OPEN SOURCE · V0.5.0</p>
+              <p className={styles.mobileMenuFoot}>LOCAL KEYS · OPEN SOURCE · V0.6.0</p>
             </div>
           </>
         )}

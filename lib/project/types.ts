@@ -3,6 +3,8 @@ export type ProjectFramework = "nextjs" | "react" | "html";
 export type ProjectFile = {
   path: string;
   content: string;
+  encoding?: "utf8" | "base64";
+  mediaType?: string;
   language: string;
   role: "source" | "config" | "asset" | "documentation";
 };

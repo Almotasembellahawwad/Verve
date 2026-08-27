@@ -7,6 +7,7 @@ import { validateGeneratedProject } from "@/lib/project/project-validator";
 import { buildHtmlPreviewDocument } from "@/lib/project/html-preview";
 import { isRenderGateReport, type RenderGateReport } from "@/lib/project/render-gate";
 import styles from "./ProjectWorkbench.module.css";
+import { projectFileDataUrl } from "@/lib/project/brand-kit";
 
 type Viewport = "mobile" | "tablet" | "desktop";
 
@@ -18,7 +19,7 @@ const VIEWPORTS: Array<{ id: Viewport; label: string; width: string }> = [
 
 async function downloadFiles(projectName: string, files: ProjectFile[]): Promise<void> {
   const zip = new JSZip();
-  for (const item of files) zip.file(item.path, item.content);
+  for (const item of files) zip.file(item.path, item.content, item.encoding === "base64" ? { base64: true } : undefined);
   const blob = await zip.generateAsync({ type: "blob" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -48,9 +49,10 @@ export default function NativeHtmlWorkbench({ project }: { project: GeneratedPro
   const renderWarnings = renderProblems.filter((item) => item.status === "warning").length;
   const totalProblems = staticProblems.length + renderProblems.length;
   const riskScore = Math.max(0, 100 - project.warnings.length * 18);
+  const riskBlocked = project.readiness.status === "blocked" || project.warnings.some((warning) => warning.startsWith("BLOCKING:"));
   const renderScore = renderReport ? Math.max(0, 100 - renderFailures * 35 - renderWarnings * 8) : 85;
   const readinessScore = Math.min(validation.score, riskScore, renderScore);
-  const readinessStatus = validation.status === "blocked" || renderFailures > 0
+  const readinessStatus = validation.status === "blocked" || renderFailures > 0 || riskBlocked
     ? "blocked"
     : !renderReport
       ? "verifying"
@@ -152,13 +154,21 @@ export default function NativeHtmlWorkbench({ project }: { project: GeneratedPro
 
         <section className={styles.sourcePanel} aria-label={`${selectedFile.path} editor`}>
           <div className={styles.sourceMeta}><span>{selectedFile.path}</span><span>{selectedFile.language}</span></div>
-          <textarea
-            className={styles.nativeEditor}
-            value={selectedFile.content}
-            onChange={(event) => updateSelectedFile(event.target.value)}
-            spellCheck={false}
-            aria-label={`Edit ${selectedFile.path}`}
-          />
+          {selectedFile.encoding === "base64" ? (
+            <div className={styles.assetInspector}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- local user-owned preview */}
+              <img src={projectFileDataUrl(selectedFile) ?? ""} alt="User-owned project asset preview" />
+              <p>Binary asset · {selectedFile.mediaType} · included in preview and ZIP</p>
+            </div>
+          ) : (
+            <textarea
+              className={styles.nativeEditor}
+              value={selectedFile.content}
+              onChange={(event) => updateSelectedFile(event.target.value)}
+              spellCheck={false}
+              aria-label={`Edit ${selectedFile.path}`}
+            />
+          )}
         </section>
 
         <div className={styles.previewRail}>

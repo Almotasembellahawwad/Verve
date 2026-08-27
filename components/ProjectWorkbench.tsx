@@ -18,6 +18,7 @@ import { liveSandboxTemplate, supportsLiveSandbox } from "@/lib/project/live-san
 import { instrumentSandboxFiles, isRenderGateReport, type RenderGateReport } from "@/lib/project/render-gate";
 import NativeHtmlWorkbench from "./NativeHtmlWorkbench";
 import styles from "./ProjectWorkbench.module.css";
+import { projectFileDataUrl } from "@/lib/project/brand-kit";
 
 type Viewport = "mobile" | "tablet" | "desktop";
 type BottomPanel = "problems" | "console";
@@ -34,7 +35,7 @@ function projectTemplate(project: GeneratedProject): "react" | "static" {
 
 async function downloadProjectFiles(project: GeneratedProject): Promise<void> {
   const zip = new JSZip();
-  for (const item of project.files) zip.file(item.path, item.content);
+  for (const item of project.files) zip.file(item.path, item.content, item.encoding === "base64" ? { base64: true } : undefined);
   const blob = await zip.generateAsync({ type: "blob" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -108,7 +109,13 @@ function NextProjectInspector({ project }: { project: GeneratedProject }) {
             <span>{selectedFile.path}</span>
             <span>{selectedFile.language}</span>
           </div>
-          <pre tabIndex={0}><code>{selectedFile.content}</code></pre>
+          {selectedFile.encoding === "base64" ? (
+            <div className={styles.assetInspector}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- local user-owned preview */}
+              <img src={projectFileDataUrl(selectedFile) ?? ""} alt="User-owned project asset preview" />
+              <p>Binary asset · {selectedFile.mediaType} · included in ZIP</p>
+            </div>
+          ) : <pre tabIndex={0}><code>{selectedFile.content}</code></pre>}
         </section>
       </div>
 

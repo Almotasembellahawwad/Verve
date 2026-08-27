@@ -6,6 +6,15 @@ Verve is an open-source project intelligence engine for generating distinctive w
 
 [Development preview](https://verve-dev.vercel.app/) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [MIT License](LICENSE)
 
+## What changed in 0.6 Brand Inputs + Diversity Gate
+
+- **Owned brand kit** — supply an existing name, approved colors, identity constraints, logo, and up to four PNG/JPG/WebP/SVG assets before generation.
+- **Private binary path** — image bytes stay in the browser session; the model receives only safe filenames, paths, roles, and user-authored alt direction. The original binary files are attached to preview and ZIP export after generation.
+- **Framework-correct assets** — HTML uses `assets/*`; React and Next.js export the same media under `public/assets/*` and reference it through `/assets/*`.
+- **Template Diversity Gate** — the recurring huge-sans + italic-serif + viewport-stage recipe now caps distinctiveness at 84 and forces a domain-native topology.
+- **Different demo systems** — Reframe is a measured plan canvas, Maeda is a menu-first Arabic split, and Ledgerline is a dense operational interface. Visual briefs are honestly marked as requiring owned photography.
+- **Laptop workbench** — at common laptop widths, the preview gets a full row and enough width to render a desktop result instead of a squeezed pseudo-mobile page.
+
 ## What changed in 0.5 Asset Assurance
 
 - **Media Requirement Engine** — classifies imagery as required, recommended, optional, or avoidable from the actual brief before code generation.
@@ -47,12 +56,13 @@ Verve is an open-source project intelligence engine for generating distinctive w
 
 Most AI interface generators optimize for the statistically safest answer. The result is usually a familiar hero, generic copy, interchangeable cards, and code that looks complete until someone tries to run or extend it.
 
-Verve applies two independent contracts:
+Verve applies three independent contracts:
 
 1. **Taste contract** — reject category clichés, form a coherent visual thesis, enforce restraint, and expose the reasoning.
 2. **Project contract** — return real files, runtime configuration, dependency metadata, truthful interactions, validation warnings, and a runnable preview.
+3. **Evidence contract** — never turn missing facts, media, runtime behavior, or a repeated Verve template into a high-confidence production claim.
 
-Distinctiveness is not allowed to hide broken behavior. A high visual score and production readiness remain separate evidence.
+Distinctiveness is not allowed to hide broken behavior. A high visual score and production readiness remain separate evidence. These gates materially reduce weak or hallucinated output; they do not make an LLM infallible or replace human review for legal claims, production data, security, or final art direction.
 
 ## Generation modes
 
@@ -104,11 +114,11 @@ A zero-build `index.html` plus a project-specific README. This is best for porta
 ## Pipeline architecture
 
 ```text
-Spoken or written brief
+Spoken or written brief + optional owned brand kit
         ↓
 [01] Brief analysis
         ↓
-[02] Media requirement + assets + cliché blocklist + competitive field
+[02] Media requirement + owned/stock assets + cliché blocklist + competitive field
         ↓
 [02.5] Archetype ───────── local in Fast / LLM in Studio
         ↓
@@ -122,14 +132,16 @@ Spoken or written brief
         ↓
 [05.5] Syntax validation ─ deterministic in Fast / bounded repair in Studio
         ↓
-[06] Distinctiveness + engineering evidence
+[06] Distinctiveness + template diversity + engineering evidence
         ↓
 [07] Project Engine → files + dependencies + scripts + README + warnings
         ↓
 Live sandbox / ZIP / history
 ```
 
-The adapter is request-scoped: no global provider instance and no server-side key persistence. Media requirements, asset sourcing, blocklist scanning, competitive analysis, contrast correction, engineering checks, project assembly, and final scoring are deterministic.
+The adapter is request-scoped: no global provider instance and no server-side key persistence. Media requirements, asset sourcing, blocklist scanning, template-diversity detection, competitive analysis, contrast correction, engineering checks, project assembly, and final scoring are deterministic.
+
+For a simpler mental model, the observable stages belong to four macro phases: **Understand** (brief/context), **Direct** (archetype/plan), **Build** (code/repair), and **Prove** (render, media, diversity, engineering, ZIP). The smaller modules remain separate because they fail differently and produce inspectable evidence—not because nine LLM agents are required.
 
 Optional intelligence is fail-open: if adversarial review or its revision exceeds its call budget, Verve keeps the last valid plan, runs the local production preflight, and continues to code generation. Core generation failures still end in a visible recovery project.
 
@@ -168,7 +180,7 @@ npm run dev
 
 Open `http://localhost:3000`. Add a provider key from the key manager. It is saved under Verve’s browser-local storage namespace and is never written to the repository or a Verve database.
 
-The optional canonical-site setting is documented in [`.env.example`](.env.example). Provider and Pexels keys are entered in the browser key manager and must not be added to environment files. Pexels is optional for using Verve, but approved media is not optional for a brief classified as image-dependent: without it Verve never invents remote URLs, exports honest labeled placeholders, and keeps readiness blocked until real assets are supplied.
+The optional canonical-site setting is documented in [`.env.example`](.env.example). Provider and Pexels keys are entered in the browser key manager and must not be added to environment files. Pexels is optional for using Verve, but approved media is not optional for a brief classified as image-dependent: without it Verve never invents remote URLs, exports honest labeled placeholders, and keeps readiness blocked until real assets are supplied. Uploaded binary assets stay in the current browser session and ZIP; only their manifest and user-authored direction are sent with the provider request, and binary content is intentionally omitted from lightweight localStorage history.
 
 ## Commands
 

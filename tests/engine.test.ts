@@ -30,6 +30,8 @@ import { buildFeedbackUrl, buildResultCardFilename, buildResultShareText, normal
 import { runPipeline } from "../lib/engine/pipeline";
 import { assessMediaRequirement, buildMediaReadinessWarnings } from "../lib/engine/media-requirement";
 import { sourceAssets } from "../lib/engine/asset-sourcer";
+import { inspectDesignDiversity } from "../lib/engine/design-diversity";
+import { attachOwnedAssets, replaceOwnedAssetReferences, type LocalOwnedAsset } from "../lib/project/brand-kit";
 import { PUBLIC_DEMOS } from "../lib/demo/public-demo-gallery";
 import {
   checkpointMatchesInput,
@@ -211,6 +213,37 @@ test("asset sourcing exposes a readiness gate without requiring a Pexels key", a
   assert.equal(assets.photos.length, 0);
   assert.equal(assets.readinessWarnings.length, 1);
   assert.match(assets.assetSummary, /MEDIA POLICY: REQUIRED/);
+});
+
+test("owned media satisfies the deterministic asset contract without sending binary data to the provider", async () => {
+  const manifest = [{ path: "assets/dining-room.webp", url: "./assets/dining-room.webp", kind: "image" as const, mediaType: "image/webp" as const, alt: "Dining room at dusk" }];
+  const assets = await sourceAssets(analyzeBriefLocally("Restaurant website in Cairo"), undefined, { name: "Maeda", colors: ["#14130F"] }, manifest);
+  assert.equal(assets.photos[0]?.url, "./assets/dining-room.webp");
+  assert.match(assets.assetSummary, /Brand name: Maeda/);
+  assert.match(assets.assetSummary, /\.\/assets\/dining-room\.webp/);
+});
+
+test("local binary assets are attached to projects and hydrated only inside previews", () => {
+  const project = buildRecoveryProject("Owned media fixture", "html", "test");
+  const asset: LocalOwnedAsset = { path: "assets/room.webp", kind: "image", mediaType: "image/webp", alt: "Room", content: "AAAA", encoding: "base64", byteSize: 3 };
+  const attached = attachOwnedAssets(project, [asset]);
+  assert.equal(attached.files.at(-1)?.encoding, "base64");
+  assert.match(replaceOwnedAssetReferences('<img src="./assets/room.webp">', attached.files), /^<img src="data:image\/webp;base64,AAAA">$/);
+
+  const reactProject = { ...project, framework: "react" as const, files: [] };
+  const reactAttached = attachOwnedAssets(reactProject, [asset]);
+  assert.equal(reactAttached.files[0]?.path, "public/assets/room.webp");
+  assert.match(replaceOwnedAssetReferences('<img src="/assets/room.webp">', reactAttached.files), /^<img src="data:image\/webp;base64,AAAA">$/);
+});
+
+test("Template Diversity Gate rejects Verve's repeated editorial house recipe", () => {
+  const repeated = inspectDesignDiversity(`<style>.hero{min-height:100vh}.hero h1{font-size:clamp(5rem,11vw,12rem)}.hero h1 em{font-family:Georgia,serif;font-style:italic}.one{min-height:90vh}.two{min-height:90vh}.three{min-height:90vh}</style><section class="hero"><h1>One <em>phrase</em></h1></section>`);
+  assert.equal(repeated.passed, false);
+  assert.equal(repeated.scoreCap, 84);
+  assert.ok(repeated.fingerprints.length >= 1);
+
+  const ledger = inspectDesignDiversity(`<main class="ledger"><table><tbody><tr><td>Source</td></tr></tbody></table></main>`);
+  assert.equal(ledger.passed, true);
 });
 
 test("OpenRouter Fast mode survives a failed plan call and still assembles the project", async () => {

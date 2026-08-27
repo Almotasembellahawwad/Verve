@@ -2,6 +2,22 @@
 
 All notable changes to Verve are documented here.
 
+## [0.6.0] — 2026-08-27 Brand Inputs + Diversity Gate
+
+### Added
+
+- Added a local Brand Kit input for an existing name, approved colors, identity constraints, logos, and up to four owned images.
+- Added binary project assets to preview and ZIP export without sending image bytes to the LLM; only the user-authored manifest and alt direction enter the prompt.
+- Added a Template Diversity Gate that detects Verve's emerging cross-industry house recipe and caps distinctiveness at 84 until the information topology changes.
+- Added a 1366×768 laptop regression that verifies a wide preview rail and prevents Reframe's title/note collision.
+
+### Changed
+
+- Reworked Maeda into a split, menu-first composition and Ledgerline into a compact operational interface instead of three similar oversized editorial heroes.
+- Public visual demos now distinguish structure proofs that still require owned photography from a media-optional interface proof.
+- The workbench moves preview to a full row on laptop widths instead of squeezing the generated desktop page beside the editor.
+- JSON and SSE generation routes now share one validated request schema.
+
 ## [0.5.0] — 2026-08-27 Asset Assurance
 
 ### Added

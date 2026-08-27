@@ -29,6 +29,8 @@ import { scoreEngineering, type EngineeringResult }                   from "./en
 import { runCodeQualityLoop, type CodeQualityResult }             from "./code-quality-loop"; // Phase 3.5
 import { fixPaletteContrast, type ContrastFixReport }             from "./contrast-fixer";
 import { createAdapter }                                              from "../llm-adapter";
+import type { BrandProfile, OwnedAssetManifest } from "../project/brand-kit";
+import { inspectDesignDiversity, type DesignDiversityResult } from "./design-diversity";
 import type { Provider }                                               from "../llm-adapter/types";
 import { buildGeneratedProject }                                      from "../project/project-builder";
 import type { GeneratedProject }                                      from "../project/types";
@@ -57,6 +59,7 @@ export type PipelineResult = {
   distinctivenessReport:  DistinctivenessReport;  // Module J (3-level Norman)
   restraintResult:        RestraintResult;        // Module N (Dieter Rams)
   engineeringResult:      EngineeringResult;      // Dual Scoring — Engineering axis
+  diversityResult:        DesignDiversityResult;  // Cross-industry house-template gate
   codeQualityResult:      CodeQualityResult;      // Phase 3.5: post-gen repair
   contrastReport:         ContrastFixReport;
   revisionCount:          number;
@@ -84,6 +87,8 @@ export type PipelineInput = {
   model?:    string;
   // Module H
   pexelsKey?: string;
+  brandProfile?: BrandProfile;
+  ownedAssets?: OwnedAssetManifest[];
   signal?: AbortSignal;
   onEvent?: (event: PipelineEvent) => void;
   mode?: GenerationMode;
@@ -106,13 +111,16 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     apiKey,
     model,
     pexelsKey,
+    brandProfile,
+    ownedAssets = [],
     signal,
     onEvent,
     mode          = "studio",
     checkpoint,
   } = input;
   const revisionLimit = Math.min(MAX_REVISION_CYCLES, Math.max(0, maxRevisions));
-  const checkpointInput = { brief, existingCode, framework, mode };
+  const brandContext = JSON.stringify({ brandProfile, ownedAssets });
+  const checkpointInput = { brief, existingCode, framework, mode, brandContext };
   const resumeCheckpoint = checkpointMatchesInput(checkpoint, checkpointInput)
     ? checkpoint
     : undefined;
@@ -171,7 +179,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   elapsed = timer();
   const [inputBlocklistResult, assetBundle, competitiveAnalysis] = await Promise.all([
     Promise.resolve(runBlocklistFilter(brief, existingCode)),
-    sourceAssets(briefAnalysis, pexelsKey),
+    sourceAssets(briefAnalysis, pexelsKey, brandProfile, ownedAssets),
     Promise.resolve(analyzeCompetitiveField(briefAnalysis)),
   ]);
   emit("stage_done", { id: "02", name: "Asset Sourcing + Blocklist + Competitive", durationMs: elapsed() }, "02-done");
@@ -431,6 +439,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     finalCode.code,
     (framework as Parameters<typeof scoreEngineering>[1])
   );
+  const diversityResult = inspectDesignDiversity(finalCode.code);
 
   // ── [06] Distinctiveness Report (Module J — 3-level Norman) ─────────────
   emit("stage_start", { id: "06", name: "Distinctiveness Report (Norman 3-Level)", module: "Module J" }, "06-start");
@@ -441,6 +450,12 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     revisionCount,
     archetypeResolution        // Module J uses archetype for reflective score
   );
+  if (diversityResult.scoreCap !== null && distinctivenessReport.score > diversityResult.scoreCap) {
+    distinctivenessReport.score = diversityResult.scoreCap;
+    distinctivenessReport.grade = distinctivenessReport.score >= 80 ? "A" : distinctivenessReport.score >= 70 ? "B" : "C";
+    if (diversityResult.recommendation) distinctivenessReport.recommendations.unshift(diversityResult.recommendation);
+    distinctivenessReport.clichesDetected.push(...diversityResult.fingerprints);
+  }
   emit("stage_done", {
     id: "06",
     name: "Norman 3-Level Report",
@@ -454,7 +469,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     briefAnalysis,
     designPlan,
     codeQualityResult.wasRepaired ? [] : codeQualityResult.issues,
-    assetBundle.readinessWarnings
+    [...assetBundle.readinessWarnings, ...diversityResult.warnings]
   );
   emit("stage_done", {
     id: "07",
@@ -480,6 +495,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     distinctivenessReport,
     restraintResult,
     engineeringResult,
+    diversityResult,
     revisionCount,
     durationMs: Date.now() - start,
     project,

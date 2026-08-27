@@ -116,7 +116,24 @@
 .demoCard small { margin-top: auto; font: 700 10px/1.2 var(--font-body); letter-spacing: 0.1em; text-transform: uppercase; }
 .demoCard strong { margin-top: 12px; font: 700 clamp(32px, 4vw, 54px)/1 var(--font-display); letter-spacing: -0.05em; }
 .demoCard p { max-width: 34ch; margin: 16px 0 0; color: currentColor; font: 450 12px/1.6 var(--font-body); opacity: 0.72; }
+.proofLabel { margin-top: 10px; color: currentColor; font: 700 10px/1.2 var(--font-body); font-style: normal; letter-spacing: .09em; opacity: .62; }
 .demoCard > b { position: absolute; top: 30px; right: 30px; color: currentColor; font: 700 10px/1 var(--font-body); letter-spacing: 0.1em; }
+
+.cardVisual { position: absolute; inset: 72px 30px auto; height: 104px; overflow: hidden; border: 1px solid currentColor; opacity: .86; }
+.cardVisual i { position: absolute; display: block; }
+.demoCard[data-demo="architecture"] .cardVisual { background: repeating-linear-gradient(90deg, transparent 0 31px, currentColor 32px 33px); }
+.demoCard[data-demo="architecture"] .cardVisual i:nth-child(1) { inset: 18px 12% 18px 38%; border: 1px solid currentColor; }
+.demoCard[data-demo="architecture"] .cardVisual i:nth-child(2) { top: 0; bottom: 0; left: 27%; width: 2px; background: #1647ff; }
+.demoCard[data-demo="architecture"] .cardVisual i:nth-child(3) { right: 14%; bottom: 18px; width: 34%; height: 8px; background: currentColor; }
+.demoCard[data-demo="cairo"] .cardVisual { direction: rtl; border-radius: 52px 0 0 52px; background: #c7d86b; color: #14130f; }
+.demoCard[data-demo="cairo"] .cardVisual i:nth-child(1) { width: 74px; height: 74px; right: 16px; top: 14px; border-radius: 50%; border: 1px solid #14130f; }
+.demoCard[data-demo="cairo"] .cardVisual i:nth-child(2) { width: 46%; height: 2px; left: 18px; top: 40px; background: #cf3e27; }
+.demoCard[data-demo="cairo"] .cardVisual i:nth-child(3) { width: 32%; height: 2px; left: 18px; top: 62px; background: #14130f; }
+.demoCard[data-demo="carbon"] .cardVisual { display: grid; grid-template-columns: 1fr 1fr 1fr; background: #dbe5e3; color: #101514; }
+.demoCard[data-demo="carbon"] .cardVisual::before { content: "SOURCE  /  OWNER  /  STATUS"; padding: 14px; color: #63807b; font: 700 9px/1 var(--font-body); letter-spacing: .08em; }
+.demoCard[data-demo="carbon"] .cardVisual i:nth-child(1) { left: 14px; right: 14px; top: 42px; height: 1px; background: #101514; box-shadow: 0 25px #101514, 0 50px #101514; }
+.demoCard[data-demo="carbon"] .cardVisual i:nth-child(2) { right: 14px; top: 51px; width: 54px; height: 12px; background: #d7ff3f; }
+.demoCard[data-demo="carbon"] .cardVisual i:nth-child(3) { right: 14px; top: 76px; width: 54px; height: 12px; background: #e54b2f; }
 
 .result {
   scroll-margin-top: 84px;
@@ -159,7 +176,8 @@
 @media (max-width: 900px) {
   .hero { min-height: 680px; }
   .demoGrid { grid-template-columns: 1fr; }
-  .demoCard { min-height: 230px; border-right: 0; border-bottom: 1px solid rgb(0 0 0 / 0.35); }
+  .demoCard { min-height: 280px; border-right: 0; border-bottom: 1px solid rgb(0 0 0 / 0.35); }
+  .cardVisual { inset-inline-start: 46%; }
   .demoCard:last-child { border-bottom: 0; }
   .resultHeader { grid-template-columns: 1fr; }
   .signature { grid-template-columns: 1fr; }
@@ -176,6 +194,7 @@
   .chooserHeading h2 { font-size: 48px; }
   .demoGrid { border-inline: 0; }
   .demoCard { min-height: 220px; padding: 24px 20px; }
+  .cardVisual { display: none; }
   .result { padding-inline: 14px; }
   .resultMetrics { grid-template-columns: 1fr; }
   .resultMetrics div { border-right: 0; border-bottom: 1px solid rgb(20 21 16 / 0.24); }

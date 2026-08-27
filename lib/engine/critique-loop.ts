@@ -72,6 +72,7 @@ You will receive a design plan. Your ONLY job is to answer: "Would a generic LLM
 For each element in the plan (colors, typography, layout, signature element), evaluate:
 1. Is this a deliberate choice specific to this brief? Or is it a statistical default?
 2. What percentage of AI-generated designs for a similar brief would make the same choice?
+3. Does it repeat the cross-industry art-direction recipe of an oversized sans hero, italic serif phrase, full-viewport stacked sections, and one loud accent? Treat that compound recipe as a high-severity generic element even when each choice is individually defensible.
 
 Be harsh. Be specific. Do NOT praise things just because they exist. A signature element that is vague ("use an interesting animation") is NOT a real signature element — call it out.
 

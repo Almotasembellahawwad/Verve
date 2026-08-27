@@ -154,6 +154,9 @@
   tab-size: 2;
 }
 .nativeEditor:focus-visible { box-shadow: inset 0 0 0 2px #ff5a36; }
+.assetInspector { min-height: 580px; display: grid; place-items: center; align-content: center; gap: 18px; padding: 28px; background: #101113; }
+.assetInspector img { display: block; max-width: min(100%, 720px); max-height: 480px; object-fit: contain; border: 1px solid #34363b; background: #fff; }
+.assetInspector p { margin: 0; color: #9698a0; font: .7rem/1.5 var(--font-plex-mono), monospace; }
 .previewRail { min-width: 0; background: #090a0b; padding: 0 12px 12px; overflow: auto; }
 .previewMeta { height: 40px; display: flex; align-items: center; justify-content: space-between; color: #777981; font: .62rem var(--font-plex-mono), monospace; letter-spacing: .12em; }
 .previewViewport { margin: 0 auto; height: 628px; transition: max-width .25s ease; }
@@ -189,7 +192,7 @@
 .consolePanel { min-height: 180px; max-height: 300px; overflow: auto; }
 .consolePanel > div { height: 240px !important; border: 0 !important; }
 
-@media (max-width: 1180px) {
+@media (max-width: 1480px) {
   .sandpackLayout { grid-template-columns: 160px 1fr; }
   .nativeLayout { grid-template-columns: 160px 1fr; }
   .previewRail { grid-column: 1 / -1; height: 620px; border-top: 1px solid #2b2d32; }

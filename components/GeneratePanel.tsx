@@ -22,6 +22,14 @@ import {
   type PipelineCheckpoint,
 } from "@/lib/engine/pipeline-checkpoint";
 import ResultShareKit from "./ResultShareKit";
+import BrandKitInput from "./BrandKitInput";
+import {
+  attachOwnedAssets,
+  ownedAssetManifest,
+  stripOwnedAssetContent,
+  type BrandProfile,
+  type LocalOwnedAsset,
+} from "@/lib/project/brand-kit";
 
 const PROVIDERS: { id: Provider; label: string; icon: string }[] = [
   { id: "anthropic",  label: "Claude",     icon: "A" },
@@ -151,6 +159,13 @@ type PipelineResult = {
     criticalFailures: string[];
     recommendations: string[];
   };
+  diversityResult?: {
+    passed: boolean;
+    fingerprints: string[];
+    scoreCap: number | null;
+    warnings: string[];
+    recommendation: string | null;
+  };
   revisionCount: number;
   durationMs: number;
   project: GeneratedProject;
@@ -200,6 +215,8 @@ function TelemetryLog({ stages, extras = {} }: { stages: StageState[]; extras?: 
 export default function GeneratePanel() {
   const [brief, setBrief] = useState("");
   const [existingCode, setExistingCode] = useState("");
+  const [brandProfile, setBrandProfile] = useState<BrandProfile>({ colors: [] });
+  const [ownedAssets, setOwnedAssets] = useState<LocalOwnedAsset[]>([]);
   const [framework, setFramework] = useState<Framework>("nextjs");
   const [mode, setMode] = useState<"fast" | "studio">("studio");
   const [showCode, setShowCode] = useState(false);
@@ -327,6 +344,8 @@ export default function GeneratePanel() {
     // ── SSE streaming via fetch + ReadableStream ─────────────────────────
     const requestController = new AbortController();
     abortRef.current = requestController;
+    const assetManifest = ownedAssets.map((asset) => ownedAssetManifest(asset, framework));
+    const brandContext = JSON.stringify({ brandProfile, ownedAssets: assetManifest });
 
     try {
       const res = await fetch("/api/generate/stream", {
@@ -342,7 +361,15 @@ export default function GeneratePanel() {
           model,
           mode: requestedMode,
           pexelsKey: getLocalApiKey("pexels") || undefined,
-          checkpoint: resumeCheckpoint,
+          brandProfile,
+          ownedAssets: assetManifest,
+          checkpoint: resumeCheckpoint && checkpointMatchesInput(resumeCheckpoint, {
+            brief,
+            existingCode: existingCode || undefined,
+            framework,
+            mode: requestedMode,
+            brandContext,
+          }) ? resumeCheckpoint : undefined,
         }),
       });
 
@@ -405,13 +432,20 @@ export default function GeneratePanel() {
             receivedTerminalEvent = true;
             setRetryMessage(null);
             stopTelemetry();
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const data = payload as any;
-            setResult(data);
+            const data = payload as PipelineResult;
+            const enriched = ownedAssets.length > 0
+              ? { ...data, project: attachOwnedAssets(data.project, ownedAssets) }
+              : data;
+            setResult(enriched);
             latestCheckpointRef.current = null;
             setActiveView("project");
             // ── Save to history ──────────────────────────────────────────
-            try { addHistory(entryFromResult(brief, data)); } catch {}
+            try {
+              const historyResult = ownedAssets.length > 0
+                ? { ...enriched, project: stripOwnedAssetContent(enriched.project) }
+                : enriched;
+              addHistory(entryFromResult(brief, historyResult));
+            } catch {}
           } else if (eventType === "heartbeat") {
             const stageElapsed = Math.max(1, Math.round(Number(payload.stageElapsedMs ?? 0) / 1000));
             const totalElapsed = Math.max(stageElapsed, Math.round(Number(payload.totalElapsedMs ?? 0) / 1000));
@@ -713,6 +747,14 @@ export default function GeneratePanel() {
           </div>
         )}
 
+        <BrandKitInput
+          profile={brandProfile}
+          assets={ownedAssets}
+          disabled={loading}
+          onProfileChange={setBrandProfile}
+          onAssetsChange={setOwnedAssets}
+        />
+
         {/* Missing API Key Banner */}
         {missingKey && (
           <div className={styles.apiKeyBanner} role="alert">
@@ -821,6 +863,7 @@ export default function GeneratePanel() {
                   existingCode: existingCode || undefined,
                   framework,
                   mode: "fast",
+                  brandContext: JSON.stringify({ brandProfile, ownedAssets: ownedAssets.map((asset) => ownedAssetManifest(asset, framework)) }),
                 }) ? recoveryCheckpoint : undefined;
                 void handleGenerate("fast", matchingCheckpoint);
               }}
@@ -1158,6 +1201,19 @@ export default function GeneratePanel() {
                   ) : (
                     <small>Asset requirement satisfied for the selected direction.</small>
                   )}
+                </div>
+              )}
+
+              {result.diversityResult && (
+                <div className={styles.mediaGate} data-level={result.diversityResult.passed ? "optional" : "required"}>
+                  <div className={styles.mediaGateHead}>
+                    <div><span>TEMPLATE DIVERSITY GATE</span><strong>{result.diversityResult.passed ? "pass" : "review"}</strong></div>
+                    <b>{result.diversityResult.passed ? "No house template detected" : `Score capped at ${result.diversityResult.scoreCap}`}</b>
+                  </div>
+                  {result.diversityResult.fingerprints.length > 0 ? (
+                    <ul>{result.diversityResult.fingerprints.map((fingerprint) => <li key={fingerprint}>{fingerprint}</li>)}</ul>
+                  ) : <small>The result does not repeat Verve&apos;s cross-industry editorial recipe.</small>}
+                  {result.diversityResult.recommendation && <p>{result.diversityResult.recommendation}</p>}
                 </div>
               )}
 

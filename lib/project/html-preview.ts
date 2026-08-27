@@ -1,5 +1,6 @@
 import type { GeneratedProject } from "./types";
 import { createRenderProbeSource } from "./render-gate";
+import { replaceOwnedAssetReferences } from "./brand-kit";
 
 function normalizePath(path: string): string {
   return path.replace(/^[./\\]+/, "").replace(/\\/g, "/");
@@ -28,7 +29,9 @@ export function buildHtmlPreviewDocument(project: GeneratedProject, probeId: str
     throw new Error("Native HTML preview only accepts HTML projects.");
   }
 
-  const files = new Map(project.files.map((item) => [normalizePath(item.path), item.content]));
+  const files = new Map(project.files
+    .filter((item) => item.encoding !== "base64")
+    .map((item) => [normalizePath(item.path), item.content]));
   const entryPath = normalizePath(project.entryFile || "index.html");
   let html = files.get(entryPath) ?? files.get("index.html") ?? "";
 
@@ -57,6 +60,8 @@ export function buildHtmlPreviewDocument(project: GeneratedProject, probeId: str
   if (!/<meta\b[^>]*name=["']viewport["']/i.test(html)) {
     html = injectBeforeClose(html, "head", '<meta name="viewport" content="width=device-width,initial-scale=1">');
   }
+
+  html = replaceOwnedAssetReferences(html, project.files);
 
   const probe = `<script data-verve-render-probe>${escapeInlineScript(createRenderProbeSource(probeId))}</script>`;
   return injectBeforeClose(html, "body", probe);

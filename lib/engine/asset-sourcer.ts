@@ -21,6 +21,11 @@ import {
   type MediaRequirement,
 } from "./media-requirement";
 import { getPalette } from "colorthief";
+import {
+  brandContextSummary,
+  type BrandProfile,
+  type OwnedAssetManifest,
+} from "../project/brand-kit";
 
 const PEXELS_TIMEOUT_MS = 8_000;
 
@@ -134,34 +139,45 @@ function buildPexelsQuery(analysis: BriefAnalysis): string {
 // ── Main export ───────────────────────────────────────────────────────────────
 export async function sourceAssets(
   analysis: BriefAnalysis,
-  pexelsKey?: string
+  pexelsKey?: string,
+  brandProfile?: BrandProfile,
+  ownedAssets: OwnedAssetManifest[] = []
 ): Promise<AssetBundle> {
   const warnings: string[] = [];
   const icons = getContextualIcons(analysis.industry, analysis.tone);
   const font  = selectFont(analysis.tone, analysis.industry);
   const mediaRequirement = assessMediaRequirement(analysis);
 
-  let photos: AssetBundle["photos"]             = [];
+  let photos: AssetBundle["photos"] = ownedAssets
+    .filter((asset) => asset.kind === "image")
+    .map((asset) => ({
+      url: asset.url,
+      alt: asset.alt,
+      photographer: "User supplied",
+      credit: "User-owned asset",
+      dominant_hex: "#888888",
+    }));
   let extractedPalette: AssetBundle["extractedPalette"] = [];
 
-  if (pexelsKey) {
+  if (pexelsKey && photos.length < 3) {
     try {
       const query = buildPexelsQuery(analysis);
-      const raw   = await fetchPexelsPhotos(query, pexelsKey, 3);
+      const raw   = await fetchPexelsPhotos(query, pexelsKey, 3 - photos.length);
 
-      photos = raw.map((p) => ({
+      const sourcedPhotos = raw.map((p) => ({
         url:          p.src.large,
         alt:          p.alt,
         photographer: p.photographer,
         credit:       `Photo by ${p.photographer} on Pexels`,
         dominant_hex: "#888888", // overwritten below after real extraction
       }));
+      photos = [...photos, ...sourcedPhotos];
 
-      if (photos.length > 0) {
+      if (sourcedPhotos.length > 0) {
         // Real palette extraction (Phase 2.5) — non-fatal if it fails
-        extractedPalette = await extractPaletteFromUrl(photos[0].url);
+        extractedPalette = await extractPaletteFromUrl(sourcedPhotos[0].url);
         if (extractedPalette.length > 0) {
-          photos[0].dominant_hex = extractedPalette[0].hex;
+          sourcedPhotos[0].dominant_hex = extractedPalette[0].hex;
         }
       }
 
@@ -179,6 +195,7 @@ export async function sourceAssets(
   const readinessWarnings = buildMediaReadinessWarnings(mediaRequirement, photos.length);
 
   const assetSummary = [
+    brandContextSummary(brandProfile, ownedAssets),
     `AVAILABLE ASSETS FOR THIS DESIGN:`,
     `MEDIA POLICY: ${mediaRequirement.level.toUpperCase()} — minimum approved images: ${mediaRequirement.minimumAssets}. ${mediaRequirement.reason}`,
     photos.length > 0

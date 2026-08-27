@@ -77,12 +77,13 @@ export function fingerprintPipelineInput(input: {
   existingCode?: string;
   framework: string;
   mode: string;
+  brandContext?: string;
 }): string {
-  return fnv1a([input.mode, input.framework, input.brief.trim(), input.existingCode?.trim() ?? ""].join("\u001f"));
+  return fnv1a([input.mode, input.framework, input.brief.trim(), input.existingCode?.trim() ?? "", input.brandContext ?? ""].join("\u001f"));
 }
 
 export function createPipelineCheckpoint(
-  input: { brief: string; existingCode?: string; framework: string; mode: "fast" },
+  input: { brief: string; existingCode?: string; framework: string; mode: "fast"; brandContext?: string },
   completedStage: "01" | "04",
   briefAnalysis: BriefAnalysis,
   designPlan?: DesignPlan
@@ -100,7 +101,7 @@ export function createPipelineCheckpoint(
 
 export function checkpointMatchesInput(
   checkpoint: PipelineCheckpoint | undefined,
-  input: { brief: string; existingCode?: string; framework: string; mode: string }
+  input: { brief: string; existingCode?: string; framework: string; mode: string; brandContext?: string }
 ): checkpoint is PipelineCheckpoint {
   return Boolean(
     checkpoint

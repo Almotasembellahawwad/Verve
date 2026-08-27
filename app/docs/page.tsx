@@ -74,7 +74,7 @@ function DocsContent() {
         <section id="architecture" className={styles.section}>
           <h2 className={styles.sectionTitle}>Architecture</h2>
           <p className={styles.sectionLead}>
-            Verve exposes an observable generation pipeline followed by a deterministic Project Engine. Fast mode uses three model calls and local preflight rules; Studio mode adds archetype resolution, adversarial critique, revision, and bounded repair. Both modes return the same runnable project contract.
+            Think of the pipeline as four phases: Understand, Direct, Build, and Prove. The numbered modules make failures inspectable; they are not separate agents. Fast mode uses two core model calls and local preflight rules, while Studio adds adversarial critique and bounded repair. Both modes return the same runnable project contract.
           </p>
 
           <div className={styles.pipeline}>
@@ -87,7 +87,7 @@ function DocsContent() {
               { id: "04", name: "Contrast Enforcement", file: "contrast-fixer.ts",   desc: "Checks intended text/background pairs and applies one stable WCAG AA correction per text token." },
               { id: "05", name: "Code Generation",       file: "code-generator.ts",  desc: "Generates full component code — responsive, accessible, prefers-reduced-motion aware. Output only produced after plan passes critique. Supports Next.js, React, and HTML+CSS." },
               { id: "05.5", name: "Syntax + Repair",     file: "code-quality-loop.ts", desc: "Parses TSX with TypeScript, verifies structure and the signature element, and performs one bounded repair pass." },
-              { id: "06", name: "Dual Score",            file: "scorer.ts + engineering-score.ts", desc: "Scores the delivered code across Norman's three levels and a separate engineering axis; full evidence remains visible." },
+              { id: "06", name: "Proof Gates",           file: "scorer + diversity + engineering", desc: "Scores the delivered code, detects Verve's own repeated house template, and keeps visual distinctiveness separate from engineering and production readiness." },
               { id: "07", name: "Project Assembly",       file: "project-builder.ts", desc: "Creates the complete Next.js, React/Vite, or HTML project: source, runtime entry, package manifest, TypeScript configuration, gitignore, and project-specific README." },
             ].map((step, i, arr) => (
               <div key={step.id} className={styles.pipelineStep}>

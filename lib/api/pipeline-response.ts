@@ -54,6 +54,7 @@ export function serializePipelineResult(result: PipelineResult, requestId?: stri
     codeQuality: result.codeQualityResult,
     restraintResult: result.restraintResult,
     engineeringResult: result.engineeringResult,
+    diversityResult: result.diversityResult,
     distinctivenessReport: {
       ...result.distinctivenessReport,
       revisionCount: result.revisionCount,

@@ -1,4 +1,5 @@
 import type { GeneratedProject } from "./types";
+import { replaceOwnedAssetReferences } from "./brand-kit";
 
 export type SandboxFileMap = Record<string, { code: string }>;
 
@@ -126,7 +127,9 @@ function injectReactProbe(main: string): string {
 /** Add ephemeral probe files to Sandpack only. The canonical project and ZIP remain untouched. */
 export function instrumentSandboxFiles(project: GeneratedProject, probeId: string): SandboxFileMap {
   const files: SandboxFileMap = Object.fromEntries(
-    project.files.map((item) => [`/${item.path}`, { code: item.content }])
+    project.files
+      .filter((item) => item.encoding !== "base64")
+      .map((item) => [`/${item.path}`, { code: replaceOwnedAssetReferences(item.content, project.files) }])
   );
   if (project.framework === "html" && files["/index.html"]) {
     files["/index.html"] = { code: injectHtmlProbe(files["/index.html"].code) };

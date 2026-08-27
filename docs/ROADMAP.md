@@ -45,6 +45,9 @@ This document tracks shipped foundations and the next evidence-driven product wo
 
 - [x] Media Requirement Engine that classifies photography as required, recommended, optional, or avoidable before generation
 - [x] Asset Assurance that prevents image-dependent projects from appearing production-ready without approved media
+- [x] Browser-local brand kit with owned logos/images embedded in preview and ZIP without sending binary content to the provider
+- [x] Template Diversity Gate for Verve's own repeated cross-industry art-direction fingerprint
+- [x] Laptop-width workbench regression at 1366×768
 - [ ] Motion Gate that verifies the generated code implements the declared animation language and reduced-motion contract
 - [ ] Rendered screenshot audit at 360, 768, and 1440 pixels
 - [x] Browser console and deterministic broken-navigation evidence in the readiness report

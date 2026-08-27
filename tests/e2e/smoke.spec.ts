@@ -42,6 +42,23 @@ test("the homepage does not overflow its rendered viewport", async ({ page }) =>
   expect(dimensions.document, `document width ${dimensions.document}px exceeds ${dimensions.viewport}px; offenders: ${JSON.stringify(dimensions.offenders)}; scroll containers: ${JSON.stringify(dimensions.scrollContainers)}`).toBeLessThanOrEqual(dimensions.viewport + 1);
 });
 
+test("the brand kit accepts owned media without uploading it during form setup", async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem("verve_onboarding_seen_v2", "1"));
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  await page.getByText("Brand kit + owned media", { exact: true }).click();
+  await page.getByLabel("Brand name").fill("Verve Test Identity");
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "test-mark.svg",
+    mimeType: "image/svg+xml",
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" fill="#14213d"/></svg>'),
+  });
+
+  await expect(page.getByText("1/4 local assets")).toBeVisible();
+  await expect(page.getByText("test-mark.svg", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Alt / model direction")).toHaveValue("test mark");
+});
+
 test("Verve public surfaces obey their own readable-type floor", async ({ page }) => {
   for (const path of ["/", "/demos", "/lab", "/showcase"]) {
     await page.goto(path, { waitUntil: "domcontentloaded" });

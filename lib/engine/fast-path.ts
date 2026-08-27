@@ -58,6 +58,7 @@ type LocalVisualDirection = {
   palette: DesignPlan["colorPalette"];
   display: string;
   signature: string;
+  topology: string[];
 };
 
 const LOCAL_VISUAL_DIRECTIONS: LocalVisualDirection[] = [
@@ -71,6 +72,11 @@ const LOCAL_VISUAL_DIRECTIONS: LocalVisualDirection[] = [
     ],
     display: "Georgia, 'Times New Roman', serif",
     signature: "The Table Route",
+    topology: [
+      "Open with a compact service bar and a seasonal menu index—not a viewport-filling headline.",
+      "Let dishes, service moments, and booking availability form the primary navigation path.",
+      "Use one horizontal table route to connect menu, place, and reservation.",
+    ],
   },
   {
     pattern: /architecture|interior|عمارة|داخلي/i,
@@ -82,6 +88,11 @@ const LOCAL_VISUAL_DIRECTIONS: LocalVisualDirection[] = [
     ],
     display: "Arial Narrow, Arial, sans-serif",
     signature: "The Occupied Datum",
+    topology: [
+      "Use a plan-like canvas with a persistent retention register beside the project evidence.",
+      "Let measured drawings and material decisions lead; keep the practice statement compact.",
+      "Resolve the register into a feasibility-study action rather than a manifesto footer.",
+    ],
   },
   {
     pattern: /beauty|skincare|بشرة|تجميل/i,
@@ -93,6 +104,11 @@ const LOCAL_VISUAL_DIRECTIONS: LocalVisualDirection[] = [
     ],
     display: "Georgia, 'Times New Roman', serif",
     signature: "The Evidence Seam",
+    topology: [
+      "Build a product evidence catalog with ingredients, usage, and proof as sortable records.",
+      "Keep the launch statement secondary to the product and evidence surfaces.",
+      "Use one evidence seam to connect claim, source, and purchase decision.",
+    ],
   },
 ];
 
@@ -107,6 +123,11 @@ export function generateDesignPlanLocally(analysis: BriefAnalysis): DesignPlan {
     ],
     display: "Arial, Helvetica, sans-serif",
     signature: "The Decision Line",
+    topology: [
+      "Lead with the primary task or evidence surface instead of a marketing hero.",
+      "Organize the page around one decision sequence with compact contextual copy.",
+      "End at the truthful action state without repeating a generic navigation footer.",
+    ],
   };
 
   return {
@@ -116,12 +137,7 @@ export function generateDesignPlanLocally(analysis: BriefAnalysis): DesignPlan {
       body: "Arial, Helvetica, sans-serif",
       rationale: `System typography keeps delivery reliable while the hierarchy is shaped around ${analysis.primaryJob.toLowerCase()}.`,
     },
-    layoutConcept: [
-      "A narrow orientation rail establishes subject and place without a centered hero.",
-      "The main reading path alternates one decisive statement with compact evidence supplied by the brief.",
-      "The signature device crosses the content once, then resolves into the single primary action.",
-      "The final section closes the argument instead of repeating navigation or invented social proof.",
-    ].join("\n"),
+    layoutConcept: direction.topology.join("\n"),
     signatureElement: {
       name: direction.signature,
       description: "One continuous directional line that connects the opening promise to the final action.",
