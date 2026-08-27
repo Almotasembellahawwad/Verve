@@ -308,55 +308,92 @@
   text-transform: uppercase;
 }
 
-.demoLaunch {
+.demoChooser {
   grid-column: 3;
   grid-row: 1 / -1;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: flex-start;
+  display: grid;
+  grid-template-rows: repeat(3, 1fr);
   min-width: 0;
-  padding: 34px;
-  border: 0;
   border-left: 1px solid rgb(0 0 0 / 0.28);
   background: #11130f;
+}
+
+.demoChoice {
+  position: relative;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  min-height: 116px;
+  padding: 22px 24px;
+  border: 0;
+  border-bottom: 1px solid rgb(242 236 223 / 0.18);
+  background: transparent;
   color: #f2ecdf;
   cursor: pointer;
   text-align: left;
   transition: background var(--transition-fast), color var(--transition-fast);
 }
 
-.demoLaunch span {
-  max-width: 260px;
-  font: 650 clamp(25px, 3vw, 40px)/1 var(--font-display);
+.demoChoice:last-child {
+  border-bottom: 0;
+}
+
+.demoChoiceIndex {
+  align-self: start;
+  color: var(--brand);
+  font: 700 11px/1 var(--font-display);
+}
+
+.demoChoiceCopy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.demoChoiceCopy small {
+  margin-bottom: 8px;
+  color: #aaa79e;
+  font: 600 10px/1.2 var(--font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.demoChoiceCopy b {
+  font: 650 clamp(22px, 2.4vw, 34px)/1 var(--font-display);
   letter-spacing: -0.04em;
 }
 
-.demoLaunch small {
-  margin-top: 14px;
+.demoChoiceCopy em {
+  max-width: 33ch;
+  margin-top: 8px;
   color: #aaa79e;
-  font: 600 10px/1.4 var(--font-body);
-  letter-spacing: 0.1em;
+  font: 400 11px/1.45 var(--font-body);
+  font-style: normal;
 }
 
-.demoLaunch b {
-  position: absolute;
-  top: 28px;
-  right: 28px;
+.demoChoiceArrow {
   color: var(--brand);
-  font: 400 34px/1 var(--font-display);
+  font: 400 26px/1 var(--font-display);
 }
 
-.demoLaunch:hover,
-.demoLaunch:focus-visible {
+.demoChoice:hover,
+.demoChoice:focus-visible {
   background: #f2ecdf;
   color: #11130f;
   outline: 4px solid #11130f;
   outline-offset: -8px;
 }
 
-.demoLaunch:disabled {
+.demoChoice:hover .demoChoiceCopy small,
+.demoChoice:hover .demoChoiceCopy em,
+.demoChoice:focus-visible .demoChoiceCopy small,
+.demoChoice:focus-visible .demoChoiceCopy em {
+  color: #55564f;
+}
+
+.demoChoice:disabled {
   cursor: wait;
   opacity: 0.82;
 }
@@ -974,10 +1011,9 @@
   .demoFrame { grid-template-columns: 78px 1fr; }
   .demoCopy { grid-column: 2; }
   .demoMetrics { grid-column: 2; }
-  .demoLaunch {
+  .demoChooser {
     grid-column: 1 / -1;
     grid-row: auto;
-    min-height: 190px;
     border-left: 0;
     border-top: 1px solid rgb(0 0 0 / 0.28);
   }
@@ -1035,8 +1071,9 @@
   .demoCopy h2 { font-size: clamp(40px, 12vw, 56px); }
   .demoMetrics { grid-template-columns: 1fr; }
   .demoMetrics div { padding: 14px 20px; border-right: 0; border-bottom: 1px solid rgb(0 0 0 / 0.18); }
-  .demoLaunch { min-height: 178px; padding: 26px 20px 28px 68px; }
-  .demoLaunch b { top: 24px; right: 20px; }
+  .demoChooser { grid-template-rows: none; }
+  .demoChoice { min-height: 126px; padding: 20px; grid-template-columns: 28px minmax(0, 1fr) auto; }
+  .demoChoiceCopy b { font-size: 28px; }
 }
 
 /* The landing page uses two deliberate materials: ink for the product and

@@ -2,7 +2,20 @@
 
 All notable changes to Verve are documented here.
 
-## [0.3.2] — Unreleased
+## [0.4.0] — 2026-08-27 Demo Gallery
+
+### Added
+
+- Three no-key public demo projects spanning adaptive-reuse architecture, Arabic hospitality, and carbon operations SaaS.
+- A project chooser that opens each complete four-file result inside the existing editor, native preview, Render Gate, and ZIP workflow.
+- Automated validation coverage for every curated demo project.
+
+### Changed
+
+- Replaced the single Cairo demo CTA with a multi-industry proof gallery led by a new architecture project.
+- Labelled fictional projects, metrics, and contact details explicitly inside the demos.
+
+## [0.3.2] — 2026-08-27
 
 ### Changed
 

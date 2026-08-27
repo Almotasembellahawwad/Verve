@@ -6,9 +6,9 @@ Verve is an open-source project intelligence engine for generating distinctive w
 
 [Development preview](https://verve-dev.vercel.app/) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [MIT License](LICENSE)
 
-## What changed in 0.3 Public Beta
+## What changed in 0.4 Demo Gallery
 
-- **No-key live demo** — a dedicated public-proof section opens a complete Arabic HTML project for inspection, editing, validation, and ZIP download without an account or provider call.
+- **No-key demo gallery** — architecture, Arabic hospitality, and carbon SaaS each open as complete four-file projects for inspection, editing, validation, and ZIP download without an account or provider call.
 - **Mobile navigation** — a focused hamburger drawer consolidates routes, README, GitHub, and key management with keyboard-safe behavior.
 - **Native HTML runtime** — HTML/CSS uses an isolated browser frame with zero package downloads; React remains on the lightweight Sandpack runtime.
 - **Discoverable release surface** — canonical metadata, generated social cards, sitemap, robots policy, manifest, and SoftwareApplication structured data.

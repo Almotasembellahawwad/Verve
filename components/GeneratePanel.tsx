@@ -21,7 +21,11 @@ import {
   isPipelineCheckpoint,
   type PipelineCheckpoint,
 } from "@/lib/engine/pipeline-checkpoint";
-import { PUBLIC_DEMO_BRIEF, PUBLIC_DEMO_RESULT } from "@/lib/demo/public-demo";
+import {
+  DEFAULT_PUBLIC_DEMO_ID,
+  PUBLIC_DEMOS,
+  type PublicDemoId,
+} from "@/lib/demo/public-demo-gallery";
 import ResultShareKit from "./ResultShareKit";
 
 const PROVIDERS: { id: Provider; label: string; icon: string }[] = [
@@ -268,9 +272,10 @@ export default function GeneratePanel() {
     window.dispatchEvent(new CustomEvent("verve:open-api-key-modal"));
   };
 
-  const openPublicDemo = useCallback(() => {
+  const openPublicDemo = useCallback((demoId: PublicDemoId = DEFAULT_PUBLIC_DEMO_ID) => {
+    const demo = PUBLIC_DEMOS.find((candidate) => candidate.id === demoId) ?? PUBLIC_DEMOS[0];
     abortRef.current?.abort();
-    setBrief(PUBLIC_DEMO_BRIEF);
+    setBrief(demo.brief);
     setFramework("html");
     setMode("fast");
     setLoading(false);
@@ -284,7 +289,7 @@ export default function GeneratePanel() {
     setStageExtras({});
     setStageStates([]);
     setActiveView("project");
-    setResult(PUBLIC_DEMO_RESULT);
+    setResult(demo.result);
     window.setTimeout(() => {
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       document.getElementById("generation-result")?.scrollIntoView({
@@ -295,8 +300,12 @@ export default function GeneratePanel() {
   }, []);
 
   useEffect(() => {
-    window.addEventListener("verve:open-public-demo", openPublicDemo);
-    return () => window.removeEventListener("verve:open-public-demo", openPublicDemo);
+    const handlePublicDemo = (event: Event) => {
+      const demoId = (event as CustomEvent<{ demoId?: PublicDemoId }>).detail?.demoId;
+      openPublicDemo(demoId ?? DEFAULT_PUBLIC_DEMO_ID);
+    };
+    window.addEventListener("verve:open-public-demo", handlePublicDemo);
+    return () => window.removeEventListener("verve:open-public-demo", handlePublicDemo);
   }, [openPublicDemo]);
 
   // ── SSE-based telemetry: update stage from real events ──────────────────

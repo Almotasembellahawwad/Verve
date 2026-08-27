@@ -9,6 +9,7 @@ import { PipelineViz } from "@/components/PipelineViz";
 import { ClicheList } from "@/components/ClicheList";
 import { SignalNav } from "@/components/SignalNav";
 import OnboardingModal from "@/components/OnboardingModal";
+import { PUBLIC_DEMOS, type PublicDemoId } from "@/lib/demo/public-demo-gallery";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"generate" | "critique" | "compare">("generate");
@@ -18,10 +19,10 @@ export default function Home() {
     setClientReady(true); // eslint-disable-line react-hooks/set-state-in-effect
   }, []);
 
-  const openPublicDemo = () => {
+  const openPublicDemo = (demoId: PublicDemoId) => {
     setActiveTab("generate");
     window.setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("verve:open-public-demo"));
+      window.dispatchEvent(new CustomEvent("verve:open-public-demo", { detail: { demoId } }));
     }, 0);
   };
 
@@ -147,29 +148,38 @@ export default function Home() {
               <small>PUBLIC PROOF</small>
             </div>
             <div className={styles.demoCopy}>
-              <span className={styles.demoEyebrow}>NO ACCOUNT · NO MODEL CALL · NO PACKAGE DOWNLOAD</span>
-              <h2 id="public-demo-title">Try the evidence.<br /><em>Then trust the pipeline.</em></h2>
+              <span className={styles.demoEyebrow}>THREE INDUSTRIES · ZERO MODEL CALLS · COMPLETE PROJECT FILES</span>
+              <h2 id="public-demo-title">One project can be a template.<br /><em>Three prove a system.</em></h2>
               <p>
-                Open a complete Arabic restaurant project with four editable files, native HTML preview,
-                live Render Gate checks, and ZIP export. Your API key is not needed.
+                Compare three complete visual theses: adaptive-reuse architecture, Arabic hospitality,
+                and carbon operations. Every project is editable, runnable, inspected, and exportable.
               </p>
             </div>
             <dl className={styles.demoMetrics} aria-label="Public demo capabilities">
-              <div><dt>04</dt><dd>editable files</dd></div>
-              <div><dt>16</dt><dd>runtime checks</dd></div>
+              <div><dt>03</dt><dd>distinct projects</dd></div>
+              <div><dt>12</dt><dd>editable files</dd></div>
               <div><dt>00</dt><dd>provider calls</dd></div>
             </dl>
-            <button
-              type="button"
-              className={styles.demoLaunch}
-              onClick={openPublicDemo}
-              id="open-public-demo"
-              disabled={!clientReady}
-            >
-              <span>Open the Cairo live project</span>
-              <small>HTML · EDITABLE · DOWNLOADABLE ZIP</small>
-              <b aria-hidden="true">↘</b>
-            </button>
+            <div className={styles.demoChooser} aria-label="Choose a public demo project">
+              {PUBLIC_DEMOS.map((demo, index) => (
+                <button
+                  type="button"
+                  className={styles.demoChoice}
+                  onClick={() => openPublicDemo(demo.id)}
+                  id={index === 0 ? "open-public-demo" : `open-public-demo-${demo.id}`}
+                  disabled={!clientReady}
+                  key={demo.id}
+                >
+                  <span className={styles.demoChoiceIndex}>{demo.index}</span>
+                  <span className={styles.demoChoiceCopy}>
+                    <small>{demo.category}</small>
+                    <b>{demo.title}</b>
+                    <em>{demo.description}</em>
+                  </span>
+                  <span className={styles.demoChoiceArrow} aria-hidden="true">↘</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </section>

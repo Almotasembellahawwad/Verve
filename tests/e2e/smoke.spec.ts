@@ -96,14 +96,17 @@ test("the no-key demo opens as an editable native HTML project", async ({ page }
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
-  await expect(page.getByRole("region", { name: /Try the evidence/ })).toBeVisible();
+  await expect(page.getByRole("region", { name: /One project can be a template/ })).toBeVisible();
   await expect(page.getByText("Explore live demo", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Reframe/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Maeda Cairo/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Ledgerline/ })).toBeVisible();
   const demoButton = page.locator("#open-public-demo");
   await expect(demoButton).toBeEnabled({ timeout: 30_000 });
   await demoButton.click();
 
   await expect(page.getByText("CURATED DEMO · NO MODEL CALL")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "maeda-cairo-public-demo" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "reframe-london-adaptive-reuse" })).toBeVisible();
   await expect(page.getByText("Native HTML preview · zero package downloads")).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Edit index.html" })).toBeEditable();
   await expect(page.getByText("Publish the evidence, not your private brief.", { exact: false })).toBeVisible();
@@ -112,11 +115,17 @@ test("the no-key demo opens as an editable native HTML project", async ({ page }
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download score card" }).click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe("maeda-cairo-public-demo-verve-score.png");
+  expect(download.suggestedFilename()).toBe("reframe-london-adaptive-reuse-verve-score.png");
 
-  const preview = page.frameLocator('iframe[title="maeda-cairo-public-demo live preview"]');
-  await expect(preview.getByRole("heading", { name: /القاهرة/ })).toBeVisible();
+  const preview = page.frameLocator('iframe[title="reframe-london-adaptive-reuse live preview"]');
+  await expect(preview.getByRole("heading", { name: /The building already knows/ })).toBeVisible();
   await expect(page.getByText("Static validation and the rendered result both passed.")).toBeVisible();
+
+  await page.locator("#open-public-demo-cairo").click();
+  await expect(page.getByRole("heading", { name: "maeda-cairo-public-demo" })).toBeVisible();
+
+  await page.locator("#open-public-demo-carbon").click();
+  await expect(page.getByRole("heading", { name: "ledgerline-carbon-operations" })).toBeVisible();
 });
 
 test("the mobile hamburger is a keyboard-safe navigation drawer", async ({ page }) => {
@@ -147,5 +156,5 @@ test("the mobile hamburger is a keyboard-safe navigation drawer", async ({ page 
   await page.getByRole("button", { name: "Open menu" }).click();
   await page.getByRole("link", { name: "02 / Live demo" }).click();
   await expect(drawer).toBeHidden();
-  await expect(page.getByRole("region", { name: /Try the evidence/ })).toBeInViewport();
+  await expect(page.getByRole("region", { name: /One project can be a template/ })).toBeInViewport();
 });

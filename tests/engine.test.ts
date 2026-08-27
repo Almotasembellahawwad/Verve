@@ -28,6 +28,7 @@ import { instrumentSandboxFiles, isRenderGateReport } from "../lib/project/rende
 import { buildHtmlPreviewDocument } from "../lib/project/html-preview";
 import { buildFeedbackUrl, buildResultCardFilename, buildResultShareText, normalizeResultShareInput } from "../lib/share/result-share";
 import { runPipeline } from "../lib/engine/pipeline";
+import { PUBLIC_DEMOS } from "../lib/demo/public-demo-gallery";
 import {
   checkpointMatchesInput,
   createPipelineCheckpoint,
@@ -97,6 +98,17 @@ test("provider registry contains no retired model IDs", () => {
 test("URL critic rejects insecure and private-network targets before fetching", async () => {
   await assert.rejects(() => fetchPublicDesignSource("http://example.com"), /public HTTPS/);
   await assert.rejects(() => fetchPublicDesignSource("https://127.0.0.1"), /private network/);
+});
+
+test("every public demo is a complete, runnable native project", () => {
+  assert.equal(PUBLIC_DEMOS.length, 3);
+  for (const demo of PUBLIC_DEMOS) {
+    assert.equal(demo.result.project.framework, "html", demo.id);
+    assert.equal(demo.result.project.files.length, 4, demo.id);
+    const validation = validateGeneratedProject(demo.result.project);
+    assert.equal(validation.failed, 0, `${demo.id}: ${JSON.stringify(validation.checks)}`);
+    assert.match(buildHtmlPreviewDocument(demo.result.project, `${demo.id}-probe`), new RegExp(`${demo.id}-probe`));
+  }
 });
 
 test("result sharing publishes bounded evidence without the private brief", () => {
