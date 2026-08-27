@@ -6,6 +6,13 @@ Verve is an open-source project intelligence engine for generating distinctive w
 
 [Development preview](https://verve-dev.vercel.app/) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [MIT License](LICENSE)
 
+## What changed in 0.5 Asset Assurance
+
+- **Media Requirement Engine** — classifies imagery as required, recommended, optional, or avoidable from the actual brief before code generation.
+- **Truthful Media Gate** — reports approved asset count and blocks production readiness when an image-dependent project lacks sufficient photography.
+- **Context-sensitive sourcing** — restaurant, architecture, hospitality, skincare, fashion, real-estate, travel, and portfolio briefs require visual evidence; interface-led products can deliberately avoid stock photography.
+- **Visible source state** — the workbench shows whether browser-local Pexels sourcing is connected before a run.
+
 ## What changed in 0.4.1 Separate Results
 
 - **Separate no-key demo gallery** — `/demos` keeps architecture, Arabic hospitality, and carbon SaaS results away from the homepage while preserving complete file inspection, live validation, editing, and ZIP download.
@@ -101,7 +108,7 @@ Spoken or written brief
         ↓
 [01] Brief analysis
         ↓
-[02] Assets + cliché blocklist + competitive field
+[02] Media requirement + assets + cliché blocklist + competitive field
         ↓
 [02.5] Archetype ───────── local in Fast / LLM in Studio
         ↓
@@ -122,7 +129,7 @@ Spoken or written brief
 Live sandbox / ZIP / history
 ```
 
-The adapter is request-scoped: no global provider instance and no server-side key persistence. Asset sourcing, blocklist scanning, competitive analysis, contrast correction, engineering checks, project assembly, and final scoring are deterministic.
+The adapter is request-scoped: no global provider instance and no server-side key persistence. Media requirements, asset sourcing, blocklist scanning, competitive analysis, contrast correction, engineering checks, project assembly, and final scoring are deterministic.
 
 Optional intelligence is fail-open: if adversarial review or its revision exceeds its call budget, Verve keeps the last valid plan, runs the local production preflight, and continues to code generation. Core generation failures still end in a visible recovery project.
 
@@ -161,7 +168,7 @@ npm run dev
 
 Open `http://localhost:3000`. Add a provider key from the key manager. It is saved under Verve’s browser-local storage namespace and is never written to the repository or a Verve database.
 
-The optional canonical-site setting is documented in [`.env.example`](.env.example). Provider and Pexels keys are entered in the browser key manager and must not be added to environment files. Pexels is optional: without it Verve never invents remote image URLs and image-dependent briefs receive honest placeholders.
+The optional canonical-site setting is documented in [`.env.example`](.env.example). Provider and Pexels keys are entered in the browser key manager and must not be added to environment files. Pexels is optional for using Verve, but approved media is not optional for a brief classified as image-dependent: without it Verve never invents remote URLs, exports honest labeled placeholders, and keeps readiness blocked until real assets are supplied.
 
 ## Commands
 

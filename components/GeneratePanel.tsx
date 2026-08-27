@@ -66,6 +66,17 @@ type PipelineResult = {
     tone: string;
     industry: string;
   };
+  assetBundle?: {
+    photos: { url: string; alt: string; photographer: string; credit: string }[];
+    mediaRequirement: {
+      level: "required" | "recommended" | "optional" | "avoid";
+      minimumAssets: number;
+      reason: string;
+      suggestedSubjects: string[];
+    };
+    warnings: string[];
+    readinessWarnings: string[];
+  };
   plan: {
     colorPalette: { name: string; hex: string; role: string }[];
     typePairing: { display: string; body: string; rationale: string };
@@ -200,6 +211,7 @@ export default function GeneratePanel() {
   const [provider, setProvider] = useState<Provider>("anthropic");
   const [model, setModel] = useState<string>(DEFAULT_MODEL.anthropic);
   const [apiKey, setApiKey] = useState("");
+  const [pexelsReady, setPexelsReady] = useState(false);
   const [missingKey, setMissingKey] = useState(false);
   const [stageStates, setStageStates] = useState<StageState[]>([]);
   const [stageExtras, setStageExtras] = useState<Record<string, string>>({});
@@ -238,8 +250,10 @@ export default function GeneratePanel() {
     const onStorageChange = () => {
       const stored = getLocalApiKey(provider);
       setApiKey(stored);
+      setPexelsReady(Boolean(getLocalApiKey("pexels")));
       if (stored) setMissingKey(false);
     };
+    onStorageChange();
     window.addEventListener("storage", onStorageChange);
     window.addEventListener(LOCAL_KEYS_CHANGED_EVENT, onStorageChange);
     return () => {
@@ -576,6 +590,22 @@ export default function GeneratePanel() {
           </button>
         </div>
       </div>
+
+      <button
+        type="button"
+        className={styles.assetSourceStatus}
+        onClick={openApiKeyModal}
+        aria-label="Manage the optional Pexels visual asset source"
+      >
+        <span>VISUAL SOURCE</span>
+        <strong>{pexelsReady ? "Pexels connected" : "Pexels not connected"}</strong>
+        <small>
+          {pexelsReady
+            ? "Media Gate can source approved photography."
+            : "Image-dependent launches will be blocked until approved media is added."}
+        </small>
+        <b aria-hidden="true">Manage ↗</b>
+      </button>
 
       {/* ── Input ─────────────────────────────────────────────────────────── */}
       <div className={styles.inputSection}>
@@ -1106,6 +1136,28 @@ export default function GeneratePanel() {
                       <p className={styles.flagReason}>{f.reason}</p>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {result.assetBundle?.mediaRequirement && (
+                <div className={styles.mediaGate} data-level={result.assetBundle.mediaRequirement.level}>
+                  <div className={styles.mediaGateHead}>
+                    <div>
+                      <span>MEDIA GATE</span>
+                      <strong>{result.assetBundle.mediaRequirement.level}</strong>
+                    </div>
+                    <b>
+                      {result.assetBundle.photos.length}/{result.assetBundle.mediaRequirement.minimumAssets} approved
+                    </b>
+                  </div>
+                  <p>{result.assetBundle.mediaRequirement.reason}</p>
+                  {result.assetBundle.readinessWarnings.length > 0 ? (
+                    <ul>
+                      {result.assetBundle.readinessWarnings.map((warning) => <li key={warning}>{warning}</li>)}
+                    </ul>
+                  ) : (
+                    <small>Asset requirement satisfied for the selected direction.</small>
+                  )}
                 </div>
               )}
 

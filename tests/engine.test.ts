@@ -28,6 +28,8 @@ import { instrumentSandboxFiles, isRenderGateReport } from "../lib/project/rende
 import { buildHtmlPreviewDocument } from "../lib/project/html-preview";
 import { buildFeedbackUrl, buildResultCardFilename, buildResultShareText, normalizeResultShareInput } from "../lib/share/result-share";
 import { runPipeline } from "../lib/engine/pipeline";
+import { assessMediaRequirement, buildMediaReadinessWarnings } from "../lib/engine/media-requirement";
+import { sourceAssets } from "../lib/engine/asset-sourcer";
 import { PUBLIC_DEMOS } from "../lib/demo/public-demo-gallery";
 import {
   checkpointMatchesInput,
@@ -191,6 +193,26 @@ test("Fast local analysis preserves an Arabic Cairo restaurant brief", () => {
   assert.deepEqual(plan.referencesSampled, []);
 });
 
+test("Media Gate distinguishes image-dependent briefs from interface-led products", () => {
+  const restaurant = assessMediaRequirement(analyzeBriefLocally("اريد موقع لمطعم في القاهرة"));
+  assert.equal(restaurant.level, "required");
+  assert.equal(restaurant.minimumAssets, 3);
+  assert.match(buildMediaReadinessWarnings(restaurant, 0)[0], /^BLOCKING: Media Gate/);
+
+  const analytics = assessMediaRequirement(analyzeBriefLocally("Analytics dashboard for engineering teams"));
+  assert.equal(analytics.level, "avoid");
+  assert.equal(analytics.minimumAssets, 0);
+  assert.deepEqual(buildMediaReadinessWarnings(analytics, 0), []);
+});
+
+test("asset sourcing exposes a readiness gate without requiring a Pexels key", async () => {
+  const assets = await sourceAssets(analyzeBriefLocally("Architecture portfolio in London"));
+  assert.equal(assets.mediaRequirement.level, "required");
+  assert.equal(assets.photos.length, 0);
+  assert.equal(assets.readinessWarnings.length, 1);
+  assert.match(assets.assetSummary, /MEDIA POLICY: REQUIRED/);
+});
+
 test("OpenRouter Fast mode survives a failed plan call and still assembles the project", async () => {
   const originalFetch = globalThis.fetch;
   let calls = 0;
@@ -226,6 +248,8 @@ test("OpenRouter Fast mode survives a failed plan call and still assembles the p
     assert.equal(result.briefAnalysis.industry, "Food & Hospitality");
     assert.match(result.designPlan.rawPlan, /Deterministic local resilience plan/);
     assert.equal(result.project.framework, "html");
+    assert.equal(result.project.readiness.status, "blocked");
+    assert.ok(result.project.warnings.some((warning) => warning.includes("Media Gate requires")));
     assert.match(result.project.files.find((file) => file.path === "index.html")?.content ?? "", /مطعم في القاهرة/);
   } finally {
     globalThis.fetch = originalFetch;

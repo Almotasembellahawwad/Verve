@@ -15,6 +15,34 @@
   border: 1px solid var(--border-subtle);
 }
 
+.assetSourceStatus {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: -32px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-subtle);
+  border-top: 0;
+  background: color-mix(in srgb, var(--bg-raised) 86%, transparent);
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+}
+
+.assetSourceStatus > span,
+.assetSourceStatus > b {
+  color: var(--brand);
+  font: 650 10px/1 var(--font-display);
+  letter-spacing: 0.1em;
+}
+
+.assetSourceStatus > strong { color: var(--text-primary); font: 600 12px/1.2 var(--font-body); }
+.assetSourceStatus > small { font: 400 11px/1.4 var(--font-body); }
+.assetSourceStatus > b { justify-self: end; }
+.assetSourceStatus:hover,
+.assetSourceStatus:focus-visible { background: var(--bg-raised); outline: 2px solid var(--brand); outline-offset: -2px; }
+
 .providerGroup {
   display: flex;
   flex-direction: column;
@@ -651,6 +679,30 @@
 .reportSection {
   margin-bottom: 24px;
 }
+
+.mediaGate {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 24px;
+  padding: 16px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-raised);
+}
+
+.mediaGate[data-level="required"] { border-left: 3px solid var(--status-warning); }
+.mediaGate[data-level="recommended"] { border-left: 3px solid var(--status-info); }
+.mediaGate[data-level="optional"],
+.mediaGate[data-level="avoid"] { border-left: 3px solid var(--status-success); }
+.mediaGateHead { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.mediaGateHead > div { display: flex; align-items: center; gap: 9px; }
+.mediaGateHead span { color: var(--text-muted); font: 650 10px/1 var(--font-display); letter-spacing: 0.12em; }
+.mediaGateHead strong { color: var(--brand); font: 700 11px/1 var(--font-display); text-transform: uppercase; }
+.mediaGateHead > b { color: var(--text-secondary); font: 600 11px/1 var(--font-body); }
+.mediaGate p,
+.mediaGate li,
+.mediaGate small { margin: 0; color: var(--text-secondary); font: 400 12px/1.6 var(--font-body); }
+.mediaGate ul { margin: 0; padding-left: 18px; }
+.mediaGate li { color: var(--status-warning); }
 
 .reportSectionTitle {
   font-family: var(--font-display);
@@ -1337,6 +1389,15 @@
     flex-shrink: 0;
     white-space: nowrap;
   }
+
+  .assetSourceStatus {
+    grid-template-columns: 1fr auto;
+    margin-top: -20px;
+  }
+
+  .assetSourceStatus > small { grid-column: 1 / -1; }
+
+  .mediaGateHead { align-items: flex-start; flex-direction: column; }
 
   /* Toolbar wraps */
   .panelToolbar {

@@ -12,6 +12,7 @@ Engine functions receive a request-scoped LLM adapter explicitly. Deterministic 
 lib/engine/
 ├── brief-analyzer.ts           01 — structured brief analysis
 ├── asset-sourcer.ts            02 — photos, icons, font, and image palette
+├── media-requirement.ts        02 — brief-specific media policy and readiness gate
 ├── blocklist-filter.ts         02 — 21-family cliché scan
 ├── competitive-field.ts       02 — industry pattern constraints
 ├── brand-archetype-resolver.ts 02.5 — brand archetype
@@ -94,7 +95,7 @@ Studio mode uses the full LLM archetype and adversarial critique flow, one bound
 
 For sandboxed projects, `render-gate.ts` adds an ephemeral probe to the in-memory preview files only. The probe reports actual document width, runtime/console errors, computed text sizes, image alternatives, duplicate IDs, and button names through a scoped `postMessage` contract. Probe files never enter history or ZIP exports, and readiness remains `verifying` until a matching rendered report arrives.
 
-Project readiness is separate from distinctiveness. The validator checks scaffold files, entry exports, relative imports, declared packages, fragment targets, form behavior, unsafe HTML injection, image alternatives, button types, motion safeguards, mobile clipping, React list identity, font declarations, tiny text, and unfinished content. Unsupported quantified claims absent from the source brief block production readiness. For sandboxed projects, `ProjectWorkbench` reruns checks against the live editor state and ZIP uses that same state.
+Project readiness is separate from distinctiveness. The validator checks scaffold files, entry exports, relative imports, declared packages, fragment targets, form behavior, unsafe HTML injection, image alternatives, button types, motion safeguards, mobile clipping, React list identity, font declarations, tiny text, and unfinished content. Unsupported quantified claims absent from the source brief block production readiness. The deterministic Media Gate also blocks image-dependent briefs until their minimum approved asset count is met. For sandboxed projects, `ProjectWorkbench` reruns code checks against the live editor state and ZIP uses that same state; media warnings remain explicit project-level launch requirements.
 
 ## Provider terminal states
 

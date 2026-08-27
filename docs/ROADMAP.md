@@ -37,11 +37,15 @@ This document tracks shipped foundations and the next evidence-driven product wo
 - [x] GPT-5.6 Responses API, per-call deadlines, optional-stage fallback, accurate stage timing, and missed-heartbeat recovery
 - [x] Native HTML/CSS preview with zero package downloads and isolated execution
 - [x] Editable no-key public demo for first-run product proof
+- [x] Dedicated `/demos` result gallery, separate from the generation homepage and product-evidence showcase
 - [x] Public metadata surface: canonical URL, social cards, robots, sitemap, manifest, and structured data
 - [x] Privacy-bounded result Share Kit with PNG score card and GitHub feedback path
 
 ## Phase 2.1 — Quality calibration
 
+- [x] Media Requirement Engine that classifies photography as required, recommended, optional, or avoidable before generation
+- [x] Asset Assurance that prevents image-dependent projects from appearing production-ready without approved media
+- [ ] Motion Gate that verifies the generated code implements the declared animation language and reduced-motion contract
 - [ ] Rendered screenshot audit at 360, 768, and 1440 pixels
 - [x] Browser console and deterministic broken-navigation evidence in the readiness report
 - [ ] Form-contract adapters for explicit email, webhook, or server-action behavior

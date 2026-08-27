@@ -252,7 +252,8 @@ export function buildGeneratedProject(
   generated: GeneratedCode,
   analysis: BriefAnalysis,
   plan: DesignPlan,
-  validationIssues: string[] = []
+  validationIssues: string[] = [],
+  additionalWarnings: string[] = []
 ): GeneratedProject {
   const name = slugify(analysis.subject);
   const project = generated.framework === "html"
@@ -263,6 +264,7 @@ export function buildGeneratedProject(
   if (validationIssues.length > 0) {
     project.warnings.push(...validationIssues.map((issue) => `Validation: ${issue}`));
   }
+  project.warnings.push(...additionalWarnings);
   return finalizeProject(project);
 }
 

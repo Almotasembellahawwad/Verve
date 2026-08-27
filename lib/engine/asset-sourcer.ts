@@ -15,6 +15,11 @@
 
 import type { BriefAnalysis } from "./brief-analyzer";
 import { scorePhotoAgainstBlocklist, getContextualIcons } from "./asset-blocklist";
+import {
+  assessMediaRequirement,
+  buildMediaReadinessWarnings,
+  type MediaRequirement,
+} from "./media-requirement";
 import { getPalette } from "colorthief";
 
 const PEXELS_TIMEOUT_MS = 8_000;
@@ -46,8 +51,10 @@ export type AssetBundle = {
     source: "fontshare" | "google" | "fallback";
   };
   extractedPalette: { hex: string; role: string }[];
+  mediaRequirement: MediaRequirement;
   assetSummary: string;
   warnings: string[];
+  readinessWarnings: string[];
 };
 
 // ── Platform-safe font selection ──────────────────────────────────────────────
@@ -132,6 +139,7 @@ export async function sourceAssets(
   const warnings: string[] = [];
   const icons = getContextualIcons(analysis.industry, analysis.tone);
   const font  = selectFont(analysis.tone, analysis.industry);
+  const mediaRequirement = assessMediaRequirement(analysis);
 
   let photos: AssetBundle["photos"]             = [];
   let extractedPalette: AssetBundle["extractedPalette"] = [];
@@ -164,12 +172,15 @@ export async function sourceAssets(
       const msg = err instanceof Error ? err.message : String(err);
       warnings.push(`Pexels unavailable: ${msg}. Continuing without photos.`);
     }
-  } else {
-    warnings.push("No Pexels API key — photos skipped. Add a Pexels key in Settings for real asset sourcing.");
+  } else if (mediaRequirement.level === "required" || mediaRequirement.level === "recommended") {
+    warnings.push(`No Pexels API key — ${mediaRequirement.level} photography was not sourced.`);
   }
+
+  const readinessWarnings = buildMediaReadinessWarnings(mediaRequirement, photos.length);
 
   const assetSummary = [
     `AVAILABLE ASSETS FOR THIS DESIGN:`,
+    `MEDIA POLICY: ${mediaRequirement.level.toUpperCase()} — minimum approved images: ${mediaRequirement.minimumAssets}. ${mediaRequirement.reason}`,
     photos.length > 0
       ? `Photos (${photos.length}): ${photos.map((p, i) => `[Photo ${i + 1}] ${p.url} (credit: ${p.credit})`).join(", ")}`
       : "Photos: None available — use an honest labeled asset placeholder when imagery is essential",
@@ -178,10 +189,20 @@ export async function sourceAssets(
       : "",
     `Icons (Lucide — use these names): ${icons.join(", ")}`,
     `Font stack: ${font.family} via ${font.source}; runtime import: ${font.cssImport}`,
-    warnings.length > 0 ? `Warnings: ${warnings.join("; ")}` : "",
+    warnings.length > 0 ? `Sourcing warnings: ${warnings.join("; ")}` : "",
+    readinessWarnings.length > 0 ? `READINESS GATE: ${readinessWarnings.join("; ")}` : "",
   ]
     .filter(Boolean)
     .join("\n");
 
-  return { photos, icons, font, extractedPalette, assetSummary, warnings };
+  return {
+    photos,
+    icons,
+    font,
+    extractedPalette,
+    mediaRequirement,
+    assetSummary,
+    warnings,
+    readinessWarnings,
+  };
 }

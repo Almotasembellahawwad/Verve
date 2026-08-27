@@ -80,7 +80,7 @@ function DocsContent() {
           <div className={styles.pipeline}>
             {[
               { id: "01", name: "Brief Analyzer",       file: "brief-analyzer.ts",   desc: "Extracts subject, audience, primary job, tone, industry, and hard constraints from the brief. Forces specificity before any design decision is made." },
-              { id: "02", name: "Context Field",         file: "assets + blocklist + competitive", desc: "Sources assets, scans 21 cliché families with 67 concrete signals, and maps dominant industry patterns in parallel." },
+              { id: "02", name: "Context + Media Gate",  file: "media requirement + assets + blocklist + competitive", desc: "Classifies whether imagery is required, recommended, optional, or avoidable; then sources approved assets, scans 21 cliché families with 67 concrete signals, and maps dominant industry patterns in parallel." },
               { id: "02.5", name: "Brand Archetype",     file: "brand-archetype-resolver.ts", desc: "Resolves the emotional job, primary archetype, and explicit design prohibitions." },
               { id: "02.6", name: "Motion Language",     file: "animation-language.ts", desc: "Derives duration and easing tokens from the chosen archetype, including reduced-motion behavior." },
               { id: "03", name: "Plan + Critique",       file: "plan-generator.ts + critique-loop.ts",  desc: "Builds the design thesis and one signature element, then rejects and revises plans that remain generic." },

@@ -453,7 +453,8 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     finalCode,
     briefAnalysis,
     designPlan,
-    codeQualityResult.wasRepaired ? [] : codeQualityResult.issues
+    codeQualityResult.wasRepaired ? [] : codeQualityResult.issues,
+    assetBundle.readinessWarnings
   );
   emit("stage_done", {
     id: "07",

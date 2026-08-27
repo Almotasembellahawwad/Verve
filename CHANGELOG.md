@@ -2,6 +2,20 @@
 
 All notable changes to Verve are documented here.
 
+## [0.5.0] — 2026-08-27 Asset Assurance
+
+### Added
+
+- Added a deterministic Media Requirement Engine that classifies approved imagery as required, recommended, optional, or intentionally avoidable from the brief.
+- Added a visible Media Gate to the critique report with the policy, rationale, approved-image count, and readiness outcome.
+- Added a browser-local Pexels connection status beside the generation controls.
+
+### Changed
+
+- Image-dependent projects can no longer become production-ready without their minimum approved media; they remain exportable with explicit labeled placeholders and a blocking warning.
+- Interface-led briefs no longer receive irrelevant missing-Pexels warnings.
+- Code generation now follows the media policy instead of treating stock photography as a universal default.
+
 ## [0.4.1] — 2026-08-27 Separate Results
 
 ### Changed
