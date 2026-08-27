@@ -6,9 +6,9 @@ import styles from "./SignalNav.module.css";
 import { ApiKeyModal, useApiKey } from "./ApiKeyModal";
 
 const NAV_LINKS = [
-  { href: "#how-it-works", label: "01 / Process" },
-  { href: "#public-demo",   label: "02 / Live demo" },
-  { href: "#workspace",     label: "03 / Workbench" },
+  { href: "/#how-it-works", label: "01 / Process" },
+  { href: "/demos",        label: "02 / Live demos" },
+  { href: "/#workspace",    label: "03 / Workbench" },
   { href: "/showcase",      label: "04 / Evidence" },
   { href: "/lab",           label: "05 / Lab" },
   { href: "/docs",          label: "06 / Docs" },
@@ -231,7 +231,7 @@ export function SignalNav() {
                   GitHub <span aria-hidden="true">↗</span>
                 </a>
               </div>
-              <p className={styles.mobileMenuFoot}>LOCAL KEYS · OPEN SOURCE · V0.4.0</p>
+              <p className={styles.mobileMenuFoot}>LOCAL KEYS · OPEN SOURCE · V0.4.1</p>
             </div>
           </>
         )}

@@ -65,8 +65,11 @@ export default function NativeHtmlWorkbench({ project }: { project: GeneratedPro
       if (isRenderGateReport(message.data, probeId)) setRenderReport(message.data);
     };
     window.addEventListener("message", receiveReport);
+    // Attach srcDoc only after the report listener exists. On a statically rendered
+    // result page the iframe can otherwise finish before React hydrates the parent.
+    if (iframeRef.current) iframeRef.current.srcdoc = srcDoc;
     return () => window.removeEventListener("message", receiveReport);
-  }, [probeId]);
+  }, [probeId, srcDoc]);
 
   const updateSelectedFile = (content: string) => {
     setRenderReport(null);
@@ -169,7 +172,6 @@ export default function NativeHtmlWorkbench({ project }: { project: GeneratedPro
               className={styles.nativePreview}
               title={`${project.name} live preview`}
               sandbox="allow-scripts"
-              srcDoc={srcDoc}
             />
           </div>
         </div>

@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     // Local browser profiles and visual-audit captures are not application code.
     ".edge-*/**",
     "verve-home-*.png",
+    "playwright-report/**",
+    "test-results/**",
   ]),
 ]);
 

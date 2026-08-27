@@ -2,6 +2,18 @@
 
 All notable changes to Verve are documented here.
 
+## [0.4.1] — 2026-08-27 Separate Results
+
+### Changed
+
+- Moved the complete public projects from the homepage to a dedicated `/demos` evidence room.
+- Replaced the homepage gallery with one focused route into the live results.
+- Updated global navigation and discovery metadata to treat demos as a first-class route.
+
+### Removed
+
+- Removed the demo-event bridge from the generation form; curated results no longer mutate the homepage workbench.
+
 ## [0.4.0] — 2026-08-27 Demo Gallery
 
 ### Added

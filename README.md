@@ -6,9 +6,10 @@ Verve is an open-source project intelligence engine for generating distinctive w
 
 [Development preview](https://verve-dev.vercel.app/) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [MIT License](LICENSE)
 
-## What changed in 0.4 Demo Gallery
+## What changed in 0.4.1 Separate Results
 
-- **No-key demo gallery** — architecture, Arabic hospitality, and carbon SaaS each open as complete four-file projects for inspection, editing, validation, and ZIP download without an account or provider call.
+- **Separate no-key demo gallery** — `/demos` keeps architecture, Arabic hospitality, and carbon SaaS results away from the homepage while preserving complete file inspection, live validation, editing, and ZIP download.
+- **Truthful route roles** — `/demos` contains runnable generated projects; `/showcase` remains the product evidence and methodology surface.
 - **Mobile navigation** — a focused hamburger drawer consolidates routes, README, GitHub, and key management with keyboard-safe behavior.
 - **Native HTML runtime** — HTML/CSS uses an isolated browser frame with zero package downloads; React remains on the lightweight Sandpack runtime.
 - **Discoverable release surface** — canonical metadata, generated social cards, sitemap, robots policy, manifest, and SoftwareApplication structured data.
@@ -160,7 +161,7 @@ npm run dev
 
 Open `http://localhost:3000`. Add a provider key from the key manager. It is saved under Verve’s browser-local storage namespace and is never written to the repository or a Verve database.
 
-The optional canonical-site setting is documented in [`.env.example`](.env.example). Provider and Pexels keys are entered in the browser key manager and must not be added to environment files.
+The optional canonical-site setting is documented in [`.env.example`](.env.example). Provider and Pexels keys are entered in the browser key manager and must not be added to environment files. Pexels is optional: without it Verve never invents remote image URLs and image-dependent briefs receive honest placeholders.
 
 ## Commands
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import styles from "./GeneratePanel.module.css";
 import { PROVIDER_MODELS, DEFAULT_MODEL, PROVIDER_KEY_LABELS } from "@/lib/llm-adapter/types";
 import type { Provider } from "@/lib/llm-adapter/types";
@@ -21,11 +21,6 @@ import {
   isPipelineCheckpoint,
   type PipelineCheckpoint,
 } from "@/lib/engine/pipeline-checkpoint";
-import {
-  DEFAULT_PUBLIC_DEMO_ID,
-  PUBLIC_DEMOS,
-  type PublicDemoId,
-} from "@/lib/demo/public-demo-gallery";
 import ResultShareKit from "./ResultShareKit";
 
 const PROVIDERS: { id: Provider; label: string; icon: string }[] = [
@@ -192,11 +187,7 @@ function TelemetryLog({ stages, extras = {} }: { stages: StageState[]; extras?: 
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function GeneratePanel() {
-  const [brief, setBrief] = useState(() => {
-    // Initialize from URL ?brief= param (set by Lab "Run in workspace" button)
-    if (typeof window === "undefined") return "";
-    return decodeURIComponent(new URLSearchParams(window.location.search).get("brief") ?? "");
-  });
+  const [brief, setBrief] = useState("");
   const [existingCode, setExistingCode] = useState("");
   const [framework, setFramework] = useState<Framework>("nextjs");
   const [mode, setMode] = useState<"fast" | "studio">("studio");
@@ -208,12 +199,7 @@ export default function GeneratePanel() {
   const [activeView, setActiveView] = useState<"project" | "plan" | "code" | "report">("project");
   const [provider, setProvider] = useState<Provider>("anthropic");
   const [model, setModel] = useState<string>(DEFAULT_MODEL.anthropic);
-  // Initialize apiKey from localStorage (lazy initializer avoids setState-in-effect)
-  const [apiKey, setApiKey] = useState(() =>
-    typeof window !== "undefined"
-      ? getLocalApiKey("anthropic")
-      : ""
-  );
+  const [apiKey, setApiKey] = useState("");
   const [missingKey, setMissingKey] = useState(false);
   const [stageStates, setStageStates] = useState<StageState[]>([]);
   const [stageExtras, setStageExtras] = useState<Record<string, string>>({});
@@ -234,11 +220,14 @@ export default function GeneratePanel() {
     );
   }, [provider]);
 
-  // Clean ?brief= from URL after initial render (no setState here)
+  // Read browser-only route state after hydration so SSR and the first client
+  // render stay identical, then remove it from the address bar.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    if (params.has("brief")) {
+    const routeBrief = params.get("brief");
+    if (routeBrief !== null) {
+      setBrief(routeBrief); // eslint-disable-line react-hooks/set-state-in-effect
       const url = new URL(window.location.href);
       url.searchParams.delete("brief");
       window.history.replaceState({}, "", url.toString());
@@ -271,42 +260,6 @@ export default function GeneratePanel() {
   const openApiKeyModal = () => {
     window.dispatchEvent(new CustomEvent("verve:open-api-key-modal"));
   };
-
-  const openPublicDemo = useCallback((demoId: PublicDemoId = DEFAULT_PUBLIC_DEMO_ID) => {
-    const demo = PUBLIC_DEMOS.find((candidate) => candidate.id === demoId) ?? PUBLIC_DEMOS[0];
-    abortRef.current?.abort();
-    setBrief(demo.brief);
-    setFramework("html");
-    setMode("fast");
-    setLoading(false);
-    setError(null);
-    setMissingKey(false);
-    setRecoveryProject(null);
-    setRecoveryMessage(null);
-    setRecoveryCheckpoint(null);
-    setPatchedCode(null);
-    setRetryMessage(null);
-    setStageExtras({});
-    setStageStates([]);
-    setActiveView("project");
-    setResult(demo.result);
-    window.setTimeout(() => {
-      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      document.getElementById("generation-result")?.scrollIntoView({
-        behavior: reducedMotion ? "auto" : "smooth",
-        block: "start",
-      });
-    }, 50);
-  }, []);
-
-  useEffect(() => {
-    const handlePublicDemo = (event: Event) => {
-      const demoId = (event as CustomEvent<{ demoId?: PublicDemoId }>).detail?.demoId;
-      openPublicDemo(demoId ?? DEFAULT_PUBLIC_DEMO_ID);
-    };
-    window.addEventListener("verve:open-public-demo", handlePublicDemo);
-    return () => window.removeEventListener("verve:open-public-demo", handlePublicDemo);
-  }, [openPublicDemo]);
 
   // ── SSE-based telemetry: update stage from real events ──────────────────
   const updateStage = (stageId: string, state: StageState, extra?: string) => {

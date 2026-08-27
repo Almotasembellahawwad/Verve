@@ -6,11 +6,19 @@ test("the public workbench promise renders without browser errors", async ({ pag
   page.on("console", (message) => {
     if (message.type() === "error") runtimeErrors.push(message.text());
   });
+  await page.addInitScript(() => window.localStorage.setItem("verve_anthropic_api_key", "sk-ant-hydration-test"));
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveTitle(/Verve/i);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("A site is not");
   await expect(page.getByRole("link", { name: /Open the workbench/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Enter the live gallery/i })).toHaveAttribute("href", "/demos");
+  if ((page.viewportSize()?.width ?? 1280) <= 768) {
+    await page.getByRole("button", { name: "Open menu" }).click();
+    await expect(page.getByRole("button", { name: /Change API key/ })).toBeVisible();
+  } else {
+    await expect(page.getByRole("button", { name: "AI key configured" })).toBeVisible();
+  }
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -35,7 +43,7 @@ test("the homepage does not overflow its rendered viewport", async ({ page }) =>
 });
 
 test("Verve public surfaces obey their own readable-type floor", async ({ page }) => {
-  for (const path of ["/", "/lab", "/showcase"]) {
+  for (const path of ["/", "/demos", "/lab", "/showcase"]) {
     await page.goto(path, { waitUntil: "domcontentloaded" });
     const tinyText = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("body *")]
       .filter((element) => {
@@ -83,48 +91,37 @@ test("public discovery files point to Verve's canonical deployment", async ({ re
 
   expect(await robots.text()).toContain("https://verve-dev.vercel.app/sitemap.xml");
   expect(await sitemap.text()).toContain("https://verve-dev.vercel.app/lab");
+  expect(await sitemap.text()).toContain("https://verve-dev.vercel.app/demos");
   expect((await manifest.json()).start_url).toBe("/");
   expect(socialImage.headers()["content-type"]).toContain("image/png");
 });
 
-test("the no-key demo opens as an editable native HTML project", async ({ page }) => {
+test("the separate demo gallery opens three editable native HTML projects", async ({ page }) => {
   test.setTimeout(60_000);
   await page.addInitScript(() => {
     if (window === window.top) {
       window.localStorage.setItem("verve_onboarding_seen_v2", "1");
     }
   });
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/demos", { waitUntil: "domcontentloaded" });
 
-  await expect(page.getByRole("region", { name: /One project can be a template/ })).toBeVisible();
-  await expect(page.getByText("Explore live demo", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: /Three briefs/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Reframe/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Maeda Cairo/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Ledgerline/ })).toBeVisible();
-  const demoButton = page.locator("#open-public-demo");
-  await expect(demoButton).toBeEnabled({ timeout: 30_000 });
-  await demoButton.click();
 
-  await expect(page.getByText("CURATED DEMO · NO MODEL CALL")).toBeVisible();
   await expect(page.getByRole("heading", { name: "reframe-london-adaptive-reuse" })).toBeVisible();
   await expect(page.getByText("Native HTML preview · zero package downloads")).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Edit index.html" })).toBeEditable();
-  await expect(page.getByText("Publish the evidence, not your private brief.", { exact: false })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Give feedback/ })).toHaveAttribute("href", /github\.com\/Almotasembellahawwad\/Verve\/issues\/new/);
-
-  const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download score card" }).click();
-  const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe("reframe-london-adaptive-reuse-verve-score.png");
 
   const preview = page.frameLocator('iframe[title="reframe-london-adaptive-reuse live preview"]');
   await expect(preview.getByRole("heading", { name: /The building already knows/ })).toBeVisible();
   await expect(page.getByText("Static validation and the rendered result both passed.")).toBeVisible();
 
-  await page.locator("#open-public-demo-cairo").click();
+  await page.locator("#select-demo-cairo").click();
   await expect(page.getByRole("heading", { name: "maeda-cairo-public-demo" })).toBeVisible();
 
-  await page.locator("#open-public-demo-carbon").click();
+  await page.locator("#select-demo-carbon").click();
   await expect(page.getByRole("heading", { name: "ledgerline-carbon-operations" })).toBeVisible();
 });
 
@@ -154,7 +151,8 @@ test("the mobile hamburger is a keyboard-safe navigation drawer", async ({ page 
   await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
 
   await page.getByRole("button", { name: "Open menu" }).click();
-  await page.getByRole("link", { name: "02 / Live demo" }).click();
+  await page.getByRole("link", { name: "02 / Live demos" }).click();
   await expect(drawer).toBeHidden();
-  await expect(page.getByRole("region", { name: /One project can be a template/ })).toBeInViewport();
+  await expect(page).toHaveURL(/\/demos$/);
+  await expect(page.getByRole("heading", { name: /Three briefs/ })).toBeVisible();
 });

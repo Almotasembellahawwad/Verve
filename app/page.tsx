@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import Link from "next/link";
 import styles from "./page.module.css";
 import GeneratePanel from "@/components/GeneratePanel";
 import CritiquePanel from "@/components/CritiquePanel";
@@ -9,22 +10,9 @@ import { PipelineViz } from "@/components/PipelineViz";
 import { ClicheList } from "@/components/ClicheList";
 import { SignalNav } from "@/components/SignalNav";
 import OnboardingModal from "@/components/OnboardingModal";
-import { PUBLIC_DEMOS, type PublicDemoId } from "@/lib/demo/public-demo-gallery";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"generate" | "critique" | "compare">("generate");
-  const [clientReady, setClientReady] = useState(false);
-
-  useEffect(() => {
-    setClientReady(true); // eslint-disable-line react-hooks/set-state-in-effect
-  }, []);
-
-  const openPublicDemo = (demoId: PublicDemoId) => {
-    setActiveTab("generate");
-    window.setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("verve:open-public-demo", { detail: { demoId } }));
-    }, 0);
-  };
 
   return (
     <main className={styles.main}>
@@ -138,48 +126,21 @@ export default function Home() {
         </div>
       </section>
 
-      {/* PUBLIC DEMO — zero-key proof before the workbench */}
-      <section className={styles.demoSection} id="public-demo" aria-labelledby="public-demo-title">
+      {/* DEMO PORTAL — complete results live on their own route */}
+      <section className={styles.demoPortal} id="public-demo" aria-labelledby="public-demo-title">
         <div className="container">
-          <div className={styles.demoFrame}>
-            <div className={styles.demoIndex} aria-hidden="true">
-              <span>00</span>
-              <i />
-              <small>PUBLIC PROOF</small>
+          <div className={styles.demoPortalGrid}>
+            <span className={styles.demoPortalIndex} aria-hidden="true">03/03</span>
+            <div className={styles.demoPortalCopy}>
+              <span>LIVE RESULTS · THEIR OWN EVIDENCE ROOM</span>
+              <h2 id="public-demo-title">The homepage makes the promise.<br /><em>The gallery proves it.</em></h2>
+              <p>Open three complete projects, switch industries, inspect every file, run the preview, and export the ZIP—away from the generation workspace.</p>
             </div>
-            <div className={styles.demoCopy}>
-              <span className={styles.demoEyebrow}>THREE INDUSTRIES · ZERO MODEL CALLS · COMPLETE PROJECT FILES</span>
-              <h2 id="public-demo-title">One project can be a template.<br /><em>Three prove a system.</em></h2>
-              <p>
-                Compare three complete visual theses: adaptive-reuse architecture, Arabic hospitality,
-                and carbon operations. Every project is editable, runnable, inspected, and exportable.
-              </p>
-            </div>
-            <dl className={styles.demoMetrics} aria-label="Public demo capabilities">
-              <div><dt>03</dt><dd>distinct projects</dd></div>
-              <div><dt>12</dt><dd>editable files</dd></div>
-              <div><dt>00</dt><dd>provider calls</dd></div>
-            </dl>
-            <div className={styles.demoChooser} aria-label="Choose a public demo project">
-              {PUBLIC_DEMOS.map((demo, index) => (
-                <button
-                  type="button"
-                  className={styles.demoChoice}
-                  onClick={() => openPublicDemo(demo.id)}
-                  id={index === 0 ? "open-public-demo" : `open-public-demo-${demo.id}`}
-                  disabled={!clientReady}
-                  key={demo.id}
-                >
-                  <span className={styles.demoChoiceIndex}>{demo.index}</span>
-                  <span className={styles.demoChoiceCopy}>
-                    <small>{demo.category}</small>
-                    <b>{demo.title}</b>
-                    <em>{demo.description}</em>
-                  </span>
-                  <span className={styles.demoChoiceArrow} aria-hidden="true">↘</span>
-                </button>
-              ))}
-            </div>
+            <Link href="/demos" className={styles.demoPortalLink} id="open-demo-gallery">
+              <span>Enter the live gallery</span>
+              <small>03 PROJECTS · 12 FILES · NO API KEY</small>
+              <b aria-hidden="true">↗</b>
+            </Link>
           </div>
         </div>
       </section>

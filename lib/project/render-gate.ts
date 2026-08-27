@@ -105,6 +105,10 @@ export function createRenderProbeSource(probeId: string): string {
   window.addEventListener("load", schedule);
   window.addEventListener("resize", schedule);
   new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true });
+  // A srcDoc iframe can finish before its React parent hydrates and subscribes.
+  // Two bounded retries make the report delivery reliable without a polling interval.
+  window.setTimeout(report, 700);
+  window.setTimeout(report, 1600);
 })();`;
 }
 

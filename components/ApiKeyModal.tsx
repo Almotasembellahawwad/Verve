@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import styles from "./ApiKeyModal.module.css";
 import type { Provider } from "@/lib/llm-adapter/types";
 import { PROVIDER_KEY_LABELS } from "@/lib/llm-adapter/types";
@@ -8,6 +8,7 @@ import {
   clearLocalApiKeys,
   getLocalApiKey,
   hasAnyLocalApiKey,
+  LOCAL_KEYS_CHANGED_EVENT,
   setLocalApiKey,
   type LocalKeyProvider,
 } from "@/lib/client/key-storage";
@@ -23,9 +24,17 @@ const PROVIDERS: { id: AnyProvider; label: string; description: string; keyPrefi
 ];
 
 export function useApiKey() {
-  // Initialize from localStorage (lazy — avoids setState on mount)
-  const [apiKey, setApiKeyState] = useState<string>(
-    () => getLocalApiKey("anthropic")
+  const apiKey = useSyncExternalStore(
+    (onStoreChange) => {
+      window.addEventListener("storage", onStoreChange);
+      window.addEventListener(LOCAL_KEYS_CHANGED_EVENT, onStoreChange);
+      return () => {
+        window.removeEventListener("storage", onStoreChange);
+        window.removeEventListener(LOCAL_KEYS_CHANGED_EVENT, onStoreChange);
+      };
+    },
+    () => hasAnyLocalApiKey() ? "configured" : "",
+    () => ""
   );
 
   const saveApiKey = (key: string, provider: AnyProvider = "anthropic") => {
@@ -34,8 +43,6 @@ export function useApiKey() {
     } else {
       setLocalApiKey(provider, "");
     }
-    const anyKey = hasAnyLocalApiKey();
-    setApiKeyState(anyKey ? key : "");
   };
 
   return { apiKey, saveApiKey };
