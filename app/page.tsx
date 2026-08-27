@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import styles from "./page.module.css";
 import GeneratePanel from "@/components/GeneratePanel";
 import CritiquePanel from "@/components/CritiquePanel";
@@ -12,6 +12,18 @@ import OnboardingModal from "@/components/OnboardingModal";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"generate" | "critique" | "compare">("generate");
+  const [clientReady, setClientReady] = useState(false);
+
+  useEffect(() => {
+    setClientReady(true); // eslint-disable-line react-hooks/set-state-in-effect
+  }, []);
+
+  const openPublicDemo = () => {
+    setActiveTab("generate");
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("verve:open-public-demo"));
+    }, 0);
+  };
 
   return (
     <main className={styles.main}>
@@ -122,6 +134,43 @@ export default function Home() {
             <span className="amber-text">visible, recoverable, and yours</span>.
           </h2>
           <PipelineViz />
+        </div>
+      </section>
+
+      {/* PUBLIC DEMO — zero-key proof before the workbench */}
+      <section className={styles.demoSection} id="public-demo" aria-labelledby="public-demo-title">
+        <div className="container">
+          <div className={styles.demoFrame}>
+            <div className={styles.demoIndex} aria-hidden="true">
+              <span>00</span>
+              <i />
+              <small>PUBLIC PROOF</small>
+            </div>
+            <div className={styles.demoCopy}>
+              <span className={styles.demoEyebrow}>NO ACCOUNT · NO MODEL CALL · NO PACKAGE DOWNLOAD</span>
+              <h2 id="public-demo-title">Try the evidence.<br /><em>Then trust the pipeline.</em></h2>
+              <p>
+                Open a complete Arabic restaurant project with four editable files, native HTML preview,
+                live Render Gate checks, and ZIP export. Your API key is not needed.
+              </p>
+            </div>
+            <dl className={styles.demoMetrics} aria-label="Public demo capabilities">
+              <div><dt>04</dt><dd>editable files</dd></div>
+              <div><dt>16</dt><dd>runtime checks</dd></div>
+              <div><dt>00</dt><dd>provider calls</dd></div>
+            </dl>
+            <button
+              type="button"
+              className={styles.demoLaunch}
+              onClick={openPublicDemo}
+              id="open-public-demo"
+              disabled={!clientReady}
+            >
+              <span>Open the Cairo live project</span>
+              <small>HTML · EDITABLE · DOWNLOADABLE ZIP</small>
+              <b aria-hidden="true">↘</b>
+            </button>
+          </div>
         </div>
       </section>
 

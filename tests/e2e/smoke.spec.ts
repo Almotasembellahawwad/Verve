@@ -96,6 +96,8 @@ test("the no-key demo opens as an editable native HTML project", async ({ page }
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
+  await expect(page.getByRole("region", { name: /Try the evidence/ })).toBeVisible();
+  await expect(page.getByText("Explore live demo", { exact: true })).toHaveCount(0);
   const demoButton = page.locator("#open-public-demo");
   await expect(demoButton).toBeEnabled({ timeout: 30_000 });
   await demoButton.click();
@@ -115,4 +117,35 @@ test("the no-key demo opens as an editable native HTML project", async ({ page }
   const preview = page.frameLocator('iframe[title="maeda-cairo-public-demo live preview"]');
   await expect(preview.getByRole("heading", { name: /القاهرة/ })).toBeVisible();
   await expect(page.getByText("Static validation and the rendered result both passed.")).toBeVisible();
+});
+
+test("the mobile hamburger is a keyboard-safe navigation drawer", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (window === window.top) window.localStorage.setItem("verve_onboarding_seen_v2", "1");
+  });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const hamburger = page.getByRole("button", { name: "Open menu" });
+  const mobile = (page.viewportSize()?.width ?? 1280) <= 768;
+  if (!mobile) {
+    await expect(hamburger).toBeHidden();
+    return;
+  }
+
+  await expect(hamburger).toBeVisible();
+  await hamburger.click();
+  const drawer = page.getByRole("dialog", { name: "Navigation menu" });
+  await expect(drawer).toBeVisible();
+  await expect(page.getByRole("link", { name: "01 / Process" })).toBeFocused();
+  await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+
+  await page.keyboard.press("Escape");
+  await expect(drawer).toBeHidden();
+  await expect(page.getByRole("button", { name: "Open menu" })).toBeFocused();
+  await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
+
+  await page.getByRole("button", { name: "Open menu" }).click();
+  await page.getByRole("link", { name: "02 / Live demo" }).click();
+  await expect(drawer).toBeHidden();
+  await expect(page.getByRole("region", { name: /Try the evidence/ })).toBeInViewport();
 });

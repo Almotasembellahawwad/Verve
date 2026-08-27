@@ -2,7 +2,18 @@
 
 All notable changes to Verve are documented here.
 
-## [0.3.1] — Unreleased
+## [0.3.2] — Unreleased
+
+### Changed
+
+- Moved the no-key demo out of the generation form into a dedicated public-proof section.
+- Rebuilt mobile navigation as a 44px hamburger drawer with focus trapping, Escape dismissal, scroll locking, and consolidated utilities.
+
+### Accessibility
+
+- Mobile navigation now restores focus after keyboard dismissal and keeps Tab navigation inside the open dialog.
+
+## [0.3.1] — 2026-08-27
 
 ### Added
 

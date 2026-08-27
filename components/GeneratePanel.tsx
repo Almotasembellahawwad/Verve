@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import styles from "./GeneratePanel.module.css";
 import { PROVIDER_MODELS, DEFAULT_MODEL, PROVIDER_KEY_LABELS } from "@/lib/llm-adapter/types";
 import type { Provider } from "@/lib/llm-adapter/types";
@@ -219,14 +219,9 @@ export default function GeneratePanel() {
   const [recoveryCheckpoint, setRecoveryCheckpoint] = useState<PipelineCheckpoint | null>(null);
   const [historyOpen,  setHistoryOpen]  = useState(false);
   const [certOpen,     setCertOpen]     = useState(false);
-  const [clientReady,  setClientReady]  = useState(false);
   const telemetryTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const latestCheckpointRef = useRef<PipelineCheckpoint | null>(null);
-
-  useEffect(() => {
-    setClientReady(true); // eslint-disable-line react-hooks/set-state-in-effect
-  }, []);
 
   // Reload apiKey when provider changes — reads from localStorage (external system)
   useEffect(() => {
@@ -273,7 +268,7 @@ export default function GeneratePanel() {
     window.dispatchEvent(new CustomEvent("verve:open-api-key-modal"));
   };
 
-  const openPublicDemo = () => {
+  const openPublicDemo = useCallback(() => {
     abortRef.current?.abort();
     setBrief(PUBLIC_DEMO_BRIEF);
     setFramework("html");
@@ -290,7 +285,19 @@ export default function GeneratePanel() {
     setStageStates([]);
     setActiveView("project");
     setResult(PUBLIC_DEMO_RESULT);
-  };
+    window.setTimeout(() => {
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      document.getElementById("generation-result")?.scrollIntoView({
+        behavior: reducedMotion ? "auto" : "smooth",
+        block: "start",
+      });
+    }, 50);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("verve:open-public-demo", openPublicDemo);
+    return () => window.removeEventListener("verve:open-public-demo", openPublicDemo);
+  }, [openPublicDemo]);
 
   // ── SSE-based telemetry: update stage from real events ──────────────────
   const updateStage = (stageId: string, state: StageState, extra?: string) => {
@@ -756,32 +763,25 @@ export default function GeneratePanel() {
           </div>
         )}
 
-        <div className={styles.generateActions}>
-          <button
-            className={`${styles.generateBtn} ${loading ? styles.cancelBtn : ""}`}
-            onClick={loading ? () => abortRef.current?.abort() : () => void handleGenerate()}
-            disabled={!loading && !brief.trim()}
-            id="generate-submit"
-            aria-busy={loading}
-          >
-            {loading ? (
-              <>
-                <span aria-hidden="true">■</span>
-                Cancel generation
-              </>
-            ) : (
-              <>
-                <span aria-hidden="true">▶</span>
-                Run Verve pipeline
-              </>
-            )}
-          </button>
-          {!loading && (
-            <button type="button" className={styles.demoBtn} onClick={openPublicDemo} id="open-public-demo" disabled={!clientReady}>
-              Explore live demo <span>no API key</span>
-            </button>
+        <button
+          className={`${styles.generateBtn} ${loading ? styles.cancelBtn : ""}`}
+          onClick={loading ? () => abortRef.current?.abort() : () => void handleGenerate()}
+          disabled={!loading && !brief.trim()}
+          id="generate-submit"
+          aria-busy={loading}
+        >
+          {loading ? (
+            <>
+              <span aria-hidden="true">■</span>
+              Cancel generation
+            </>
+          ) : (
+            <>
+              <span aria-hidden="true">▶</span>
+              Run Verve pipeline
+            </>
           )}
-        </div>
+        </button>
       </div>
 
       {/* -- Live Telemetry Log (visible while loading) -------------------- */}
@@ -841,7 +841,7 @@ export default function GeneratePanel() {
       )}
 
       {result && (
-        <div className={styles.results}>
+        <div className={styles.results} id="generation-result">
           {/* Score Banner */}
           <div className={styles.scoreBanner}>
             <div className={styles.scoreMain}>

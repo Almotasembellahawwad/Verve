@@ -258,41 +258,6 @@
   align-self: flex-start;
 }
 
-.generateActions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-
-.demoBtn {
-  min-height: 46px;
-  padding: 0 18px;
-  border: 1px solid var(--border-strong);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font: 600 12px/1 var(--font-body);
-  transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
-}
-
-.demoBtn span {
-  display: block;
-  margin-top: 4px;
-  color: var(--status-success);
-  font: 500 10px/1 var(--font-body);
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-
-.demoBtn:hover,
-.demoBtn:focus-visible {
-  border-color: var(--status-success);
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--status-success) 6%, transparent);
-  outline: 0;
-}
-
-.demoBtn:disabled {
-  opacity: 0.45;
-  cursor: wait;
-}
-
 .demoBadge { color: var(--status-success); font: 600 10px/1.2 var(--font-body); letter-spacing: .08em; }
 
 .generateBtn:hover:not(:disabled) {

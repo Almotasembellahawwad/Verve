@@ -8,7 +8,8 @@ Verve is an open-source project intelligence engine for generating distinctive w
 
 ## What changed in 0.3 Public Beta
 
-- **No-key live demo** — inspect, edit, validate, and download a complete Arabic HTML project without an account or provider call.
+- **No-key live demo** — a dedicated public-proof section opens a complete Arabic HTML project for inspection, editing, validation, and ZIP download without an account or provider call.
+- **Mobile navigation** — a focused hamburger drawer consolidates routes, README, GitHub, and key management with keyboard-safe behavior.
 - **Native HTML runtime** — HTML/CSS uses an isolated browser frame with zero package downloads; React remains on the lightweight Sandpack runtime.
 - **Discoverable release surface** — canonical metadata, generated social cards, sitemap, robots policy, manifest, and SoftwareApplication structured data.
 - **Public engineering contract** — CI, issue forms, changelog, security policy, and an explicit disclosure of the browser-local BYOK request path.

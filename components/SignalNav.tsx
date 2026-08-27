@@ -1,16 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import styles from "./SignalNav.module.css";
 import { ApiKeyModal, useApiKey } from "./ApiKeyModal";
 
 const NAV_LINKS = [
   { href: "#how-it-works", label: "01 / Process" },
-  { href: "#workspace",    label: "02 / Workbench" },
-  { href: "/showcase",     label: "03 / Evidence" },
-  { href: "/lab",          label: "04 / Lab" },
-  { href: "/docs",         label: "05 / Docs" },
+  { href: "#public-demo",   label: "02 / Live demo" },
+  { href: "#workspace",     label: "03 / Workbench" },
+  { href: "/showcase",      label: "04 / Evidence" },
+  { href: "/lab",           label: "05 / Lab" },
+  { href: "/docs",          label: "06 / Docs" },
 ] as const;
 
 export function SignalNav() {
@@ -18,6 +19,13 @@ export function SignalNav() {
   const [modalOpen, setModalOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { apiKey, saveApiKey } = useApiKey();
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+
+  const closeMobileMenu = (restoreFocus = false) => {
+    setMobileOpen(false);
+    if (restoreFocus) window.requestAnimationFrame(() => hamburgerRef.current?.focus());
+  };
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 60);
@@ -25,14 +33,46 @@ export function SignalNav() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Close mobile menu on route change / scroll
   useEffect(() => {
-    if (mobileOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => { document.body.style.overflow = ""; };
+    if (!mobileOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const focusable = () => [...(mobileMenuRef.current?.querySelectorAll<HTMLElement>("a[href], button:not([disabled])") ?? [])];
+    window.requestAnimationFrame(() => focusable()[0]?.focus());
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMobileMenu(true);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (items.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    const handleResize = () => {
+      if (window.innerWidth > 768) setMobileOpen(false);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", handleResize);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", handleResize);
+    };
   }, [mobileOpen]);
 
   useEffect(() => {
@@ -66,15 +106,10 @@ export function SignalNav() {
 
           {/* Desktop links */}
           <div className={styles.links} aria-label="Site sections">
-            {NAV_LINKS.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className={styles.link}
-                onClick={() => setMobileOpen(false)}
-              >
-                {link.label}
-              </a>
+            {NAV_LINKS.map((link) => link.href.startsWith("/") ? (
+              <Link key={link.href} href={link.href} className={styles.link}>{link.label}</Link>
+            ) : (
+              <a key={link.href} href={link.href} className={styles.link}>{link.label}</a>
             ))}
           </div>
 
@@ -122,49 +157,83 @@ export function SignalNav() {
 
             {/* Hamburger — mobile only */}
             <button
+              ref={hamburgerRef}
+              type="button"
               className={styles.hamburger}
               onClick={() => setMobileOpen((v) => !v)}
               aria-label={mobileOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileOpen}
+              aria-controls="mobile-navigation-menu"
               id="nav-hamburger"
             >
-              <span className={`${styles.hamburgerLine} ${mobileOpen ? styles.hambTop : ""}`} />
-              <span className={`${styles.hamburgerLine} ${mobileOpen ? styles.hambMid : ""}`} />
-              <span className={`${styles.hamburgerLine} ${mobileOpen ? styles.hambBot : ""}`} />
+              <span aria-hidden="true" className={`${styles.hamburgerLine} ${mobileOpen ? styles.hambTop : ""}`} />
+              <span aria-hidden="true" className={`${styles.hamburgerLine} ${mobileOpen ? styles.hambMid : ""}`} />
+              <span aria-hidden="true" className={`${styles.hamburgerLine} ${mobileOpen ? styles.hambBot : ""}`} />
             </button>
           </div>
         </div>
 
         {/* Mobile drawer */}
         {mobileOpen && (
-          <div className={styles.mobileMenu} role="dialog" aria-modal="true" aria-label="Navigation menu">
-            {NAV_LINKS.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className={styles.mobileLink}
-                onClick={() => setMobileOpen(false)}
-              >
-                {link.label}
-              </a>
-            ))}
-            <div className={styles.mobileDivider} />
-            <a
-              href="https://github.com/Almotasembellahawwad/Verve"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.mobileLink}
-              onClick={() => setMobileOpen(false)}
-            >
-              GitHub ↗
-            </a>
+          <>
             <button
-              onClick={() => { setModalOpen(true); setMobileOpen(false); }}
-              className={styles.mobileLinkBtn}
+              type="button"
+              className={styles.mobileBackdrop}
+              aria-label="Close navigation menu"
+              tabIndex={-1}
+              onClick={() => closeMobileMenu(true)}
+            />
+            <div
+              ref={mobileMenuRef}
+              className={styles.mobileMenu}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Navigation menu"
+              id="mobile-navigation-menu"
             >
-              {hasKey ? "Change API key" : "Set API key"}
-            </button>
-          </div>
+              <div className={styles.mobileMenuTop}>
+                <span>NAVIGATION / VERVE</span>
+                <b>06 ROUTES</b>
+              </div>
+              <div className={styles.mobileLinks}>
+                {NAV_LINKS.map((link) => link.href.startsWith("/") ? (
+                  <Link key={link.href} href={link.href} className={styles.mobileLink} onClick={() => closeMobileMenu()}>
+                    {link.label}
+                  </Link>
+                ) : (
+                  <a key={link.href} href={link.href} className={styles.mobileLink} onClick={() => closeMobileMenu()}>
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+              <div className={styles.mobileUtility}>
+                <button
+                  type="button"
+                  onClick={() => { handleDownloadReadme(); closeMobileMenu(); }}
+                  className={styles.mobileUtilityBtn}
+                >
+                  Download README <span aria-hidden="true">↓</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setModalOpen(true); closeMobileMenu(); }}
+                  className={styles.mobileUtilityBtn}
+                >
+                  {hasKey ? "Change API key" : "Set API key"} <span aria-hidden="true">⚿</span>
+                </button>
+                <a
+                  href="https://github.com/Almotasembellahawwad/Verve"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.mobileUtilityLink}
+                  onClick={() => closeMobileMenu()}
+                >
+                  GitHub <span aria-hidden="true">↗</span>
+                </a>
+              </div>
+              <p className={styles.mobileMenuFoot}>LOCAL KEYS · OPEN SOURCE · V0.3.2</p>
+            </div>
+          </>
         )}
       </nav>
 
