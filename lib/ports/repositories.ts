@@ -1,15 +1,5 @@
-export type ClicheEntry = {
-  id: string;
-  category: string;
-  pattern: string;
-  description: string;
-  example_values: string[];
-  severity: string;
-  date_observed: string;
-  tags: string[];
-};
-
-export type ClicheData = { version: string; cliches: ClicheEntry[] };
+import type { ClicheData } from "../domain/blocklist";
+export type { ClicheData, ClicheEntry } from "../domain/blocklist";
 
 export interface BlocklistRepositoryPort { get(): ClicheData; }
 
@@ -33,3 +23,18 @@ export interface HistoryRepositoryPort<T extends { id: string; timestamp: number
   clear(): void;
 }
 
+export interface DocumentRepositoryPort {
+  read(name: string): string;
+}
+
+export type ClicheSuggestion = {
+  pattern: string;
+  example: string;
+  category: "color" | "typography" | "layout" | "motion" | "copy";
+  severity: "high" | "medium" | "low";
+  context?: string;
+};
+
+export interface ClicheSuggestionRepositoryPort {
+  submit(suggestion: ClicheSuggestion, requestId: string): void;
+}

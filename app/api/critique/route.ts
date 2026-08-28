@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { critiqueDesign } from "@/lib/engine/design-critic";
-import { createAdapter } from "@/lib/llm-adapter";
+import { runCritiqueUseCase } from "@/lib/application/run-critique-use-case";
+import { createAdapter } from "@/lib/adapters/llm/factory";
 import { checkRateLimit, acquireConcurrentSlot, ROUTE_LIMITS } from "@/lib/middleware/rate-limit";
 import { errorResponse, classifyError } from "@/lib/middleware/error-handler";
 import { z } from "zod";
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 
     const { apiKey, provider, model, ...input } = parsed.data;
     const llm     = createAdapter(provider, apiKey, model);
-    const critique = await critiqueDesign(llm, input);
+    const critique = await runCritiqueUseCase(llm, input);
     return NextResponse.json({ critique, requestId });
 
   } catch (err) {

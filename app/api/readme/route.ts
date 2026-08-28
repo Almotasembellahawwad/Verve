@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
-import { readFileSync } from "fs";
-import { join } from "path";
+import { readDocumentUseCase } from "@/lib/application/content-use-cases";
+import { FilesystemDocumentRepository } from "@/lib/adapters/storage/filesystem-document-repository";
 
 export async function GET() {
   try {
-    const readmePath = join(process.cwd(), "README.md");
-    const content = readFileSync(readmePath, "utf-8");
-
+    const content = readDocumentUseCase(new FilesystemDocumentRepository(process.cwd()), "README.md");
     return new NextResponse(content, {
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",

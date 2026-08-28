@@ -4,7 +4,6 @@ import type { BriefAnalysis } from "./brief-analyzer";
 import { buildCognitiveGroundingPrompt } from "./cognitive-principles";
 import { z } from "zod";
 import type { LLMOptions } from "../llm-adapter/types";
-import { staticReferenceLibraryRepository } from "../adapters/storage/static-content-repositories";
 import type { ReferenceEntry, ReferenceLibraryRepositoryPort } from "../ports/repositories";
 
 export type DesignPlan = {
@@ -124,9 +123,9 @@ const DESIGN_PLAN_JSON_SCHEMA: Record<string, unknown> = {
 
 function getRelevantReferences(
   analysis: BriefAnalysis,
-  repository: ReferenceLibraryRepositoryPort = staticReferenceLibraryRepository
+  repository?: ReferenceLibraryRepositoryPort
 ): ReferenceEntry[] {
-  const scored = repository.list().map((ref) => {
+  const scored = (repository?.list() ?? []).map((ref) => {
     let score = 0;
     if (ref.industry === analysis.industry) score += 3;
     const toneTags = analysis.tone.toLowerCase().split(/[\s,]+/);

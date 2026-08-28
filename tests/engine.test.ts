@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { getAllCliches, runBlocklistFilter } from "../lib/engine/blocklist-filter";
 import { fixPaletteContrast } from "../lib/engine/contrast-fixer";
 import { extractJSON } from "../lib/engine/llm-utils";
@@ -28,7 +30,13 @@ import { liveSandboxTemplate, supportsLiveSandbox } from "../lib/project/live-sa
 import { instrumentSandboxFiles, isRenderGateReport } from "../lib/project/render-gate";
 import { buildHtmlPreviewDocument } from "../lib/project/html-preview";
 import { buildFeedbackUrl, buildResultCardFilename, buildResultShareText, normalizeResultShareInput } from "../lib/share/result-share";
-import { runPipeline } from "../lib/engine/pipeline";
+import {
+  runGenerationUseCase,
+  type PipelineEvent,
+  type PipelineInput,
+} from "../lib/application/run-generation-use-case";
+import { createGenerationDependencies } from "../lib/adapters/composition-root";
+import { CallbackProgressPublisher } from "../lib/adapters/progress/callback-progress-publisher";
 import { assessMediaRequirement, buildMediaReadinessWarnings } from "../lib/engine/media-requirement";
 import { sourceAssets } from "../lib/engine/asset-sourcer";
 import { inspectDesignDiversity } from "../lib/engine/design-diversity";
@@ -44,6 +52,38 @@ import { CircuitBreaker, CircuitOpenError } from "../lib/application/circuit-bre
 import { createGenerationStrategy } from "../lib/application/generation-strategy";
 import { executePipelineStages } from "../lib/application/pipeline-stage";
 import type { BlocklistRepositoryPort } from "../lib/ports/repositories";
+
+async function runPipeline(
+  input: PipelineInput & {
+    apiKey: string;
+    pexelsKey?: string;
+    onEvent?: (event: PipelineEvent) => void;
+  }
+) {
+  const { apiKey, pexelsKey, onEvent, ...pipelineInput } = input;
+  const provider = pipelineInput.provider ?? "anthropic";
+  const progress = onEvent
+    ? new CallbackProgressPublisher((event) => onEvent(event as PipelineEvent))
+    : undefined;
+  return runGenerationUseCase(
+    { ...pipelineInput, provider },
+    createGenerationDependencies({
+      provider,
+      apiKey,
+      model: pipelineInput.model,
+      pexelsKey,
+      signal: pipelineInput.signal,
+      progress,
+    })
+  );
+}
+
+function sourceFiles(root: string): string[] {
+  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(root, entry.name);
+    return entry.isDirectory() ? sourceFiles(path) : /\.(?:ts|tsx)$/.test(entry.name) ? [path] : [];
+  });
+}
 
 test("the public blocklist has truthful family and signal counts", () => {
   const data = getAllCliches();
@@ -176,6 +216,24 @@ test("pipeline stages receive immutable snapshots and can be reordered", async (
   const second = await executePipelineStages([double, increment], { value: 2, trace: [] });
   assert.deepEqual(first, { value: 6, trace: ["increment", "double"] });
   assert.deepEqual(second, { value: 5, trace: ["double", "increment"] });
+});
+
+test("hexagonal dependency boundaries are mechanically enforced", () => {
+  const projectRoot = process.cwd();
+  for (const file of sourceFiles(join(projectRoot, "lib", "domain"))) {
+    assert.doesNotMatch(readFileSync(file, "utf8"), /\bfrom\s+["']/, `${file} must be dependency-free`);
+  }
+  for (const file of sourceFiles(join(projectRoot, "lib", "application"))) {
+    const source = readFileSync(file, "utf8");
+    assert.doesNotMatch(source, /\bfrom\s+["'][^"']*(?:\/adapters\/|\/llm-adapter\/|next\/)/, `${file} imports infrastructure`);
+    assert.doesNotMatch(source, /process\.env/, `${file} reads runtime configuration`);
+  }
+  for (const file of sourceFiles(join(projectRoot, "app", "api"))) {
+    assert.doesNotMatch(readFileSync(file, "utf8"), /@\/lib\/(?:engine|project)\//, `${file} bypasses application boundaries`);
+  }
+  const concreteConstruction = sourceFiles(join(projectRoot, "lib"))
+    .filter((file) => /new\s+(?:ClaudeAdapter|OpenAIAdapter|GeminiAdapter|OpenRouterAdapter)\b/.test(readFileSync(file, "utf8")));
+  assert.deepEqual(concreteConstruction.map((file) => file.replace(projectRoot, "")), [join("\\lib", "adapters", "llm", "factory.ts")]);
 });
 
 test("every public demo is a complete, runnable native project", () => {

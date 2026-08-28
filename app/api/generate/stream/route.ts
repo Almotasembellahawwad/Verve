@@ -1,11 +1,12 @@
 import { NextRequest } from "next/server";
 import { v4 as uuidv4 } from "uuid";
-import { runPipeline } from "@/lib/engine/pipeline";
+import { runGenerationUseCase } from "@/lib/application/run-generation-use-case";
+import { createGenerationDependencies } from "@/lib/adapters/composition-root";
+import { CallbackProgressPublisher } from "@/lib/adapters/progress/callback-progress-publisher";
 import { checkRateLimit, acquireConcurrentSlot, ROUTE_LIMITS } from "@/lib/middleware/rate-limit";
 import { classifyError, logSanitizedError } from "@/lib/middleware/error-handler";
 import { serializePipelineResult } from "@/lib/api/pipeline-response";
-import { buildRecoveryProject } from "@/lib/project/project-builder";
-import { isPipelineCheckpoint } from "@/lib/engine/pipeline-checkpoint";
+import { asPipelineCheckpoint, createGenerationRecovery } from "@/lib/application/generation-recovery";
 import { GenerationRequestSchema } from "@/lib/api/generation-request";
 
 export const maxDuration = 300;
@@ -74,20 +75,29 @@ export async function POST(req: NextRequest) {
       send("connected", { requestId, mode: parsed.data.mode });
 
       try {
-        const result = await runPipeline({
-          ...parsed.data,
-          signal: pipelineSignal,
-          onEvent: ({ event, data, stageId }) => {
+        const progress = new CallbackProgressPublisher(({ event, data, stageId }) => {
             if (event === "stage_start" && typeof data.id === "string") {
               currentStage = data.id;
               stageStartedAt = Date.now();
             }
-            if (event === "checkpoint" && isPipelineCheckpoint(data.checkpoint)) {
-              latestCheckpoint = data.checkpoint;
+            if (event === "checkpoint") {
+              latestCheckpoint = asPipelineCheckpoint(data.checkpoint) ?? latestCheckpoint;
             }
             send(event, data, stageId);
-          },
         });
+        const { apiKey, provider, pexelsKey, ...input } = parsed.data;
+        const dependencies = createGenerationDependencies({
+          provider,
+          apiKey,
+          model: input.model,
+          pexelsKey,
+          signal: pipelineSignal,
+          progress,
+        });
+        const result = await runGenerationUseCase(
+          { ...input, provider, signal: pipelineSignal },
+          dependencies
+        );
 
         send("result", serializePipelineResult(result, requestId), "result");
       } catch (err) {
@@ -106,7 +116,7 @@ export async function POST(req: NextRequest) {
           requestId,
           failedStage: currentStage,
           message,
-          project: buildRecoveryProject(parsed.data.brief, parsed.data.framework, currentStage),
+          project: createGenerationRecovery(parsed.data.brief, parsed.data.framework, currentStage),
           ...(latestCheckpoint ? { checkpoint: latestCheckpoint } : {}),
         }, "recovery");
       } finally {

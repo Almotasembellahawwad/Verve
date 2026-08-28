@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runPipeline } from "@/lib/engine/pipeline";
+import { runGenerationUseCase } from "@/lib/application/run-generation-use-case";
+import { createGenerationDependencies } from "@/lib/adapters/composition-root";
 import { checkRateLimit, acquireConcurrentSlot, ROUTE_LIMITS } from "@/lib/middleware/rate-limit";
 import { errorResponse, classifyError } from "@/lib/middleware/error-handler";
 import { v4 as uuidv4 } from "uuid";
@@ -27,8 +28,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { apiKey, provider = "anthropic", pexelsKey } = parsed.data;
-    const result = await runPipeline({ ...parsed.data, provider, apiKey, pexelsKey });
+    const { apiKey, provider = "anthropic", pexelsKey, ...input } = parsed.data;
+    const dependencies = createGenerationDependencies({ provider, apiKey, model: input.model, pexelsKey });
+    const result = await runGenerationUseCase({ ...input, provider }, dependencies);
 
     return NextResponse.json(serializePipelineResult(result, requestId));
 

@@ -60,7 +60,24 @@ npm test            PASS — tests 48, pass 48, fail 0
 
 ## Phase C — layered / hexagonal architecture
 
-Pending.
+- Moved the real generation orchestrator to `lib/application/run-generation-use-case.ts`; `lib/engine/pipeline.ts` is now a compatibility facade only.
+- Removed API keys, Pexels keys, adapter construction, JSON repository selection, and transport callbacks from the use-case input. Request-scoped dependencies are injected through `GenerationDependencies`.
+- Added a composition root that wires LLM, asset source, repositories, progress publisher, model configuration, and circuit state per request.
+- Moved concrete LLM implementations and their factory under `lib/adapters/llm/*`; legacy import paths are narrow compatibility exports.
+- Extracted the blocklist evaluator into dependency-free `lib/domain/blocklist.ts`.
+- Added application use cases for generation, comparison, critique, patching, recovery, and content access. API routes now parse, wire, invoke one use case, and format transport responses.
+- Added an executable architecture test that prevents domain imports, application-to-infrastructure imports, route bypasses into engine/project internals, and adapter construction outside the factory.
+
+Pattern/principle: **Ports and Adapters with a Composition Root** — provider, storage, asset, and transport details point inward through interfaces while the application layer owns orchestration.
+
+Verification gate:
+
+```text
+npm run build       PASS — Next.js 16.3.1 compiled and generated 22 routes
+npm run lint        PASS — no diagnostics
+npm run typecheck   PASS — tsc --noEmit
+npm test            PASS — tests 49, pass 49, fail 0
+```
 
 ## Phase D — deployment and operations
 
