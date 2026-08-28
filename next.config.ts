@@ -18,6 +18,7 @@ const contentSecurityPolicy = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  agentRules: false,
   poweredByHeader: false,
   serverExternalPackages: ["@anthropic-ai/sdk", "colorthief", "typescript"],
   async headers() {

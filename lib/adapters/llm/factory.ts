@@ -12,7 +12,7 @@ export type { LLMAdapter, LLMMessage, LLMOptions, Provider } from "../../ports/l
 export { PROVIDER_MODELS, DEFAULT_MODEL, PROVIDER_KEY_LABELS, isReasoningModel } from "../../llm-adapter/types";
 import type { Provider, LLMAdapter } from "../../ports/llm";
 import { DEFAULT_MODEL, PROVIDER_MODELS } from "../../llm-adapter/types";
-import { ClaudeAdapter }       from "./claude";
+import { AnthropicAdapter }    from "./anthropic";
 import { OpenAIAdapter }       from "./openai";
 import { GeminiAdapter }       from "./gemini";
 import { OpenRouterAdapter }   from "./openrouter";
@@ -47,7 +47,7 @@ export function createAdapter(
 
   const adapter = (() => {
     switch (provider) {
-      case "anthropic":   return new ClaudeAdapter(apiKey, resolvedModel, signal);
+      case "anthropic":   return new AnthropicAdapter(apiKey, resolvedModel, signal);
       case "openai":      return new OpenAIAdapter(apiKey, resolvedModel, signal);
       case "gemini":      return new GeminiAdapter(apiKey, resolvedModel, signal);
       case "openrouter":  return new OpenRouterAdapter(apiKey, resolvedModel, signal, onRetry);

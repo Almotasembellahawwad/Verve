@@ -1,12 +1,7 @@
-// =========================================================
-// lib/adapters/llm/claude.ts
-// Anthropic Claude adapter — with AbortSignal + timeout support
-// =========================================================
-
 import Anthropic from "@anthropic-ai/sdk";
 import type { LLMAdapter, LLMMessage, LLMOptions } from "../../ports/llm";
 
-const LLM_TIMEOUT_MS = 30_000; // 30s hard timeout per call
+const LLM_TIMEOUT_MS = 30_000;
 
 const MODEL_MAX_TOKENS: Record<string, number> = {
   "claude-sonnet-4-6": 16_000,
@@ -14,7 +9,7 @@ const MODEL_MAX_TOKENS: Record<string, number> = {
   "claude-opus-4-8": 16_000,
 };
 
-export class ClaudeAdapter implements LLMAdapter {
+export class AnthropicAdapter implements LLMAdapter {
   private client: Anthropic;
   private model: string;
   private signal?: AbortSignal;
@@ -27,37 +22,33 @@ export class ClaudeAdapter implements LLMAdapter {
 
   async complete(messages: LLMMessage[], options: LLMOptions = {}): Promise<string> {
     const { systemPrompt, temperature = 0.7, maxTokens, timeoutMs } = options;
-
     const effectiveMaxTokens = Math.min(
       maxTokens ?? MODEL_MAX_TOKENS[this.model] ?? 8000,
       MODEL_MAX_TOKENS[this.model] ?? 8192
     );
-
-    // Combine request signal with our hard timeout
     const effectiveTimeoutMs = Math.min(LLM_TIMEOUT_MS, Math.max(5_000, timeoutMs ?? LLM_TIMEOUT_MS));
-    const timeoutCtrl = new AbortController();
-    const timer = setTimeout(() => timeoutCtrl.abort(new Error(`Claude request timed out after ${effectiveTimeoutMs / 1000}s`)), effectiveTimeoutMs);
-    const combined = this.signal
-      ? AbortSignal.any([this.signal, timeoutCtrl.signal])
-      : timeoutCtrl.signal;
+    const timeoutController = new AbortController();
+    const timer = setTimeout(
+      () => timeoutController.abort(new Error(`Anthropic request timed out after ${effectiveTimeoutMs / 1000}s`)),
+      effectiveTimeoutMs
+    );
+    const signal = this.signal
+      ? AbortSignal.any([this.signal, timeoutController.signal])
+      : timeoutController.signal;
 
     try {
       const request: Anthropic.MessageCreateParamsNonStreaming = {
-          model: this.model,
-          max_tokens: effectiveMaxTokens,
-          system: systemPrompt,
-          messages: messages.map((m) => ({ role: m.role, content: m.content })),
+        model: this.model,
+        max_tokens: effectiveMaxTokens,
+        system: systemPrompt,
+        messages: messages.map((message) => ({ role: message.role, content: message.content })),
       };
       if (!this.model.startsWith("claude-opus-4-")) request.temperature = temperature;
 
-      const response = await this.client.messages.create(
-        request,
-        { signal: combined }
-      );
-
-      const textBlock = response.content.find((b) => b.type === "text");
+      const response = await this.client.messages.create(request, { signal });
+      const textBlock = response.content.find((block) => block.type === "text");
       if (!textBlock || textBlock.type !== "text") {
-        throw new Error(`No text content in Claude response (model: ${this.model})`);
+        throw new Error(`No text content in Anthropic response (model: ${this.model})`);
       }
       return textBlock.text;
     } finally {
