@@ -1732,6 +1732,18 @@
   background: var(--surface);
 }
 
+.editorLaunchBtn {
+  min-height: 36px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #111;
+  padding: 0 13px;
+  cursor: pointer;
+  font: 700 .67rem var(--font-plex-mono), monospace;
+}
+.editorLaunchBtn:hover,
+.editorLaunchBtn:focus-visible { filter: brightness(1.08); outline: 2px solid currentColor; outline-offset: 2px; }
+
 .recoveryResult {
   margin-top: 18px;
   border: 1px solid color-mix(in srgb, var(--status-warning) 45%, var(--line));

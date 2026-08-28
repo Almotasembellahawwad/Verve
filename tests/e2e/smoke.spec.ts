@@ -6,7 +6,10 @@ test("the public workbench promise renders without browser errors", async ({ pag
   page.on("console", (message) => {
     if (message.type() === "error") runtimeErrors.push(message.text());
   });
-  await page.addInitScript(() => window.localStorage.setItem("verve_anthropic_api_key", "sk-ant-hydration-test"));
+  await page.addInitScript(() => {
+    window.localStorage.setItem("verve_anthropic_api_key", "sk-ant-hydration-test");
+    window.localStorage.setItem("verve_onboarding_seen_v2", "1");
+  });
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveTitle(/Verve/i);
@@ -83,8 +86,24 @@ test("Fast is the explicit default and Studio remains one decision away", async 
   await expect(page.getByRole("button", { name: "Run Studio pipeline" })).toBeVisible();
 });
 
+test("the dedicated editor live-previews and restores an autosaved local project", async ({ page }) => {
+  await page.goto("/editor", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: /Change the source/i })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Active project" }).locator("option")).toHaveCount(1);
+  const editor = page.getByLabel("Edit index.html");
+  await expect(editor).toBeVisible();
+  const proof = "Editor persistence proof";
+  await editor.fill(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Editor proof</title></head><body><main><h1>${proof}</h1></main></body></html>`);
+  await expect(page.frameLocator("iframe").getByRole("heading", { name: proof })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("SAVED", { exact: true })).toBeVisible({ timeout: 10_000 });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByLabel("Edit index.html")).toHaveValue(new RegExp(proof));
+  await page.getByRole("button", { name: "Capture revision" }).click();
+  await expect(page.getByText("Revision 1", { exact: true })).toBeVisible();
+});
+
 test("Verve public surfaces obey their own readable-type floor", async ({ page }) => {
-  for (const path of ["/", "/demos", "/lab", "/showcase"]) {
+  for (const path of ["/", "/demos", "/editor", "/lab", "/showcase"]) {
     await page.goto(path, { waitUntil: "domcontentloaded" });
     const tinyText = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("body *")]
       .filter((element) => {

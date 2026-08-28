@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import NativeHtmlWorkbench from "@/components/NativeHtmlWorkbench";
 import { SignalNav } from "@/components/SignalNav";
 import { DEFAULT_PUBLIC_DEMO_ID, PUBLIC_DEMOS, type PublicDemoId } from "@/lib/demo/public-demo-gallery";
+import { launchProjectEditor } from "@/lib/client/editor-workspace";
 import styles from "./demos.module.css";
 
 export default function DemosClient() {
+  const router = useRouter();
   const [selectedId, setSelectedId] = useState<PublicDemoId>(DEFAULT_PUBLIC_DEMO_ID);
   const selected = PUBLIC_DEMOS.find((demo) => demo.id === selectedId) ?? PUBLIC_DEMOS[0];
 
@@ -24,7 +27,7 @@ export default function DemosClient() {
       <SignalNav />
       <header className={styles.hero}>
         <div className={styles.rail} aria-hidden="true"><span>V</span><i /><span>03</span></div>
-        <div className={styles.heroMeta}><span>PUBLIC EVIDENCE ROOM / V0.6</span><span>NO ACCOUNT · NO MODEL CALL</span></div>
+        <div className={styles.heroMeta}><span>PUBLIC EVIDENCE ROOM / V0.7</span><span>NO ACCOUNT · NO MODEL CALL</span></div>
         <h1>Three briefs.<br /><em>Three different topologies.</em></h1>
         <p>These are executable structure and interface proofs—not invented client case studies. Inspect the files, test laptop and mobile behavior, read the media requirement, and export the ZIP.</p>
       </header>
@@ -77,6 +80,7 @@ export default function DemosClient() {
             <small>Signature element</small>
             <strong>{selected.result.plan.signatureElement.name}</strong>
             <p>{selected.result.plan.signatureElement.justification}</p>
+            <button type="button" onClick={() => void launchProjectEditor(selected.result.project, "demo").then((href) => router.push(href))}>Develop in Editor ↗</button>
           </div>
         </header>
         <NativeHtmlWorkbench key={selected.id} project={selected.result.project} />

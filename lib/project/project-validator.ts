@@ -99,9 +99,15 @@ export function validateGeneratedProject(project: GeneratedProject): ProjectVali
     : check("html-injection", "HTML injection", "pass", "No HTML injection API detected."));
 
   if (/<form\b/i.test(combined)) {
-    checks.push(/<form\b[^>]*(?:action\s*=|onSubmit\s*=)|addEventListener\s*\(\s*["']submit/i.test(combined)
+    const hasSubmissionContract = /<form\b[^>]*(?:action\s*=|onSubmit\s*=)|addEventListener\s*\(\s*["']submit/i.test(combined);
+    const placeholderAction = /<form\b[^>]*action\s*=\s*["'](?:#|javascript:[^"']*|)["']/i.test(combined);
+    const preventDefaultOnly = /onSubmit\s*=\s*\{[^}]*preventDefault\s*\(\s*\)[^}]*\}/i.test(combined)
+      && !/(?:set[A-Z]\w*\s*\(|fetch\s*\(|FormData\s*\(|window\.location|mailto:|data-form-contract)/i.test(combined);
+    checks.push(hasSubmissionContract && !placeholderAction && !preventDefaultOnly
       ? check("forms", "Form contract", "pass", "A form submission contract is present.")
-      : check("forms", "Form contract", "fail", "A form exists without action, onSubmit, or a submit listener."));
+      : check("forms", "Form contract", "fail", placeholderAction || preventDefaultOnly
+        ? "The form uses placeholder submission behavior; declare a demo, email, webhook, or server-action contract."
+        : "A form exists without action, onSubmit, or a submit listener."));
   } else {
     checks.push(check("forms", "Form contract", "pass", "No unconnected form is present."));
   }
@@ -123,9 +129,20 @@ export function validateGeneratedProject(project: GeneratedProject): ProjectVali
     ? check("button-types", "Button behavior", "pass", "Every button declares its type.")
     : check("button-types", "Button behavior", "warning", `${buttonsWithoutType} button(s) rely on an implicit type.`));
 
-  checks.push(/prefers-reduced-motion/i.test(combined)
-    ? check("reduced-motion", "Reduced motion", "pass", "A reduced-motion policy is present.")
-    : check("reduced-motion", "Reduced motion", "warning", "No prefers-reduced-motion rule was detected."));
+  const authoredMotion = /(?:animation(?:-name|-duration)?|transition(?:-property|-duration)?)\s*:|requestAnimationFrame\s*\(|\buseReducedMotion\s*\(|from\s+["']framer-motion["']/i.test(combined);
+  const reducedMotionPolicy = /prefers-reduced-motion|\buseReducedMotion\s*\(/i.test(combined);
+  checks.push(!authoredMotion
+    ? check("reduced-motion", "Motion contract", "pass", "No authored motion requires an opt-out policy.")
+    : reducedMotionPolicy
+      ? check("reduced-motion", "Motion contract", "pass", "Authored motion includes a reduced-motion policy.")
+      : check("reduced-motion", "Motion contract", "fail", "Authored animation or transitions require prefers-reduced-motion or useReducedMotion."));
+
+  const excessiveMotion = [...combined.matchAll(/(?:animation|transition)(?:-duration)?\s*:[^;{}]*?(\d+(?:\.\d+)?)s\b/gi)]
+    .map((match) => Number(match[1]))
+    .filter((seconds) => seconds > 8);
+  checks.push(excessiveMotion.length === 0
+    ? check("motion-duration", "Motion duration", "pass", "No excessive interface-motion duration was detected.")
+    : check("motion-duration", "Motion duration", "warning", `Motion as long as ${Math.max(...excessiveMotion)}s needs intentional review.`));
 
   const concealsOverflow = /(?:^|[},\s`])(?:html|body|#root|\.site-shell|\.page-shell|\.app-shell)\s*\{[^}]*overflow(?:-x)?\s*:\s*hidden/i.test(combined);
   checks.push(concealsOverflow

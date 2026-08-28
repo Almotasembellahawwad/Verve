@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import JSZip from "jszip";
 import type { GeneratedProject, ProjectFile } from "@/lib/project/types";
 import { validateGeneratedProject } from "@/lib/project/project-validator";
@@ -14,8 +14,12 @@ type Viewport = "mobile" | "tablet" | "desktop";
 const VIEWPORTS: Array<{ id: Viewport; label: string; width: string }> = [
   { id: "mobile", label: "360", width: "360px" },
   { id: "tablet", label: "768", width: "768px" },
-  { id: "desktop", label: "Fluid", width: "100%" },
+  { id: "desktop", label: "1440", width: "1440px" },
 ];
+
+const subscribeToHydration = () => () => undefined;
+const clientHydrationSnapshot = () => true;
+const serverHydrationSnapshot = () => false;
 
 async function downloadFiles(projectName: string, files: ProjectFile[]): Promise<void> {
   const zip = new JSZip();
@@ -29,19 +33,27 @@ async function downloadFiles(projectName: string, files: ProjectFile[]): Promise
   URL.revokeObjectURL(url);
 }
 
-export default function NativeHtmlWorkbench({ project }: { project: GeneratedProject }) {
-  const probeId = useId();
+type Props = {
+  project: GeneratedProject;
+  onProjectChange?: (project: GeneratedProject) => void;
+};
+
+export default function NativeHtmlWorkbench({ project, onProjectChange }: Props) {
+  const baseProbeId = useId();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [files, setFiles] = useState(project.files);
   const [selectedPath, setSelectedPath] = useState(project.entryFile);
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [renderReport, setRenderReport] = useState<RenderGateReport | null>(null);
+  const [previewRevision, setPreviewRevision] = useState(0);
   const [downloading, setDownloading] = useState(false);
+  const activeProbeId = `${baseProbeId}-${previewRevision}`;
+  const previewReady = useSyncExternalStore(subscribeToHydration, clientHydrationSnapshot, serverHydrationSnapshot);
 
   const selectedFile = files.find((item) => item.path === selectedPath) ?? files[0]!;
   const editedProject = useMemo<GeneratedProject>(() => ({ ...project, files }), [project, files]);
   const validation = useMemo(() => validateGeneratedProject(editedProject), [editedProject]);
-  const srcDoc = useMemo(() => buildHtmlPreviewDocument(editedProject, probeId), [editedProject, probeId]);
+  const srcDoc = useMemo(() => buildHtmlPreviewDocument(editedProject, activeProbeId), [activeProbeId, editedProject]);
   const selectedViewport = VIEWPORTS.find((item) => item.id === viewport)!;
   const staticProblems = validation.checks.filter((item) => item.status !== "pass");
   const renderProblems = renderReport?.checks.filter((item) => item.status !== "pass") ?? [];
@@ -61,20 +73,23 @@ export default function NativeHtmlWorkbench({ project }: { project: GeneratedPro
         : "ready";
   const renderGateStatus = !renderReport ? "WAITING" : renderFailures > 0 ? "FAIL" : renderWarnings > 0 ? "REVIEW" : "PASS";
 
+  const receiveReport = useEffectEvent((message: MessageEvent<unknown>) => {
+    if (message.source !== iframeRef.current?.contentWindow) return;
+    if (isRenderGateReport(message.data, activeProbeId)) setRenderReport(message.data);
+  });
+
   useEffect(() => {
-    const receiveReport = (message: MessageEvent<unknown>) => {
-      if (message.source !== iframeRef.current?.contentWindow) return;
-      if (isRenderGateReport(message.data, probeId)) setRenderReport(message.data);
-    };
     window.addEventListener("message", receiveReport);
-    // Attach srcDoc only after the report listener exists. On a statically rendered
-    // result page the iframe can otherwise finish before React hydrates the parent.
-    if (iframeRef.current) iframeRef.current.srcdoc = srcDoc;
     return () => window.removeEventListener("message", receiveReport);
-  }, [probeId, srcDoc]);
+  }, []);
+
+  useEffect(() => {
+    onProjectChange?.(editedProject);
+  }, [editedProject, onProjectChange]);
 
   const updateSelectedFile = (content: string) => {
     setRenderReport(null);
+    setPreviewRevision((revision) => revision + 1);
     setFiles((current) => current.map((item) => item.path === selectedFile.path ? { ...item, content } : item));
   };
 
@@ -82,6 +97,7 @@ export default function NativeHtmlWorkbench({ project }: { project: GeneratedPro
     setFiles(project.files);
     setSelectedPath(project.entryFile);
     setRenderReport(null);
+    setPreviewRevision((revision) => revision + 1);
   };
 
   const downloadProject = async () => {
@@ -182,6 +198,7 @@ export default function NativeHtmlWorkbench({ project }: { project: GeneratedPro
               className={styles.nativePreview}
               title={`${project.name} live preview`}
               sandbox="allow-scripts"
+              srcDoc={previewReady ? srcDoc : undefined}
             />
           </div>
         </div>

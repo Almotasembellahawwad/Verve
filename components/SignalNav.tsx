@@ -8,10 +8,11 @@ import { ApiKeyModal, useApiKey } from "./ApiKeyModal";
 const NAV_LINKS = [
   { href: "/#how-it-works", label: "01 / Process" },
   { href: "/demos",        label: "02 / Live demos" },
-  { href: "/#workspace",    label: "03 / Workbench" },
-  { href: "/showcase",      label: "04 / Evidence" },
-  { href: "/lab",           label: "05 / Lab" },
-  { href: "/docs",          label: "06 / Docs" },
+  { href: "/editor",       label: "03 / Editor" },
+  { href: "/#workspace",    label: "04 / Workbench" },
+  { href: "/showcase",      label: "05 / Evidence" },
+  { href: "/lab",           label: "06 / Lab" },
+  { href: "/docs",          label: "07 / Docs" },
 ] as const;
 
 export function SignalNav() {
@@ -193,7 +194,7 @@ export function SignalNav() {
             >
               <div className={styles.mobileMenuTop}>
                 <span>NAVIGATION / VERVE</span>
-                <b>06 ROUTES</b>
+                <b>07 ROUTES</b>
               </div>
               <div className={styles.mobileLinks}>
                 {NAV_LINKS.map((link) => link.href.startsWith("/") ? (
@@ -231,7 +232,7 @@ export function SignalNav() {
                   GitHub <span aria-hidden="true">↗</span>
                 </a>
               </div>
-              <p className={styles.mobileMenuFoot}>LOCAL KEYS · OPEN SOURCE · V0.6.0</p>
+              <p className={styles.mobileMenuFoot}>LOCAL KEYS · OPEN SOURCE · V0.7.0</p>
             </div>
           </>
         )}

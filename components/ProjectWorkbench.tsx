@@ -23,10 +23,15 @@ import { projectFileDataUrl } from "@/lib/project/brand-kit";
 type Viewport = "mobile" | "tablet" | "desktop";
 type BottomPanel = "problems" | "console";
 
+type ProjectWorkbenchProps = {
+  project: GeneratedProject;
+  onProjectChange?: (project: GeneratedProject) => void;
+};
+
 const VIEWPORT_LABELS: Array<{ id: Viewport; label: string; width: string }> = [
   { id: "mobile", label: "360", width: "360px" },
   { id: "tablet", label: "768", width: "768px" },
-  { id: "desktop", label: "Fluid", width: "100%" },
+  { id: "desktop", label: "1440", width: "1440px" },
 ];
 
 function projectTemplate(project: GeneratedProject): "react" | "static" {
@@ -45,17 +50,24 @@ async function downloadProjectFiles(project: GeneratedProject): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
-function NextProjectInspector({ project }: { project: GeneratedProject }) {
+function NextProjectInspector({ project, onProjectChange }: ProjectWorkbenchProps) {
+  const [files, setFiles] = useState(project.files);
   const [selectedPath, setSelectedPath] = useState(project.entryFile);
   const [downloading, setDownloading] = useState(false);
-  const validation = useMemo(() => validateGeneratedProject(project), [project]);
-  const selectedFile = project.files.find((item) => item.path === selectedPath) ?? project.files[0]!;
+  const editedProject = useMemo<GeneratedProject>(() => ({ ...project, files }), [project, files]);
+  const validation = useMemo(() => validateGeneratedProject(editedProject), [editedProject]);
+  const selectedFile = files.find((item) => item.path === selectedPath) ?? files[0]!;
   const problemChecks = validation.checks.filter((item) => item.status !== "pass");
+  const edited = files.some((item, index) => item.content !== project.files[index]?.content);
+
+  useEffect(() => {
+    onProjectChange?.(editedProject);
+  }, [editedProject, onProjectChange]);
 
   const downloadProject = async () => {
     setDownloading(true);
     try {
-      await downloadProjectFiles(project);
+      await downloadProjectFiles(editedProject);
     } finally {
       setDownloading(false);
     }
@@ -67,9 +79,10 @@ function NextProjectInspector({ project }: { project: GeneratedProject }) {
         <div>
           <span className={styles.eyebrow}>PROJECT ENGINE / NEXT.JS EXPORT</span>
           <h3>{project.name}</h3>
-          <p>{project.files.length} files · Next.js · entry: {project.entryFile} · readiness: {project.readiness.score}/100</p>
+          <p>{files.length} files · Next.js · entry: {project.entryFile} · readiness: {validation.score}/100{edited ? " · edited" : ""}</p>
         </div>
         <div className={styles.actions}>
+          {edited && <button type="button" className={styles.reset} onClick={() => setFiles(project.files)}>Reset edits</button>}
           <button type="button" className={styles.download} onClick={downloadProject} disabled={downloading}>
             {downloading ? "Packing…" : "Download ZIP"}
           </button>
@@ -93,7 +106,7 @@ function NextProjectInspector({ project }: { project: GeneratedProject }) {
 
       <div className={styles.inspectorLayout}>
         <nav className={styles.fileList} aria-label="Project files">
-          {project.files.map((item) => (
+          {files.map((item) => (
             <button
               type="button"
               key={item.path}
@@ -115,7 +128,15 @@ function NextProjectInspector({ project }: { project: GeneratedProject }) {
               <img src={projectFileDataUrl(selectedFile) ?? ""} alt="User-owned project asset preview" />
               <p>Binary asset · {selectedFile.mediaType} · included in ZIP</p>
             </div>
-          ) : <pre tabIndex={0}><code>{selectedFile.content}</code></pre>}
+          ) : (
+            <textarea
+              className={styles.nextEditor}
+              value={selectedFile.content}
+              onChange={(event) => setFiles((current) => current.map((item) => item.path === selectedFile.path ? { ...item, content: event.target.value } : item))}
+              spellCheck={false}
+              aria-label={`Edit ${selectedFile.path}`}
+            />
+          )}
         </section>
       </div>
 
@@ -140,7 +161,7 @@ function NextProjectInspector({ project }: { project: GeneratedProject }) {
   );
 }
 
-function ProjectWorkspaceBody({ project, probeId }: { project: GeneratedProject; probeId: string }) {
+function ProjectWorkspaceBody({ project, probeId, onProjectChange }: ProjectWorkbenchProps & { probeId: string }) {
   const { sandpack } = useSandpack();
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [bottomPanel, setBottomPanel] = useState<BottomPanel>("problems");
@@ -178,6 +199,10 @@ function ProjectWorkspaceBody({ project, probeId }: { project: GeneratedProject;
     window.addEventListener("message", receiveReport);
     return () => window.removeEventListener("message", receiveReport);
   }, [probeId]);
+
+  useEffect(() => {
+    onProjectChange?.(editedProject);
+  }, [editedProject, onProjectChange]);
 
   const downloadProject = async () => {
     setDownloading(true);
@@ -293,7 +318,7 @@ function ProjectWorkspaceBody({ project, probeId }: { project: GeneratedProject;
   );
 }
 
-export default function ProjectWorkbench({ project }: { project: GeneratedProject }) {
+export default function ProjectWorkbench({ project, onProjectChange }: ProjectWorkbenchProps) {
   const probeId = useId();
   const files = useMemo(
     () => instrumentSandboxFiles(project, probeId),
@@ -301,11 +326,11 @@ export default function ProjectWorkbench({ project }: { project: GeneratedProjec
   );
 
   if (!supportsLiveSandbox(project.framework)) {
-    return <NextProjectInspector project={project} />;
+    return <NextProjectInspector project={project} onProjectChange={onProjectChange} />;
   }
 
   if (project.framework === "html") {
-    return <NativeHtmlWorkbench key={`${project.name}-${project.files.length}`} project={project} />;
+    return <NativeHtmlWorkbench key={`${project.name}-${project.files.length}`} project={project} onProjectChange={onProjectChange} />;
   }
 
   return (
@@ -342,7 +367,7 @@ export default function ProjectWorkbench({ project }: { project: GeneratedProjec
       }}
       options={{ activeFile: `/${project.entryFile}`, visibleFiles: project.files.map((item) => `/${item.path}`) }}
     >
-      <ProjectWorkspaceBody project={project} probeId={probeId} />
+      <ProjectWorkspaceBody project={project} probeId={probeId} onProjectChange={onProjectChange} />
     </SandpackProvider>
   );
 }

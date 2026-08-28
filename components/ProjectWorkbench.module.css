@@ -113,6 +113,20 @@
   tab-size: 2;
 }
 .sourcePanel pre:focus-visible { outline: 2px solid #ff5a36; outline-offset: -2px; }
+.nextEditor {
+  width: 100%;
+  height: 580px;
+  display: block;
+  resize: none;
+  border: 0;
+  outline: 0;
+  padding: 20px;
+  color: #e8e4db;
+  background: #101113;
+  font: .76rem/1.65 var(--font-plex-mono), monospace;
+  tab-size: 2;
+}
+.nextEditor:focus-visible { box-shadow: inset 0 0 0 2px #ff5a36; }
 .inspectorTab {
   align-self: stretch;
   display: flex;
@@ -216,4 +230,5 @@
   .inspectorLayout { display: block; min-height: 0; }
   .fileList { max-height: 180px; border-inline-end: 0; border-bottom: 1px solid #2b2d32; }
   .sourcePanel pre { height: 520px; }
+  .nextEditor { height: 520px; }
 }

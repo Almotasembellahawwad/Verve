@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { NextRequest } from "next/server";
 import { getAllCliches, runBlocklistFilter } from "../lib/engine/blocklist-filter";
@@ -58,6 +58,7 @@ import { UpstashRateLimitStore } from "../lib/adapters/rate-limit/upstash-rate-l
 import { readHealthUseCase } from "../lib/application/read-health-use-case";
 import { StructuredLogProgressPublisher } from "../lib/adapters/observability/structured-log-progress-publisher";
 import { checkRateLimit } from "../lib/middleware/rate-limit";
+import { createEditorProjectRecord } from "../lib/client/editor-workspace";
 import { DEFAULT_GENERATION_MODE } from "../lib/domain/generation-mode";
 import { GenerationRequestSchema } from "../lib/api/generation-request";
 
@@ -249,9 +250,28 @@ test("hexagonal dependency boundaries are mechanically enforced", () => {
     assert.doesNotMatch(readFileSync(file, "utf8"), /@\/lib\/(?:engine|project)\//, `${file} bypasses application boundaries`);
   }
   const concreteConstruction = sourceFiles(join(projectRoot, "lib"))
-    .filter((file) => /new\s+(?:ClaudeAdapter|OpenAIAdapter|GeminiAdapter|OpenRouterAdapter)\b/.test(readFileSync(file, "utf8")));
+    .filter((file) => /new\s+(?:AnthropicAdapter|OpenAIAdapter|GeminiAdapter|OpenRouterAdapter)\b/.test(readFileSync(file, "utf8")));
   const portablePaths = concreteConstruction.map((file) => relative(projectRoot, file).replaceAll("\\", "/"));
   assert.deepEqual(portablePaths, ["lib/adapters/llm/factory.ts"]);
+});
+
+test("repository identity excludes agent instruction and starter-template residue", () => {
+  const projectRoot = process.cwd();
+  const forbiddenPaths = [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "GEMINI.md",
+    ".github/copilot-instructions.md",
+    ".cursor",
+    ".codex",
+    "public/file.svg",
+    "public/globe.svg",
+    "public/next.svg",
+    "public/vercel.svg",
+    "public/window.svg",
+  ];
+  assert.deepEqual(forbiddenPaths.filter((path) => existsSync(join(projectRoot, path))), []);
+  assert.match(readFileSync(join(projectRoot, "next.config.ts"), "utf8"), /agentRules:\s*false/);
 });
 
 test("rate-limit store enforces windows and concurrent leases", async () => {
@@ -1046,6 +1066,20 @@ test("project validator reads reduced-motion policy from stylesheet files", () =
   assert.ok(validation.checks.some((item) => item.id === "reduced-motion" && item.status === "pass"));
 });
 
+test("project validator blocks motion without opt-out and placeholder form behavior", () => {
+  const recovery = buildRecoveryProject("Interactive contract project", "html", "test");
+  const project = {
+    ...recovery,
+    files: [{
+      ...recovery.files[0],
+      content: `<!doctype html><html><head><style>button { transition: transform .3s ease; }</style></head><body><form action="#"><button type="submit">Send</button></form></body></html>`,
+    }],
+  };
+  const validation = validateGeneratedProject(project);
+  assert.ok(validation.checks.some((item) => item.id === "reduced-motion" && item.status === "fail"));
+  assert.ok(validation.checks.some((item) => item.id === "forms" && item.status === "fail"));
+});
+
 test("ZIP project source follows the live editor state", () => {
   const project = buildRecoveryProject("Editable recovery project", "html", "test");
   const edited = mergeEditorFiles(project, {
@@ -1053,6 +1087,33 @@ test("ZIP project source follows the live editor state", () => {
   });
   assert.match(edited.files.find((file) => file.path === "index.html")?.content ?? "", /Edited and exported/);
   assert.notEqual(edited.files[0].content, project.files[0].content);
+});
+
+test("editor persistence strips preview probes and restores owned-asset paths", () => {
+  const project = {
+    ...buildRecoveryProject("React editor fixture", "react", "test"),
+    entryFile: "src/App.tsx",
+    files: [
+      { path: "src/main.tsx", content: "import App from './App';", language: "tsx", role: "source" as const },
+      { path: "src/App.tsx", content: 'export default function App(){ return <img src="/assets/mark.svg" alt="Mark" />; }', language: "tsx", role: "source" as const },
+      { path: "public/assets/mark.svg", content: "PHN2Zy8+", encoding: "base64" as const, mediaType: "image/svg+xml", language: "binary", role: "asset" as const },
+    ],
+  };
+  const instrumented = instrumentSandboxFiles(project, "editor-probe");
+  const merged = mergeEditorFiles(project, instrumented);
+  assert.doesNotMatch(merged.files[0].content, /__verve_render_probe/);
+  assert.match(merged.files[1].content, /src="\/assets\/mark\.svg"/);
+  assert.doesNotMatch(merged.files[1].content, /data:image/);
+});
+
+test("editor records preserve the runnable project contract without account state", () => {
+  const project = buildRecoveryProject("Local editor project", "html", "test");
+  const record = createEditorProjectRecord(project, "generation", 1_000, "editor-record");
+  assert.equal(record.id, "editor-record");
+  assert.equal(record.origin, "generation");
+  assert.equal(record.project.files.length, project.files.length);
+  assert.equal(record.project.validation.status, validateGeneratedProject(project).status);
+  assert.deepEqual(record.snapshots, []);
 });
 
 test("optional provider intelligence falls back instead of stopping delivery", async () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import styles from "./GeneratePanel.module.css";
 import { PROVIDER_MODELS, DEFAULT_MODEL, PROVIDER_KEY_LABELS } from "@/lib/llm-adapter/types";
 import type { Provider } from "@/lib/llm-adapter/types";
@@ -23,6 +24,7 @@ import {
 } from "@/lib/engine/pipeline-checkpoint";
 import ResultShareKit from "./ResultShareKit";
 import BrandKitInput from "./BrandKitInput";
+import { launchProjectEditor } from "@/lib/client/editor-workspace";
 import {
   attachOwnedAssets,
   ownedAssetManifest,
@@ -255,6 +257,7 @@ function TelemetryLog({ stages, extras = {} }: { stages: StageState[]; extras?: 
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function GeneratePanel() {
+  const router = useRouter();
   const [brief, setBrief] = useState("");
   const [existingCode, setExistingCode] = useState("");
   const [brandProfile, setBrandProfile] = useState<BrandProfile>({ colors: [] });
@@ -974,6 +977,13 @@ export default function GeneratePanel() {
                 title="View shareable score certificate"
               >
                 ▤ Certificate
+              </button>
+              <button
+                className={styles.editorLaunchBtn}
+                type="button"
+                onClick={() => void launchProjectEditor(result.project, result.demo ? "demo" : "generation").then((href) => router.push(href))}
+              >
+                Open in Editor ↗
               </button>
             </div>
           </div>

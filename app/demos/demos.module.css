@@ -160,6 +160,8 @@
 .signature small { font: 700 10px/1.2 var(--font-body); letter-spacing: 0.1em; text-transform: uppercase; }
 .signature strong { font: 650 22px/1.1 var(--font-display); }
 .signature p { margin: 0; color: #55564f; font: 450 12px/1.65 var(--font-body); }
+.signature button { min-height: 44px; align-self: start; border: 1px solid #141510; background: #141510; color: #eeeade; padding: 0 16px; cursor: pointer; font: 700 10px var(--font-body); letter-spacing: .08em; text-transform: uppercase; }
+.signature button:hover, .signature button:focus-visible { color: #c8d86b; outline: 2px solid #1647ff; outline-offset: 2px; }
 
 .footer {
   display: flex;
