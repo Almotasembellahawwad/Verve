@@ -30,6 +30,7 @@ import {
   type BrandProfile,
   type LocalOwnedAsset,
 } from "@/lib/project/brand-kit";
+import { DEFAULT_GENERATION_MODE, type GenerationMode } from "@/lib/domain/generation-mode";
 
 const PROVIDERS: { id: Provider; label: string; icon: string }[] = [
   { id: "anthropic",  label: "Claude",     icon: "A" },
@@ -62,11 +63,34 @@ const SAMPLE_BRIEFS = [
   { label: "Architecture",      brief: "Architecture practice in London specializing in adaptive reuse — converting industrial buildings into residential and cultural spaces. 40 completed projects." },
 ] as const;
 
+const GENERATION_MODE_OPTIONS: ReadonlyArray<{
+  id: GenerationMode;
+  title: string;
+  badge: string;
+  budget: string;
+  description: string;
+}> = [
+  {
+    id: "fast",
+    title: "Fast",
+    badge: "Recommended",
+    budget: "2 core model calls",
+    description: "Local brief, archetype, and critique. Deterministic validation with resumable checkpoints.",
+  },
+  {
+    id: "studio",
+    title: "Studio",
+    badge: "Deep review",
+    budget: "Variable, bounded calls",
+    description: "Provider critique, one optional plan revision, and one targeted repair when needed.",
+  },
+];
+
 type StageState = "waiting" | "running" | "done" | "flagged";
 
 type PipelineResult = {
   demo?: true;
-  mode: "fast" | "studio";
+  mode: GenerationMode;
   briefAnalysis: {
     subject: string;
     audience: string;
@@ -93,7 +117,7 @@ type PipelineResult = {
     warnings: string[];
   };
   execution?: {
-    requestedMode: "fast" | "studio";
+    requestedMode: GenerationMode;
     effectiveMode: "fast" | "studio" | "studio-degraded";
     provider: Provider;
     requestedModel: string;
@@ -236,7 +260,7 @@ export default function GeneratePanel() {
   const [brandProfile, setBrandProfile] = useState<BrandProfile>({ colors: [] });
   const [ownedAssets, setOwnedAssets] = useState<LocalOwnedAsset[]>([]);
   const [framework, setFramework] = useState<Framework>("nextjs");
-  const [mode, setMode] = useState<"fast" | "studio">("studio");
+  const [mode, setMode] = useState<GenerationMode>(DEFAULT_GENERATION_MODE);
   const [showCode, setShowCode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -331,7 +355,7 @@ export default function GeneratePanel() {
   };
 
   const handleGenerate = async (
-    requestedMode: "fast" | "studio" = mode,
+    requestedMode: GenerationMode = mode,
     resumeCheckpoint?: PipelineCheckpoint
   ) => {
     if (!brief.trim() || brief.length < 10) {
@@ -703,24 +727,38 @@ export default function GeneratePanel() {
         </div>
 
         <div className={styles.optionsRow}>
-          <div className={styles.inputGroup}>
-            <label htmlFor="mode-select" className={styles.label}>
-              Generation mode
-            </label>
-            <select
-              id="mode-select"
-              className={styles.select}
-              value={mode}
-              onChange={(event) => setMode(event.target.value as "fast" | "studio")}
-              disabled={loading}
-            >
-              <option value="fast">Fast · 2 core model calls</option>
-              <option value="studio">Studio · adversarial review</option>
-            </select>
-            <span className={styles.hint}>
-              {mode === "fast" ? "Local brief analysis saves one provider call; plan and code retain fallbacks." : "Deeper critique and one repair pass."}
-            </span>
-          </div>
+          <fieldset className={styles.modeFieldset} disabled={loading}>
+            <legend className={styles.label}>Generation mode</legend>
+            <div className={styles.modeGrid}>
+              {GENERATION_MODE_OPTIONS.map((option) => (
+                <label
+                  key={option.id}
+                  className={`${styles.modeCard} ${mode === option.id ? styles.modeCardActive : ""}`}
+                >
+                  <input
+                    className={styles.modeInput}
+                    type="radio"
+                    name="generation-mode"
+                    value={option.id}
+                    checked={mode === option.id}
+                    onChange={() => setMode(option.id)}
+                    aria-describedby={`generation-mode-${option.id}-description`}
+                  />
+                  <span className={styles.modeCardHead}>
+                    <strong>{option.title}</strong>
+                    <b>{option.badge}</b>
+                  </span>
+                  <span className={styles.modeBudget}>{option.budget}</span>
+                  <small id={`generation-mode-${option.id}-description`}>{option.description}</small>
+                </label>
+              ))}
+            </div>
+            {provider === "openrouter" && mode === "studio" && (
+              <span className={styles.modeNotice} role="status">
+                Free OpenRouter capacity is more reliable in Fast. Studio remains available and may degrade to local review.
+              </span>
+            )}
+          </fieldset>
           <div className={styles.inputGroup}>
             <label htmlFor="framework-select" className={styles.label}>
               Framework
@@ -830,7 +868,7 @@ export default function GeneratePanel() {
           ) : (
             <>
               <span aria-hidden="true">▶</span>
-              Run Verve pipeline
+              Run {mode === "fast" ? "Fast" : "Studio"} pipeline
             </>
           )}
         </button>

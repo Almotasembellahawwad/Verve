@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { getAllCliches, runBlocklistFilter } from "../lib/engine/blocklist-filter";
 import { fixPaletteContrast } from "../lib/engine/contrast-fixer";
 import { extractJSON } from "../lib/engine/llm-utils";
@@ -56,6 +56,8 @@ import { InMemoryRateLimitStore } from "../lib/adapters/rate-limit/in-memory-rat
 import { UpstashRateLimitStore } from "../lib/adapters/rate-limit/upstash-rate-limit-store";
 import { readHealthUseCase } from "../lib/application/read-health-use-case";
 import { StructuredLogProgressPublisher } from "../lib/adapters/observability/structured-log-progress-publisher";
+import { DEFAULT_GENERATION_MODE } from "../lib/domain/generation-mode";
+import { GenerationRequestSchema } from "../lib/api/generation-request";
 
 async function runPipeline(
   input: PipelineInput & {
@@ -184,6 +186,15 @@ test("Fast and Studio behavior is selected by one strategy factory", () => {
   assert.equal(studio.allowsCodeRepair("openrouter"), false);
 });
 
+test("Fast is the shared default for application and API generation requests", () => {
+  assert.equal(DEFAULT_GENERATION_MODE, "fast");
+  const request = GenerationRequestSchema.parse({
+    brief: "A focused product page for an operations team.",
+    apiKey: "test-key",
+  });
+  assert.equal(request.mode, DEFAULT_GENERATION_MODE);
+});
+
 test("circuit breaker opens, fails fast, and recovers through half-open", async () => {
   let now = 0;
   let attempts = 0;
@@ -237,7 +248,8 @@ test("hexagonal dependency boundaries are mechanically enforced", () => {
   }
   const concreteConstruction = sourceFiles(join(projectRoot, "lib"))
     .filter((file) => /new\s+(?:ClaudeAdapter|OpenAIAdapter|GeminiAdapter|OpenRouterAdapter)\b/.test(readFileSync(file, "utf8")));
-  assert.deepEqual(concreteConstruction.map((file) => file.replace(projectRoot, "")), [join("\\lib", "adapters", "llm", "factory.ts")]);
+  const portablePaths = concreteConstruction.map((file) => relative(projectRoot, file).replaceAll("\\", "/"));
+  assert.deepEqual(portablePaths, ["lib/adapters/llm/factory.ts"]);
 });
 
 test("rate-limit store enforces windows and concurrent leases", async () => {

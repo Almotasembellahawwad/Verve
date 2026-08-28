@@ -160,6 +160,103 @@
   flex-wrap: wrap;
 }
 
+.modeFieldset {
+  flex: 1 1 520px;
+  min-width: min(100%, 420px);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.modeFieldset > .label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.modeGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.modeCard {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-raised);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+
+.modeCard:hover {
+  border-color: var(--text-muted);
+  color: var(--text-secondary);
+}
+
+.modeCardActive {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 7%, var(--bg-raised));
+  color: var(--text-primary);
+}
+
+.modeCard:has(.modeInput:focus-visible) {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.modeCard:has(.modeInput:disabled) {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.modeInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.modeCardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.modeCardHead strong {
+  color: inherit;
+  font: 650 14px/1.2 var(--font-display);
+}
+
+.modeCardHead b {
+  color: var(--brand);
+  font: 650 10px/1 var(--font-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.modeBudget {
+  color: var(--text-secondary);
+  font: 600 11px/1.3 var(--font-body);
+}
+
+.modeCard small {
+  font: 400 11px/1.45 var(--font-body);
+}
+
+.modeNotice {
+  display: block;
+  margin-top: 7px;
+  color: var(--status-warning);
+  font: 500 11px/1.45 var(--font-body);
+}
+
 .select {
   background: var(--bg-raised);
   border: 1px solid var(--border-subtle);
@@ -1462,8 +1559,16 @@
   /* Options row stacks */
   .optionsRow {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 10px;
+  }
+
+  .modeFieldset {
+    min-width: 100%;
+  }
+
+  .modeGrid {
+    grid-template-columns: 1fr;
   }
 
   /* Score banner stacks */

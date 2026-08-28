@@ -68,10 +68,10 @@ Distinctiveness is not allowed to hide broken behavior. A high visual score and 
 
 | Mode | Model calls | Best for | Behavior |
 |---|---:|---|---|
-| **Fast** | 2 core calls, plus gateway/schema fallback | OpenRouter free models, exploration, rapid drafts | Local brief analysis, local archetype/preflight, provider design plan and code, deterministic validation |
+| **Fast (default)** | 2 core calls, plus gateway/schema fallback | OpenRouter free models, exploration, rapid drafts | Local brief analysis, local archetype/preflight, provider design plan and code, deterministic validation |
 | **Studio** | Variable, bounded | Production candidates and complex briefs | LLM archetype, adversarial critique, one optional plan revision, code generation, optional targeted repair |
 
-Both modes return the same `GeneratedProject` schema, so the workbench, history, preview, API, and ZIP exporter do not need mode-specific output handling.
+Both modes return the same `GeneratedProject` schema, so the workbench, history, preview, API, and ZIP exporter do not need mode-specific output handling. Omitting `mode` selects Fast; choose Studio explicitly when the extra provider scrutiny and repair budget are worth the latency and cost.
 
 ## Supported project stacks
 

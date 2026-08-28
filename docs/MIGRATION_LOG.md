@@ -101,6 +101,25 @@ npm test            PASS — tests 53, pass 53, fail 0
 npm audit --omit=dev PASS — found 0 vulnerabilities
 ```
 
+## Post-pass increment — Fast-first execution
+
+- Made Fast the single shared default across the domain contract, API schema, application use case, and workbench instead of maintaining three independent Studio defaults (`lib/domain/generation-mode.ts:1-6`, `lib/api/generation-request.ts:30`, `lib/application/run-generation-use-case.ts:136`, `components/GeneratePanel.tsx:263`).
+- Replaced the low-visibility mode select with native radio cards that state call budget, review depth, and the OpenRouter free-capacity tradeoff while preserving keyboard semantics (`components/GeneratePanel.tsx:66-87`, `components/GeneratePanel.tsx:730-765`).
+- Fixed the Ubuntu CI failure by normalizing the architecture test's concrete-adapter path before comparison; Windows and Linux now assert the same repository-relative path (`tests/engine.test.ts:248-252`).
+- Prevented pre-hydration Brand Kit input loss by keeping its controlled inputs disabled until React has attached handlers (`components/BrandKitInput.tsx:26-35`, `tests/e2e/smoke.spec.ts:45-63`).
+
+Pattern/principle: **Single Source of Truth + Progressive Enhancement** — one domain value controls default execution policy, while interactive browser controls do not claim readiness before hydration.
+
+Verification gate:
+
+```text
+npm run build       PASS — Next.js 16.3.1 compiled and generated 22 routes
+npm run lint        PASS — no diagnostics
+npm run typecheck   PASS — tsc --noEmit
+npm test            PASS — tests 54, pass 54, fail 0
+npx playwright test PASS — tests 20, pass 20, fail 0 (desktop + mobile Chrome)
+```
+
 ## What a senior engineer would still flag
 
 - Most pure scoring, archetype, contrast, and generation services still live under the legacy `lib/engine` area. Dependency tests prevent infrastructure from leaking inward, but deeper migration into `lib/domain` remains deliberately incremental to avoid mixing file movement with behavior changes (`docs/ARCHITECTURE.md:21-31`, `tests/engine.test.ts:225-240`).

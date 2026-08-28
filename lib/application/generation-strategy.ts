@@ -6,8 +6,9 @@ import { runSelfCritique, type CritiqueResult } from "../engine/critique-loop";
 import type { DesignPlan, PlanGenerationOptions } from "../engine/plan-generator";
 import { runOptionalProviderStep, type OptionalProviderResult } from "../engine/provider-resilience";
 import type { CritiqueEvidenceSource } from "../engine/execution-evidence";
+import type { GenerationMode } from "../domain/generation-mode";
 
-export type GenerationMode = "fast" | "studio";
+export type { GenerationMode } from "../domain/generation-mode";
 
 export type BriefStrategyResult = OptionalProviderResult<BriefAnalysis> & {
   source: "local-fast-path" | "provider" | "local-fallback";

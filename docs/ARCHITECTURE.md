@@ -85,6 +85,8 @@ The blocklist rule itself is dependency-free (`lib/domain/blocklist.ts:29`). Sto
 
 `LLMPort.complete()` contains only provider-neutral messages and options. Provider SDK request/response types do not cross `lib/adapters/llm`. `createAdapter()` wraps each request-scoped provider with a failure-window circuit breaker. Fast/Studio policy never branches on concrete provider except one explicit cost/reliability capability: Studio repair is disabled for OpenRouter's free routed capacity.
 
+Fast is the shared default, defined once as a dependency-free domain value and consumed by the request schema, application use case, and client workbench (`lib/domain/generation-mode.ts:1-6`, `lib/api/generation-request.ts:30`, `lib/application/run-generation-use-case.ts:136`, `components/GeneratePanel.tsx:263`). Studio remains an explicit opt-in and both modes return the same project/evidence contract.
+
 Optional analysis, planning, and critique fail open to deterministic fallbacks. Required code generation fails to a visible recovery project. The stream has a 240-second application deadline, ten-second heartbeats, client cancellation, stage errors, and checkpoint recovery.
 
 ## Asset boundary

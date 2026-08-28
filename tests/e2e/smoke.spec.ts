@@ -47,8 +47,12 @@ test("the brand kit accepts owned media without uploading it during form setup",
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   await page.getByText("Brand kit + owned media", { exact: true }).click();
-  await page.getByLabel("Brand name").fill("Verve Test Identity");
-  await page.locator('input[type="file"]').setInputFiles({
+  const brandName = page.getByLabel("Brand name");
+  const fileInput = page.locator('input[type="file"]');
+  await expect(brandName).toBeEnabled();
+  await expect(fileInput).toBeEnabled();
+  await brandName.fill("Verve Test Identity");
+  await fileInput.setInputFiles({
     name: "test-mark.svg",
     mimeType: "image/svg+xml",
     buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" fill="#14213d"/></svg>'),
@@ -57,6 +61,20 @@ test("the brand kit accepts owned media without uploading it during form setup",
   await expect(page.getByText("1/4 local assets")).toBeVisible();
   await expect(page.getByText("test-mark.svg", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Alt / model direction")).toHaveValue("test mark");
+});
+
+test("Fast is the explicit default and Studio remains one decision away", async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem("verve_onboarding_seen_v2", "1"));
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const fast = page.getByRole("radio", { name: /Fast/ });
+  const studio = page.getByRole("radio", { name: /Studio/ });
+  await expect(fast).toBeChecked();
+  await expect(page.getByRole("button", { name: "Run Fast pipeline" })).toBeVisible();
+
+  await studio.check();
+  await expect(studio).toBeChecked();
+  await expect(page.getByRole("button", { name: "Run Studio pipeline" })).toBeVisible();
 });
 
 test("Verve public surfaces obey their own readable-type floor", async ({ page }) => {

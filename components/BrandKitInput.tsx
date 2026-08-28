@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   MAX_OWNED_ASSETS,
   readOwnedAsset,
@@ -26,6 +26,12 @@ export default function BrandKitInput({ profile, assets, disabled, onProfileChan
   const inputRef = useRef<HTMLInputElement>(null);
   const [assetError, setAssetError] = useState<string | null>(null);
   const [colorDraft, setColorDraft] = useState(profile.colors.join(", "));
+  const [hydrated, setHydrated] = useState(false);
+  const controlsDisabled = Boolean(disabled) || !hydrated;
+
+  useEffect(() => {
+    setHydrated(true); // eslint-disable-line react-hooks/set-state-in-effect -- prevents pre-hydration input loss
+  }, []);
 
   const addFiles = async (files: FileList | null) => {
     if (!files?.length) return;
@@ -60,15 +66,15 @@ export default function BrandKitInput({ profile, assets, disabled, onProfileChan
         <div className={styles.identityGrid}>
           <label>
             <span>Brand name</span>
-            <input value={profile.name ?? ""} onChange={(event) => onProfileChange({ ...profile, name: event.target.value })} disabled={disabled} maxLength={120} placeholder="Existing name, if any" />
+            <input value={profile.name ?? ""} onChange={(event) => onProfileChange({ ...profile, name: event.target.value })} disabled={controlsDisabled} maxLength={120} placeholder="Existing name, if any" />
           </label>
           <label>
             <span>Approved colors</span>
-            <input value={colorDraft} onChange={(event) => { setColorDraft(event.target.value); onProfileChange({ ...profile, colors: parseColors(event.target.value) }); }} disabled={disabled} placeholder="#14213D, #FCA311" />
+            <input value={colorDraft} onChange={(event) => { setColorDraft(event.target.value); onProfileChange({ ...profile, colors: parseColors(event.target.value) }); }} disabled={controlsDisabled} placeholder="#14213D, #FCA311" />
           </label>
           <label className={styles.notes}>
             <span>Identity constraints</span>
-            <textarea value={profile.notes ?? ""} onChange={(event) => onProfileChange({ ...profile, notes: event.target.value })} disabled={disabled} maxLength={1200} rows={3} placeholder="Keep the existing mark. Avoid luxury gold. Photography should feel documentary, not staged." />
+            <textarea value={profile.notes ?? ""} onChange={(event) => onProfileChange({ ...profile, notes: event.target.value })} disabled={controlsDisabled} maxLength={1200} rows={3} placeholder="Keep the existing mark. Avoid luxury gold. Photography should feel documentary, not staged." />
           </label>
         </div>
 
@@ -77,8 +83,8 @@ export default function BrandKitInput({ profile, assets, disabled, onProfileChan
             <strong>Owned project assets</strong>
             <p>PNG, JPG, WebP, or SVG · max 1.5 MB each · embedded in preview and ZIP, never sent as binary to the model.</p>
           </div>
-          <button type="button" onClick={() => inputRef.current?.click()} disabled={disabled || assets.length >= MAX_OWNED_ASSETS}>Add images</button>
-          <input ref={inputRef} className={styles.fileInput} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" multiple onChange={(event) => void addFiles(event.target.files)} disabled={disabled} />
+          <button type="button" onClick={() => inputRef.current?.click()} disabled={controlsDisabled || assets.length >= MAX_OWNED_ASSETS}>Add images</button>
+          <input ref={inputRef} className={styles.fileInput} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" multiple onChange={(event) => void addFiles(event.target.files)} disabled={controlsDisabled} />
         </div>
 
         {assetError && <p className={styles.error} role="alert">{assetError}</p>}
@@ -91,10 +97,10 @@ export default function BrandKitInput({ profile, assets, disabled, onProfileChan
                 <img src={`data:${asset.mediaType};base64,${asset.content}`} alt="" />
                 <div>
                   <strong>{asset.path.replace("assets/", "")}</strong>
-                  <label><span>Role</span><select value={asset.kind} onChange={(event) => updateAsset(asset.path, { kind: event.target.value as OwnedAssetKind })} disabled={disabled}><option value="image">Photography</option><option value="logo">Logo / mark</option></select></label>
-                  <label><span>Alt / model direction</span><input value={asset.alt} onChange={(event) => updateAsset(asset.path, { alt: event.target.value.slice(0, 180) })} disabled={disabled} /></label>
+                  <label><span>Role</span><select value={asset.kind} onChange={(event) => updateAsset(asset.path, { kind: event.target.value as OwnedAssetKind })} disabled={controlsDisabled}><option value="image">Photography</option><option value="logo">Logo / mark</option></select></label>
+                  <label><span>Alt / model direction</span><input value={asset.alt} onChange={(event) => updateAsset(asset.path, { alt: event.target.value.slice(0, 180) })} disabled={controlsDisabled} /></label>
                 </div>
-                <button type="button" onClick={() => onAssetsChange(assets.filter((item) => item.path !== asset.path))} disabled={disabled} aria-label={`Remove ${asset.path}`}>×</button>
+                <button type="button" onClick={() => onAssetsChange(assets.filter((item) => item.path !== asset.path))} disabled={controlsDisabled} aria-label={`Remove ${asset.path}`}>×</button>
               </article>
             ))}
           </div>

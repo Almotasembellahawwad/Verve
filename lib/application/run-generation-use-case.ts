@@ -47,6 +47,7 @@ import {
   type PipelineCheckpoint,
 } from "../engine/pipeline-checkpoint";
 import { createGenerationStrategy, type GenerationMode } from "./generation-strategy";
+import { DEFAULT_GENERATION_MODE } from "../domain/generation-mode";
 import type { LLMPort, Provider } from "../ports/llm";
 import type { AssetSourcePort } from "../ports/assets";
 import type { BlocklistRepositoryPort, ReferenceLibraryRepositoryPort } from "../ports/repositories";
@@ -132,7 +133,7 @@ export async function runGenerationUseCase(
     brandProfile,
     ownedAssets = [],
     signal,
-    mode          = "studio",
+    mode          = DEFAULT_GENERATION_MODE,
     checkpoint,
   } = input;
   const revisionLimit = Math.min(MAX_REVISION_CYCLES, Math.max(0, maxRevisions));

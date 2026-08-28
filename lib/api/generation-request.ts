@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PipelineCheckpointSchema } from "@/lib/engine/pipeline-checkpoint";
+import { DEFAULT_GENERATION_MODE, GENERATION_MODES } from "@/lib/domain/generation-mode";
 
 const OwnedAssetSchema = z.object({
   path: z.string().regex(/^(?:public\/)?assets\/[a-z0-9][a-z0-9_-]{0,47}\.(?:jpg|png|webp|svg)$/),
@@ -26,7 +27,7 @@ export const GenerationRequestSchema = z.object({
   pexelsKey: z.string().max(500).optional(),
   brandProfile: BrandProfileSchema.optional(),
   ownedAssets: z.array(OwnedAssetSchema).max(4).optional().default([]),
-  mode: z.enum(["fast", "studio"]).optional().default("studio"),
+  mode: z.enum(GENERATION_MODES).optional().default(DEFAULT_GENERATION_MODE),
   checkpoint: PipelineCheckpointSchema.optional(),
 });
 
