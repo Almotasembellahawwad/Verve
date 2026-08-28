@@ -18,7 +18,7 @@ const PatchSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const rateLimited = checkRateLimit(req, ROUTE_LIMITS.patch!);
+  const rateLimited = await checkRateLimit(req, ROUTE_LIMITS.patch!);
   if (rateLimited) return rateLimited;
   const requestId = uuidv4();
   const parsed = PatchSchema.safeParse(await req.json().catch(() => null));
@@ -26,7 +26,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "INVALID_REQUEST", requestId }, { status: 400 });
   }
 
-  const release = acquireConcurrentSlot(req, ROUTE_LIMITS.patch!);
+  const slot = await acquireConcurrentSlot(req, ROUTE_LIMITS.patch!);
+  if (typeof slot !== "function") return slot;
+  const release = slot;
   const { provider, apiKey, model, ...input } = parsed.data;
   try {
     const code = await runPatchUseCase(createAdapter(provider, apiKey, model), input);
@@ -34,6 +36,6 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     return errorResponse(error, "GENERATION_FAILED", 500, requestId);
   } finally {
-    release();
+    await release();
   }
 }

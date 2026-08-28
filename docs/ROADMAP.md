@@ -4,7 +4,7 @@ This document tracks shipped foundations and the next evidence-driven product wo
 
 ## Phase 1 — MVP foundation (shipped)
 
-- [x] Nine observable pipeline stages (`/lib/engine/pipeline.ts`)
+- [x] Nine observable pipeline stages (`lib/application/run-generation-use-case.ts`)
 - [x] Cliché blocklist engine (`data/cliches.json`, 21 families / 67 signals)
 - [x] Reference library RAG context (`data/reference-library.json`, 30 entries)
 - [x] Adversarial self-critique loop with one bounded revision
@@ -60,7 +60,8 @@ This document tracks shipped foundations and the next evidence-driven product wo
 
 - [ ] **Community submission UI** — Web form to submit cliché patterns without opening a PR. Currently: server logs + manual PR. Target: form → admin queue → auto-PR creation via GitHub API.
 - [ ] **Optional encrypted sync** — only as an explicit opt-in; local browser storage remains the default.
-- [ ] **Public API with rate limiting** — Generous anonymous tier, API key for heavy use. Implement with Upstash for Redis-backed rate limiting.
+- [x] **Distributed anonymous API admission control** — Upstash-backed sliding windows and concurrent leases, with a local-only in-memory fallback.
+- [ ] **Authenticated heavy-use API tiers** — Application API keys, account quotas, and usage reporting remain separate product/security work.
 - [ ] **Distinctiveness scoring v2** — Calibrate scores against real usage data while keeping project readiness a separate axis.
 - [x] **CI** — GitHub Actions: typecheck, lint, engine tests, production build, and Playwright on PRs and `main`.
 - [ ] **Deploy previews** — Keep Vercel preview deployments attached to pull requests and expose their status in GitHub.

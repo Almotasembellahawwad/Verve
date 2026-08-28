@@ -1,178 +1,90 @@
-// =========================================================
-// lib/middleware/rate-limit.ts
-// Sliding-window in-memory rate limiter
-//
-// IMPORTANT: This is an in-memory implementation.
-// In a multi-instance / serverless deploy (Vercel Edge), each instance
-// has its own memory — rate limits are per-instance, not global.
-// For true global rate limiting, swap the Map for a Redis/KV store.
-//
-// Two tiers of protection:
-//   1. Per-IP request rate (sliding window)
-//   2. Per-IP concurrent in-flight request cap
-// =========================================================
-
+import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-
-interface WindowEntry {
-  timestamps: number[];
-  inFlight:   number;
-}
-
-// Separate stores per route to allow different limits
-const stores: Record<string, Map<string, WindowEntry>> = {};
-let lastPruneAt = 0;
-
-function getStore(route: string): Map<string, WindowEntry> {
-  if (!stores[route]) stores[route] = new Map();
-  return stores[route];
-}
-
-// Prune opportunistically. A module-level timer is easy to duplicate during
-// development hot reloads and can keep short-lived server processes alive.
-function pruneStores(now: number): void {
-  if (now - lastPruneAt < 5 * 60_000) return;
-  lastPruneAt = now;
-
-  for (const store of Object.values(stores)) {
-    for (const [ip, entry] of store) {
-      // Remove IPs with no recent requests and no in-flight calls
-      entry.timestamps = entry.timestamps.filter((t) => now - t < 60_000);
-      if (entry.timestamps.length === 0 && entry.inFlight === 0) store.delete(ip);
-    }
-  }
-}
+import type { RateLimitStorePort } from "../ports/rate-limit";
+import { InMemoryRateLimitStore } from "../adapters/rate-limit/in-memory-rate-limit-store";
+import { UpstashRateLimitStore } from "../adapters/rate-limit/upstash-rate-limit-store";
 
 export interface RateLimitConfig {
-  /** Max requests per windowMs */
-  maxRequests:    number;
-  /** Window duration in ms */
-  windowMs:       number;
-  /** Max concurrent in-flight requests per IP */
-  maxConcurrent:  number;
-  /** Route identifier for separate stores */
-  routeKey:       string;
+  maxRequests: number;
+  windowMs: number;
+  maxConcurrent: number;
+  routeKey: string;
+  concurrencyTtlMs?: number;
 }
 
-/**
- * Check rate limit for a request. Returns a 429 Response if exceeded,
- * or null if the request is allowed.
- *
- * Usage:
- *   const limited = checkRateLimit(req, config);
- *   if (limited) return limited;
- */
-export function checkRateLimit(req: NextRequest, config: RateLimitConfig): NextResponse | null {
-  const { maxRequests, windowMs, maxConcurrent, routeKey } = config;
-  const store = getStore(routeKey);
-  const ip    = getIP(req);
-  const now   = Date.now();
-  pruneStores(now);
+const localDevelopmentStore = new InMemoryRateLimitStore();
 
-  const entry = store.get(ip) ?? { timestamps: [], inFlight: 0 };
+export function rateLimitBackendStatus(): { configured: boolean; backend: "upstash" | "memory"; productionSafe: boolean } {
+  const configured = Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+  return { configured, backend: configured ? "upstash" : "memory", productionSafe: configured };
+}
 
-  // Slide the window
-  entry.timestamps = entry.timestamps.filter((t) => now - t < windowMs);
-
-  if (entry.timestamps.length >= maxRequests) {
-    store.set(ip, entry);
-    return NextResponse.json(
-      {
-        error:     "RATE_LIMITED",
-        message:   "Too many requests. Please wait before trying again.",
-        retryAfterMs: windowMs - (now - (entry.timestamps[0] ?? now)),
-      },
-      {
-        status: 429,
-        headers: { "Retry-After": String(Math.ceil(windowMs / 1000)) },
-      }
-    );
-  }
-
-  if (entry.inFlight >= maxConcurrent) {
-    store.set(ip, entry);
-    return NextResponse.json(
-      {
-        error:   "CONCURRENT_LIMIT",
-        message: "Another generation is already in progress. Please wait.",
-      },
-      { status: 429 }
-    );
-  }
-
-  // Allow — record this request
-  entry.timestamps.push(now);
-  store.set(ip, entry);
+function store(): RateLimitStorePort | null {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (url && token) return new UpstashRateLimitStore(url, token);
+  if (!process.env.VERCEL_ENV) return localDevelopmentStore;
   return null;
 }
 
-/**
- * Mark an in-flight request as started. Returns a cleanup function
- * that MUST be called when the request finishes (success or error).
- *
- * Usage:
- *   const release = acquireConcurrentSlot(req, config);
- *   try { ... } finally { release(); }
- */
-export function acquireConcurrentSlot(req: NextRequest, config: RateLimitConfig): () => void {
-  const store = getStore(config.routeKey);
-  const ip    = getIP(req);
-  const entry = store.get(ip) ?? { timestamps: [], inFlight: 0 };
-  entry.inFlight++;
-  store.set(ip, entry);
-
-  return () => {
-    const e = store.get(ip);
-    if (e) {
-      e.inFlight = Math.max(0, e.inFlight - 1);
-    }
-  };
+function clientKey(req: NextRequest, routeKey: string, kind: "rate" | "concurrent"): string {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    ?? req.headers.get("x-real-ip")
+    ?? "unknown";
+  const digest = createHash("sha256").update(ip).digest("hex").slice(0, 24);
+  return `verve:${kind}:${routeKey}:${digest}`;
 }
 
-function getIP(req: NextRequest): string {
-  return (
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    req.headers.get("x-real-ip") ??
-    "unknown"
+function unavailable(): NextResponse {
+  return NextResponse.json(
+    { error: "RATE_LIMIT_UNAVAILABLE", message: "Admission control is temporarily unavailable." },
+    { status: 503, headers: { "Retry-After": "30" } }
   );
 }
 
-// Pre-configured limits for each route
+export async function checkRateLimit(req: NextRequest, config: RateLimitConfig): Promise<NextResponse | null> {
+  const backend = store();
+  if (!backend) return unavailable();
+  try {
+    const decision = await backend.consume(clientKey(req, config.routeKey, "rate"), config.maxRequests, config.windowMs);
+    if (decision.allowed) return null;
+    return NextResponse.json(
+      { error: "RATE_LIMITED", message: "Too many requests. Please wait before trying again.", retryAfterMs: decision.retryAfterMs },
+      { status: 429, headers: { "Retry-After": String(Math.max(1, Math.ceil(decision.retryAfterMs / 1000))) } }
+    );
+  } catch {
+    return unavailable();
+  }
+}
+
+export async function acquireConcurrentSlot(
+  req: NextRequest,
+  config: RateLimitConfig
+): Promise<NextResponse | (() => Promise<void>)> {
+  const backend = store();
+  if (!backend) return unavailable();
+  const key = clientKey(req, config.routeKey, "concurrent");
+  try {
+    const decision = await backend.acquire(key, config.maxConcurrent, config.concurrencyTtlMs ?? 330_000);
+    if (!decision.acquired) {
+      return NextResponse.json(
+        { error: "CONCURRENT_LIMIT", message: "Another request is already in progress. Please wait." },
+        { status: 429, headers: { "Retry-After": "10" } }
+      );
+    }
+    return async () => {
+      try { await backend.release(key, decision.slotId); } catch { /* slot TTL is the final safety net */ }
+    };
+  } catch {
+    return unavailable();
+  }
+}
+
 export const ROUTE_LIMITS: Record<string, RateLimitConfig> = {
-  "generate-stream": {
-    routeKey:      "generate-stream",
-    maxRequests:   5,          // 5 generations per minute per IP
-    windowMs:      60_000,
-    maxConcurrent: 2,          // max 2 simultaneous generations per IP
-  },
-  "generate": {
-    routeKey:      "generate",
-    maxRequests:   5,
-    windowMs:      60_000,
-    maxConcurrent: 2,
-  },
-  "compare": {
-    routeKey:      "compare",
-    maxRequests:   3,          // Runs pipeline twice — stricter
-    windowMs:      60_000,
-    maxConcurrent: 1,
-  },
-  "patch": {
-    routeKey:      "patch",
-    maxRequests:   20,         // Patch is cheap — more lenient
-    windowMs:      60_000,
-    maxConcurrent: 3,
-  },
-  "critique": {
-    routeKey:      "critique",
-    maxRequests:   10,
-    windowMs:      60_000,
-    maxConcurrent: 2,
-  },
-  "cliches-suggest": {
-    routeKey:      "cliches-suggest",
-    maxRequests:   15,
-    windowMs:      60_000,
-    maxConcurrent: 3,
-  },
+  "generate-stream": { routeKey: "generate-stream", maxRequests: 5, windowMs: 60_000, maxConcurrent: 2 },
+  generate: { routeKey: "generate", maxRequests: 5, windowMs: 60_000, maxConcurrent: 2 },
+  compare: { routeKey: "compare", maxRequests: 3, windowMs: 60_000, maxConcurrent: 1 },
+  patch: { routeKey: "patch", maxRequests: 20, windowMs: 60_000, maxConcurrent: 3 },
+  critique: { routeKey: "critique", maxRequests: 10, windowMs: 60_000, maxConcurrent: 2 },
+  "cliches-suggest": { routeKey: "cliches-suggest", maxRequests: 15, windowMs: 60_000, maxConcurrent: 3 },
 };

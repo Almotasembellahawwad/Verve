@@ -3,6 +3,10 @@ import { v4 as uuidv4 } from "uuid";
 import { runGenerationUseCase } from "@/lib/application/run-generation-use-case";
 import { createGenerationDependencies } from "@/lib/adapters/composition-root";
 import { CallbackProgressPublisher } from "@/lib/adapters/progress/callback-progress-publisher";
+import {
+  CompositeProgressPublisher,
+  StructuredLogProgressPublisher,
+} from "@/lib/adapters/observability/structured-log-progress-publisher";
 import { checkRateLimit, acquireConcurrentSlot, ROUTE_LIMITS } from "@/lib/middleware/rate-limit";
 import { classifyError, logSanitizedError } from "@/lib/middleware/error-handler";
 import { serializePipelineResult } from "@/lib/api/pipeline-response";
@@ -12,7 +16,7 @@ import { GenerationRequestSchema } from "@/lib/api/generation-request";
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
-  const rateLimited = checkRateLimit(req, ROUTE_LIMITS["generate-stream"]!);
+  const rateLimited = await checkRateLimit(req, ROUTE_LIMITS["generate-stream"]!);
   if (rateLimited) return rateLimited;
 
   const requestId = uuidv4();
@@ -35,7 +39,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const release = acquireConcurrentSlot(req, ROUTE_LIMITS["generate-stream"]!);
+  const slot = await acquireConcurrentSlot(req, ROUTE_LIMITS["generate-stream"]!);
+  if (typeof slot !== "function") return slot;
+  const release = slot;
   const encoder = new TextEncoder();
   let eventSeq = 0;
   const streamAbort = new AbortController();
@@ -75,7 +81,7 @@ export async function POST(req: NextRequest) {
       send("connected", { requestId, mode: parsed.data.mode });
 
       try {
-        const progress = new CallbackProgressPublisher(({ event, data, stageId }) => {
+        const streamProgress = new CallbackProgressPublisher(({ event, data, stageId }) => {
             if (event === "stage_start" && typeof data.id === "string") {
               currentStage = data.id;
               stageStartedAt = Date.now();
@@ -85,6 +91,10 @@ export async function POST(req: NextRequest) {
             }
             send(event, data, stageId);
         });
+        const progress = new CompositeProgressPublisher([
+          streamProgress,
+          new StructuredLogProgressPublisher(requestId),
+        ]);
         const { apiKey, provider, pexelsKey, ...input } = parsed.data;
         const dependencies = createGenerationDependencies({
           provider,
@@ -122,7 +132,7 @@ export async function POST(req: NextRequest) {
       } finally {
         clearInterval(heartbeat);
         clearTimeout(overallTimer);
-        release();
+        await release();
         try {
           controller.close();
         } catch {

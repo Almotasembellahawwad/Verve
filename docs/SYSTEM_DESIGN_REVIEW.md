@@ -2,6 +2,8 @@
 
 This review records the observed implementation before the architecture retrofit. It is evidence-led and intentionally distinguishes current behavior from the target architecture.
 
+> This is the discovery snapshot captured before the engineering migration. It is intentionally preserved as the as-is baseline; see `docs/ARCHITECTURE.md` and `docs/MIGRATION_LOG.md` for the enforced post-refactor structure and disposition of these findings.
+
 ## Discovery baseline
 
 The repository was inspected on 2026-08-28 at `df2f681` with pre-existing, uncommitted product-readiness work in the working tree. Those changes were preserved. The required baseline commands produced these terminal results:
@@ -165,4 +167,3 @@ Evidence: the parallel stage is explicit at `lib/engine/pipeline.ts:197-205`; pl
 - Static JSON imports tie domain decisions to one persistence mechanism (`lib/engine/blocklist-filter.ts:1`, `lib/engine/plan-generator.ts:5`).
 - Provider construction is duplicated across route composition roots and inside the pipeline (`app/api/compare/route.ts:81-92`, `lib/engine/pipeline.ts:158-163`). The factory is correct, but ownership is not yet consistently at the outer boundary.
 - SSE transport itself is correctly outside business stages, but the streaming route owns timeout, heartbeat, checkpoint capture, recovery assembly, and event formatting in one controller (`app/api/generate/stream/route.ts:42-122`).
-

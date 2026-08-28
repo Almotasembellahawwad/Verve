@@ -18,11 +18,13 @@ const RequestSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const rateLimited = checkRateLimit(req, ROUTE_LIMITS["critique"]!);
+  const rateLimited = await checkRateLimit(req, ROUTE_LIMITS["critique"]!);
   if (rateLimited) return rateLimited;
 
   const requestId = uuidv4();
-  const release   = acquireConcurrentSlot(req, ROUTE_LIMITS["critique"]!);
+  const slot = await acquireConcurrentSlot(req, ROUTE_LIMITS["critique"]!);
+  if (typeof slot !== "function") return slot;
+  const release = slot;
 
   try {
     const body   = await req.json();
@@ -44,6 +46,6 @@ export async function POST(req: NextRequest) {
     const { code, status } = classifyError(err);
     return errorResponse(err, code, status, requestId);
   } finally {
-    release();
+    await release();
   }
 }

@@ -14,7 +14,7 @@ const SuggestionSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const rateLimited = checkRateLimit(req, ROUTE_LIMITS["cliches-suggest"]!);
+  const rateLimited = await checkRateLimit(req, ROUTE_LIMITS["cliches-suggest"]!);
   if (rateLimited) return rateLimited;
   const requestId = uuidv4();
   const parsed = SuggestionSchema.safeParse(await req.json().catch(() => null));

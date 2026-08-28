@@ -18,7 +18,7 @@ const RequestSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const rateLimited = checkRateLimit(req, ROUTE_LIMITS.compare!);
+  const rateLimited = await checkRateLimit(req, ROUTE_LIMITS.compare!);
   if (rateLimited) return rateLimited;
   const requestId = uuidv4();
   const parsed = RequestSchema.safeParse(await req.json().catch(() => null));
@@ -26,7 +26,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "INVALID_REQUEST", requestId, details: parsed.error.issues }, { status: 400 });
   }
 
-  const release = acquireConcurrentSlot(req, ROUTE_LIMITS.compare!);
+  const slot = await acquireConcurrentSlot(req, ROUTE_LIMITS.compare!);
+  if (typeof slot !== "function") return slot;
+  const release = slot;
   const { apiKey, ...input } = parsed.data;
   try {
     const result = await runComparisonUseCase(input, {
@@ -38,6 +40,6 @@ export async function POST(req: NextRequest) {
     const { code, status } = classifyError(error);
     return errorResponse(error, code, status, requestId);
   } finally {
-    release();
+    await release();
   }
 }

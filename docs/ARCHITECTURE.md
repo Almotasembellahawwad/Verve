@@ -1,125 +1,125 @@
-# Verve Architecture
+# Verve architecture
 
-## Overview
+## System boundary
 
-Verve is a Next.js 16 App Router application that turns spoken or written briefs into distinctive, validated, multi-file web projects. Fast and Studio execution paths converge on one `GeneratedProject` contract.
+Verve is a Next.js 16 App Router application that turns a written or spoken brief into a validated multi-file web project. The browser owns BYOK credentials, optional owned-media bytes, preview state, editing, history, and ZIP download. The server owns bounded generation orchestration, deterministic quality rules, external provider calls, asset discovery, admission control, and response/SSE transport.
 
-The user-facing mental model has four macro phases: **Understand → Direct → Build → Prove**. The numbered internal modules below are deterministic or bounded checks inside those phases, not nine independent LLM agents. Fast mode still requires only two core generative calls.
+Fast and Studio converge on one `PipelineResult` and `GeneratedProject` contract. Project readiness, distinctiveness, execution provenance, and actual asset use remain separate evidence axes.
 
-## Pipeline Architecture
+## Enforced dependency direction
 
-Engine functions receive a request-scoped LLM adapter explicitly. Deterministic stages remain pure; generative stages make bounded provider calls.
-
-```
-lib/engine/
-├── brief-analyzer.ts           01 — structured brief analysis
-├── asset-sourcer.ts            02 — photos, icons, font, and image palette
-├── media-requirement.ts        02 — brief-specific media policy and readiness gate
-├── blocklist-filter.ts         02 — 21-family cliché scan
-├── competitive-field.ts       02 — industry pattern constraints
-├── brand-archetype-resolver.ts 02.5 — brand archetype
-├── animation-language.ts      02.6 — motion tokens
-├── plan-generator.ts           03 — design thesis and tokens
-├── critique-loop.ts            03 — adversarial revision loop
-├── contrast-fixer.ts           04 — deterministic contrast correction
-├── code-generator.ts           05 — component generation
-├── code-quality-loop.ts        05.5 — TypeScript syntax check and repair
-├── scorer.ts                   06 — final-code distinctiveness score
-├── engineering-score.ts        06 — engineering score
-├── design-diversity.ts         06 — recurring Verve-template fingerprint gate
-├── fast-path.ts                 local archetype and deterministic preflight
-└── pipeline.ts                 request-scoped orchestration
-
-lib/project/
-├── types.ts                    07 — public GeneratedProject contract
-├── project-builder.ts          07 — Next.js, React/Vite, and HTML assembly
-├── project-validator.ts        07 — multi-file production contract
-├── editor-project.ts           workbench edits merged before validation/export
-└── brand-kit.ts                owned-media manifest, preview hydration, and binary export
+```text
+Browser UI / Workbench
+        |
+        v
+app/api/* route handlers
+  parse + rate limit + compose + invoke + format
+        |
+        +-----------------------> lib/adapters/*
+        |                          SDK / REST / filesystem / browser storage
+        |                                  |
+        v                                  v
+lib/application/* --------------------> lib/ports/*
+  use cases + strategies + pipeline       interfaces and contracts
+        |
+        +-----------------------> lib/domain/*
+        |                          dependency-free business rules
+        |
+        +-----------------------> lib/engine/* + lib/project/*
+                                   legacy domain/generation services being
+                                   migrated incrementally; no route imports
 ```
 
-## LLM Adapter
+The composition root creates request-scoped LLM, asset, repository, circuit-breaker, progress, and model dependencies (`lib/adapters/composition-root.ts:21`). The generation use case accepts those dependencies explicitly and receives no API key, Pexels key, Next.js response, or environment access (`lib/application/run-generation-use-case.ts:105-123`). Concrete LLM construction exists only in `lib/adapters/llm/factory.ts`.
 
-All LLM calls go through `lib/llm-adapter/index.ts`. The adapter interface is:
+The boundary test at `tests/engine.test.ts:225` fails when:
 
-```typescript
-interface LLMAdapter {
-  complete(messages: LLMMessage[], options?: LLMOptions): Promise<string>;
-}
+- a `lib/domain` file imports anything;
+- `lib/application` imports adapters, legacy LLM infrastructure, Next.js, or `process.env`;
+- an API route imports `lib/engine` or `lib/project` directly; or
+- a concrete provider is constructed outside the adapter factory.
+
+`lib/engine` is now a compatibility and legacy-domain area, not the composition layer. `lib/engine/pipeline.ts` is a re-export facade; the real orchestrator is `lib/application/run-generation-use-case.ts:120`.
+
+## Request flow
+
+```text
+request
+  -> distributed rate window (Upstash Redis in managed environments)
+  -> schema validation
+  -> distributed concurrent lease
+  -> request-scoped composition root
+  -> generation use case
+       [01] brief analysis
+       [02] blocklist + asset sourcing + competitive field (parallel)
+       [02.5] archetype resolution
+       [02.6] motion language
+       [03] plan + critique + optional revision
+       [04] deterministic contrast correction
+       [05] code generation
+       [05.5] syntax/quality + optional repair
+       delivered-code quality, restraint, engineering, diversity checks
+       [06] evidence-bounded scoring
+       [07] asset-use evidence + project assembly + validation/readiness
+  -> JSON response OR observer events framed as SSE
+  -> concurrent lease release
 ```
 
-To add a provider, implement `LLMAdapter` and register it in `createAdapter()`. Adapters are instantiated per request; there is no mutable provider singleton.
+The blocklist rule itself is dependency-free (`lib/domain/blocklist.ts:29`). Storage is supplied through `BlocklistRepositoryPort`. The same pattern is used for the reference library, history, documents, and suggestion submissions.
 
-**Current default:** Claude Sonnet 4.6 via `@anthropic-ai/sdk`.
+## Deliberately applied patterns
 
-## Data Layer
+| Pattern | Location | Why it fits |
+|---|---|---|
+| Adapter + Port | `lib/ports/llm.ts`, `lib/adapters/llm/*` | Provider SDKs vary while generation needs one stable completion contract. |
+| Factory | `lib/adapters/llm/factory.ts` | Model validation and concrete construction must have one audited path. |
+| Strategy | `lib/application/generation-strategy.ts` | Fast and Studio vary policy, call budgets, critique, checkpoints, and repair without changing delivery contracts. |
+| Pipeline / Chain of Responsibility | `lib/application/pipeline-stage.ts` | Stages need immutable input snapshots, isolated tests, and reorderability. The main orchestrator is being extracted into this contract incrementally. |
+| Circuit Breaker + Decorator | `lib/application/circuit-breaker.ts`, `lib/adapters/llm/circuit-breaking-llm.ts` | Repeated calls to a failing provider should stop spending latency and quota, without provider branches in consumers. |
+| Repository | `lib/ports/repositories.ts`, `lib/adapters/storage/*` | Static JSON, browser storage, filesystem content, and future DB/KV stores must be replaceable without changing business rules. |
+| Observer | `lib/ports/progress.ts`, progress adapters | Pipeline behavior publishes facts; SSE and structured logs independently observe them. |
+| Builder | `lib/project/project-builder.ts` | Project files/config are accumulated and finalized separately from browser ZIP packaging. |
+| Dependency Injection | `GenerationDependencies` | Every request owns provider, asset, repository, progress, and configuration state; application code does not read mutable global request state. |
 
-**Phase 1:** JSON files in `/data/` — loaded at runtime, versioned in git.
+## LLM and resilience boundary
 
-- `data/cliches.json` — Community-maintained blocklist
-- `data/reference-library.json` — Curated design references for RAG
+`LLMPort.complete()` contains only provider-neutral messages and options. Provider SDK request/response types do not cross `lib/adapters/llm`. `createAdapter()` wraps each request-scoped provider with a failure-window circuit breaker. Fast/Studio policy never branches on concrete provider except one explicit cost/reliability capability: Studio repair is disabled for OpenRouter's free routed capacity.
 
-**Current persistence:** project history and API keys remain in browser `localStorage`. No database, Supabase client, or account is required; remote sync can be added later only as an explicit opt-in.
+Optional analysis, planning, and critique fail open to deterministic fallbacks. Required code generation fails to a visible recovery project. The stream has a 240-second application deadline, ten-second heartbeats, client cancellation, stage errors, and checkpoint recovery.
 
-## API Routes
+## Asset boundary
 
-```
-app/api/generate/route.ts          POST — full JSON pipeline
-app/api/generate/stream/route.ts   POST — SSE telemetry, heartbeat, and recovery project
-app/api/critique/route.ts          POST — standalone design critic
-app/api/compare/route.ts           POST — plain-model versus Verve comparison
-app/api/cliches/route.ts           GET  — public blocklist
-app/api/cliches/suggest/route.ts   POST — community submission
-app/api/library/route.ts           GET  — reference library
-```
+`AssetSourcePort` separates the application use case from Pexels. `PexelsAssetSourceAdapter` owns the key and a request-scoped circuit breaker (`lib/adapters/assets/pexels-asset-source.ts:6`). Owned binary assets remain browser-local; the server receives only a bounded manifest. A fetched asset is not counted as used until `asset-usage.ts` finds its URL in delivered code and verifies required attribution.
 
-Both generation routes validate the same `GenerationRequestSchema`; JSON and SSE cannot drift into different brand-asset or checkpoint contracts.
+## Project and preview boundary
 
-## Revision Loop
+`buildGeneratedProject()` creates Next.js, React/Vite, or HTML scaffolds, runs deterministic validation, and computes three-axis readiness. Static HTML is delivered as `index.html`, `styles.css`, and optional `script.js`. Browser ZIP packaging consumes the current edited project, not the original response.
 
-Plan generation and critique run in a loop inside stage 03:
-1. Generate plan (Step 3)
-2. Critique plan (Step 4, separate LLM context)
-3. If critique fails (>3 high/medium flags), format critique as negative feedback and repeat Step 3
-4. Cap at one revision cycle — surface final critique to user regardless
+HTML and lightweight React run in isolated previews. Next.js output is inspected and exported rather than mounted into an incompatible browser runtime. Render probes are ephemeral and never enter history or ZIP files.
 
-The revision count and critique transcript are always surfaced to the user. Transparency is a differentiator.
+## Persistence
 
-## Fast and Studio
+- Blocklist and reference library: versioned static JSON repositories.
+- Generation history: browser repository over `localStorage`, capped at 20 entries.
+- Provider/Pexels keys: browser-local BYOK storage; never application persistence.
+- Cliché suggestions: structured-log repository pending a durable review queue.
 
-Fast mode uses two core generative calls: design plan and entry-code generation. Brief analysis, archetype resolution, critique preflight, contrast, syntax, scoring, and project assembly are local. If provider planning fails, a conservative brief-specific local plan preserves the code-generation attempt. Provider and schema fallbacks remain bounded exceptions.
+## Admission control
 
-Fast runs emit bounded versioned checkpoints after stages 01 and 04. A stage-04 checkpoint contains only validated brief analysis and the contrast-enforced design plan, never credentials. It is fingerprinted against the brief, existing code, framework, and mode. If code generation fails, the browser returns that checkpoint with the next request and the pipeline skips the provider plan call.
+Managed deployments require `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. Rate windows and concurrent leases are atomic Redis Lua operations over the Upstash REST API (`lib/adapters/rate-limit/upstash-rate-limit-store.ts:37`). IP values are SHA-256 digests before becoming Redis keys. Missing Redis configuration or an unavailable admission store fails closed with HTTP 503. Local development alone uses an in-memory fallback.
 
-Studio mode uses the full LLM archetype and adversarial critique flow, one bounded plan revision, and one targeted code repair. OpenRouter deliberately skips the optional repair call because free routed capacity is less predictable. Brief analysis, plan generation, critique, and revision each have a local fail-open contract; only entry-code generation remains a required model result. OpenRouter sends a model list to the gateway so fallback happens inside one stage deadline, and structured stages request strict JSON Schema output.
+The public middleware interface remains `checkRateLimit()` and `acquireConcurrentSlot()` (`lib/middleware/rate-limit.ts:45`, `lib/middleware/rate-limit.ts:60`). Leases have TTLs so an interrupted serverless invocation cannot permanently consume capacity.
 
-## Project and preview layer
+## Observability and health
 
-`buildGeneratedProject()` creates the complete stack scaffold after code validation. `ProjectWorkbench` sends only standalone HTML and lightweight React projects into Sandpack, with file editing and responsive viewports. Complete Next.js projects stay outside the browser runtime and use a deterministic file inspector plus JSZip export for local execution. Generated code never mounts into Verve's own component tree.
+The SSE observer and structured-log observer receive the same stage events. JSON logs contain `requestId`, stage/event identity, duration, retry/degradation metadata, and exclude briefs, credentials, generated code, checkpoints, and unapproved nested fields (`lib/adapters/observability/structured-log-progress-publisher.ts:3-49`, `tests/engine.test.ts:289-315`). Terminal error logs use the same request ID and redact common key formats.
 
-For sandboxed projects, `render-gate.ts` adds an ephemeral probe to the in-memory preview files only. The probe reports actual document width, runtime/console errors, computed text sizes, image alternatives, duplicate IDs, and button names through a scoped `postMessage` contract. Probe files never enter history or ZIP exports, and readiness remains `verifying` until a matching rendered report arrives.
+`GET /api/health` reports environment, commit SHA, and configuration readiness without consuming provider quota (`app/api/health/route.ts:7`). Managed deployments without distributed admission control return 503.
 
-Project readiness is separate from distinctiveness. The validator checks scaffold files, entry exports, relative imports, declared packages, fragment targets, form behavior, unsafe HTML injection, image alternatives, button types, motion safeguards, mobile clipping, React list identity, font declarations, tiny text, and unfinished content. Unsupported quantified claims absent from the source brief block production readiness. The deterministic Media Gate also blocks image-dependent briefs until their minimum approved asset count is met. For sandboxed projects, `ProjectWorkbench` reruns code checks against the live editor state and ZIP uses that same state; media warnings remain explicit project-level launch requirements.
+Sentry or an equivalent exception tracker is not installed. Structured Vercel logs support reconstruction; alerting and longer retention remain an explicit operations gap.
 
-Owned image bytes never cross the generation API. The browser sends a bounded manifest (role, path, media type, and user-authored alt direction), attaches the original base64 payload to the returned `GeneratedProject`, hydrates local paths as data URLs only inside the preview, and writes the original bytes into ZIP. HTML assets export under `assets/`; React and Next.js assets export under `public/assets/`.
+## CI/CD, environments, and rollback
 
-## Provider terminal states
+Pull requests and `main` run typecheck, lint, unit tests, production build, and Playwright. A weekly workflow runs `npm audit --omit=dev --audit-level=high`. `.env*` is ignored except `.env.example`.
 
-The SSE route sends a heartbeat every ten seconds with separate `stageElapsedMs` and `totalElapsedMs` values. A run must end in exactly one of two user-visible paths:
-
-- `result` with a complete pipeline response and project; or
-- `stage_error` followed by `recovery` with the failed stage and a safe HTML fallback project.
-
-The client also rejects a stream that closes without either terminal event. If three expected heartbeats are missed, the 35-second inactivity watchdog cancels the orphaned request and creates a local recovery checkpoint. The server has a 240-second run-wide deadline below the route's 300-second ceiling.
-
-## Design System
-
-The landing page implements Verve's own rules:
-- **Signature Element:** an editorial calibration rail connected to a live project receipt
-- **Colors:** ink black, warm paper, and correction vermilion; green is reserved for pass/live data
-- **Type:** Manrope (interface), Instrument Serif (editorial thesis), and IBM Plex Mono (telemetry)
-- **No:** Inter, blue-to-purple gradients, soft-shadow cards, 4-feature-card grids
-
-## Persistence and secrets
-
-Verve has no database or account layer. Generation history and BYOK provider keys are stored in browser `localStorage`. Keys are included in the selected API request, used to call the provider, and never written to application persistence or logs.
+Preview and Production must use separate Upstash databases/tokens. Provider and Pexels keys remain browser-local BYOK values and are not Vercel variables. `/api/health` exposes `VERCEL_GIT_COMMIT_SHA`, making a deployment traceable to source. Rotation, the required GitHub branch-ruleset status check, and one-step rollback (`vercel rollback`) are documented in `docs/OPERATIONS.md`.

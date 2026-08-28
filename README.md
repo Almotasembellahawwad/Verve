@@ -288,13 +288,18 @@ components/
 ├── ProjectWorkbench.tsx       # sandbox, files, responsive preview, ZIP
 └── VoiceBriefInput.tsx        # Arabic/English speech input
 lib/
-├── engine/
-│   ├── pipeline.ts            # Fast/Studio orchestration
-│   ├── fast-path.ts           # local archetype and preflight
-│   ├── provider-resilience.ts # optional-stage fallback contract
-│   └── code-quality-loop.ts   # deterministic checks + Studio repair
-├── llm-adapter/
-│   └── openrouter.ts          # timeout/retry/fallback/truncation policy
+├── application/
+│   ├── run-generation-use-case.ts # request-independent orchestration
+│   ├── generation-strategy.ts     # Fast/Studio policy
+│   └── circuit-breaker.ts         # external-failure policy
+├── domain/                         # dependency-free business rules
+├── ports/                          # LLM, asset, repository, progress contracts
+├── adapters/
+│   ├── llm/                        # provider SDK implementations + factory
+│   ├── rate-limit/                 # Upstash and local development stores
+│   └── storage/                    # repository implementations
+├── engine/                         # legacy generation/domain services
+│   └── pipeline.ts                 # compatibility re-export facade
 ├── project/
 │   ├── types.ts               # GeneratedProject contract
 │   ├── project-builder.ts     # complete stack scaffolds + risk scan
@@ -304,7 +309,7 @@ lib/
     ├── key-storage.ts         # browser-local BYOK storage
     └── generation-stream.ts   # missed-heartbeat watchdog
 tests/
-└── engine.test.ts
+└── engine.test.ts              # behavior + dependency-boundary checks
 ```
 
 ## Product principles

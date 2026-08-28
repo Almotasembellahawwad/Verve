@@ -52,6 +52,10 @@ import { CircuitBreaker, CircuitOpenError } from "../lib/application/circuit-bre
 import { createGenerationStrategy } from "../lib/application/generation-strategy";
 import { executePipelineStages } from "../lib/application/pipeline-stage";
 import type { BlocklistRepositoryPort } from "../lib/ports/repositories";
+import { InMemoryRateLimitStore } from "../lib/adapters/rate-limit/in-memory-rate-limit-store";
+import { UpstashRateLimitStore } from "../lib/adapters/rate-limit/upstash-rate-limit-store";
+import { readHealthUseCase } from "../lib/application/read-health-use-case";
+import { StructuredLogProgressPublisher } from "../lib/adapters/observability/structured-log-progress-publisher";
 
 async function runPipeline(
   input: PipelineInput & {
@@ -234,6 +238,80 @@ test("hexagonal dependency boundaries are mechanically enforced", () => {
   const concreteConstruction = sourceFiles(join(projectRoot, "lib"))
     .filter((file) => /new\s+(?:ClaudeAdapter|OpenAIAdapter|GeminiAdapter|OpenRouterAdapter)\b/.test(readFileSync(file, "utf8")));
   assert.deepEqual(concreteConstruction.map((file) => file.replace(projectRoot, "")), [join("\\lib", "adapters", "llm", "factory.ts")]);
+});
+
+test("rate-limit store enforces windows and concurrent leases", async () => {
+  const store = new InMemoryRateLimitStore();
+  assert.equal((await store.consume("rate", 2, 60_000)).allowed, true);
+  assert.equal((await store.consume("rate", 2, 60_000)).allowed, true);
+  assert.equal((await store.consume("rate", 2, 60_000)).allowed, false);
+  const first = await store.acquire("slots", 1, 60_000);
+  assert.equal(first.acquired, true);
+  assert.equal((await store.acquire("slots", 1, 60_000)).acquired, false);
+  await store.release("slots", first.slotId);
+  assert.equal((await store.acquire("slots", 1, 60_000)).acquired, true);
+});
+
+test("Upstash adapter sends an atomic EVAL command through the REST API", async () => {
+  const originalFetch = globalThis.fetch;
+  let command: unknown[] = [];
+  globalThis.fetch = async (_input, init) => {
+    command = JSON.parse(String(init?.body)) as unknown[];
+    return new Response(JSON.stringify({ result: [1, 4, 0] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+  try {
+    const decision = await new UpstashRateLimitStore("https://redis.example", "token").consume("key", 5, 60_000);
+    assert.equal(decision.allowed, true);
+    assert.equal(command[0], "EVAL");
+    assert.equal(command[2], 1);
+    assert.equal(command[3], "key");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("managed deployment health fails closed without distributed admission control", () => {
+  const health = readHealthUseCase({
+    snapshot: () => ({
+      environment: "production",
+      commitSha: "abc123",
+      rateLimitConfigured: false,
+      isManagedDeployment: true,
+    }),
+  });
+  assert.equal(health.status, "not-ready");
+  assert.equal(health.checks.distributedRateLimit, "missing");
+});
+
+test("structured progress logs keep metrics and redact untrusted payload fields", () => {
+  const originalInfo = console.info;
+  let logged = "";
+  console.info = (message?: unknown) => { logged = String(message); };
+  try {
+    new StructuredLogProgressPublisher("request-123").publish({
+      event: "stage_done",
+      stageId: "03",
+      data: {
+        id: "03",
+        name: "Design Plan",
+        reason: "private provider response",
+        brief: "confidential launch",
+        apiKey: "sk-secret",
+        code: "<secret />",
+        checkpoint: { private: true },
+        extra: { signature: "Confidential Brand", score: 84, readiness: 91 },
+      },
+    });
+  } finally {
+    console.info = originalInfo;
+  }
+  assert.match(logged, /request-123/);
+  assert.match(logged, /\"score\":84/);
+  assert.match(logged, /\"readiness\":91/);
+  assert.doesNotMatch(logged, /confidential|sk-secret|secret|checkpoint|signature/i);
 });
 
 test("every public demo is a complete, runnable native project", () => {
