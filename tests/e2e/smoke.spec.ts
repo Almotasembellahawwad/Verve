@@ -43,6 +43,11 @@ test("the homepage does not overflow its rendered viewport", async ({ page }) =>
 });
 
 test("the brand kit accepts owned media without uploading it during form setup", async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on("pageerror", (error) => runtimeErrors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error") runtimeErrors.push(message.text());
+  });
   await page.addInitScript(() => window.localStorage.setItem("verve_onboarding_seen_v2", "1"));
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
@@ -61,6 +66,7 @@ test("the brand kit accepts owned media without uploading it during form setup",
   await expect(page.getByText("1/4 local assets")).toBeVisible();
   await expect(page.getByText("test-mark.svg", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Alt / model direction")).toHaveValue("test mark");
+  expect(runtimeErrors).toEqual([]);
 });
 
 test("Fast is the explicit default and Studio remains one decision away", async ({ page }) => {

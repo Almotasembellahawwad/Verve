@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
+import { NextRequest } from "next/server";
 import { getAllCliches, runBlocklistFilter } from "../lib/engine/blocklist-filter";
 import { fixPaletteContrast } from "../lib/engine/contrast-fixer";
 import { extractJSON } from "../lib/engine/llm-utils";
@@ -56,6 +57,7 @@ import { InMemoryRateLimitStore } from "../lib/adapters/rate-limit/in-memory-rat
 import { UpstashRateLimitStore } from "../lib/adapters/rate-limit/upstash-rate-limit-store";
 import { readHealthUseCase } from "../lib/application/read-health-use-case";
 import { StructuredLogProgressPublisher } from "../lib/adapters/observability/structured-log-progress-publisher";
+import { checkRateLimit } from "../lib/middleware/rate-limit";
 import { DEFAULT_GENERATION_MODE } from "../lib/domain/generation-mode";
 import { GenerationRequestSchema } from "../lib/api/generation-request";
 
@@ -291,11 +293,62 @@ test("managed deployment health fails closed without distributed admission contr
       environment: "production",
       commitSha: "abc123",
       rateLimitConfigured: false,
+      rateLimitFailClosed: true,
       isManagedDeployment: true,
     }),
   });
   assert.equal(health.status, "not-ready");
   assert.equal(health.checks.distributedRateLimit, "missing");
+});
+
+test("managed deployment remains available in explicit memory fallback mode", () => {
+  const health = readHealthUseCase({
+    snapshot: () => ({
+      environment: "production",
+      commitSha: "abc123",
+      rateLimitConfigured: false,
+      rateLimitFailClosed: false,
+      isManagedDeployment: true,
+    }),
+  });
+  assert.equal(health.status, "degraded");
+  assert.equal(health.checks.distributedRateLimit, "memory-fallback");
+});
+
+test("managed route admission uses memory fallback unless strict mode is enabled", async () => {
+  const previous = {
+    vercelEnvironment: process.env.VERCEL_ENV,
+    upstashUrl: process.env.UPSTASH_REDIS_REST_URL,
+    upstashToken: process.env.UPSTASH_REDIS_REST_TOKEN,
+    failClosed: process.env.RATE_LIMIT_FAIL_CLOSED,
+  };
+  try {
+    process.env.VERCEL_ENV = "production";
+    delete process.env.UPSTASH_REDIS_REST_URL;
+    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    process.env.RATE_LIMIT_FAIL_CLOSED = "false";
+
+    const request = new NextRequest("https://verve.example/api/test", {
+      headers: { "x-forwarded-for": "203.0.113.10" },
+    });
+    const config = { routeKey: "fallback-test", maxRequests: 5, windowMs: 60_000, maxConcurrent: 1 };
+    assert.equal(await checkRateLimit(request, config), null);
+
+    process.env.RATE_LIMIT_FAIL_CLOSED = "true";
+    const strictResponse = await checkRateLimit(request, config);
+    assert.equal(strictResponse?.status, 503);
+    assert.equal((await strictResponse?.json())?.error, "RATE_LIMIT_UNAVAILABLE");
+  } finally {
+    for (const [name, value] of Object.entries({
+      VERCEL_ENV: previous.vercelEnvironment,
+      UPSTASH_REDIS_REST_URL: previous.upstashUrl,
+      UPSTASH_REDIS_REST_TOKEN: previous.upstashToken,
+      RATE_LIMIT_FAIL_CLOSED: previous.failClosed,
+    })) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
 });
 
 test("structured progress logs keep metrics and redact untrusted payload fields", () => {

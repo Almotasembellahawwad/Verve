@@ -23,8 +23,9 @@ function store(): RateLimitStorePort | null {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (url && token) return new UpstashRateLimitStore(url, token);
-  if (!process.env.VERCEL_ENV) return localDevelopmentStore;
-  return null;
+  const failClosed = process.env.RATE_LIMIT_FAIL_CLOSED === "true";
+  if (process.env.VERCEL_ENV && failClosed) return null;
+  return localDevelopmentStore;
 }
 
 function clientKey(req: NextRequest, routeKey: string, kind: "rate" | "concurrent"): string {

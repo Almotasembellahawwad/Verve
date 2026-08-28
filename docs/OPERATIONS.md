@@ -4,19 +4,22 @@
 
 Configure Vercel variables with explicit scopes. Production and Preview must use different Upstash databases/tokens. Provider and Pexels keys remain browser-local BYOK values and must not be added to Vercel or `.env` files, so preview deployments cannot consume shared server-side provider billing keys.
 
-Required for every managed deployment:
+Recommended for every managed deployment:
 
 - `UPSTASH_REDIS_REST_URL`
 - `UPSTASH_REDIS_REST_TOKEN`
+
+Required for every managed deployment:
+
 - `NEXT_PUBLIC_SITE_URL` with an environment-appropriate canonical URL
 
 `.env*` is ignored except `.env.example`. Never commit a token. Rotate a suspected token by creating a replacement in the provider console, updating the scoped Vercel variable, redeploying, verifying `/api/health`, and only then revoking the old token. Preview rotation and Production rotation are separate changes.
 
-The admission adapter uses the [Upstash Redis REST API](https://upstash.com/docs/redis/features/restapi). Keep the database REST URL and token from the same environment; a mismatched pair makes the deployment fail closed.
+The admission adapter uses the [Upstash Redis REST API](https://upstash.com/docs/redis/features/restapi). Keep the database REST URL and token from the same environment. Without both values, Verve uses a process-local memory store and reports `degraded` health so a fresh deployment remains usable. This fallback is not globally coordinated across serverless instances. After Upstash is configured, set `RATE_LIMIT_FAIL_CLOSED=true` to reject generation if the distributed configuration is later removed. An unavailable configured Upstash store always fails closed.
 
 ## Health and observability
 
-`GET /api/health` returns the Vercel environment, the source commit (`VERCEL_GIT_COMMIT_SHA`), and configuration readiness without pinging or spending quota on LLM providers. A managed deployment without distributed rate-limit configuration returns HTTP 503.
+`GET /api/health` returns the Vercel environment, the source commit (`VERCEL_GIT_COMMIT_SHA`), and configuration readiness without pinging or spending quota on LLM providers. A managed deployment using the memory fallback returns HTTP 200 with `status: "degraded"`; strict mode without distributed configuration returns HTTP 503.
 
 Generation stages emit one-line JSON logs with `requestId`, `pipelineEvent`, `stageId`, duration/reason metadata, and no brief, API key, generated code, or checkpoint payload. Search one `requestId` to reconstruct stage starts, completions, retries, and degradation. Terminal failures use the same ID through the sanitized error handler.
 

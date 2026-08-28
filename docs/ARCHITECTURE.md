@@ -108,7 +108,7 @@ HTML and lightweight React run in isolated previews. Next.js output is inspected
 
 ## Admission control
 
-Managed deployments require `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. Rate windows and concurrent leases are atomic Redis Lua operations over the Upstash REST API (`lib/adapters/rate-limit/upstash-rate-limit-store.ts:37`). IP values are SHA-256 digests before becoming Redis keys. Missing Redis configuration or an unavailable admission store fails closed with HTTP 503. Local development alone uses an in-memory fallback.
+Managed deployments should configure `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. Rate windows and concurrent leases are atomic Redis Lua operations over the Upstash REST API (`lib/adapters/rate-limit/upstash-rate-limit-store.ts:37`). IP values are SHA-256 digests before becoming Redis keys. A deployment missing Redis configuration uses a process-local memory fallback and reports degraded health; setting `RATE_LIMIT_FAIL_CLOSED=true` disables that bootstrap fallback. A configured but unavailable Upstash store always fails closed with HTTP 503.
 
 The public middleware interface remains `checkRateLimit()` and `acquireConcurrentSlot()` (`lib/middleware/rate-limit.ts:45`, `lib/middleware/rate-limit.ts:60`). Leases have TTLs so an interrupted serverless invocation cannot permanently consume capacity.
 
@@ -116,7 +116,7 @@ The public middleware interface remains `checkRateLimit()` and `acquireConcurren
 
 The SSE observer and structured-log observer receive the same stage events. JSON logs contain `requestId`, stage/event identity, duration, retry/degradation metadata, and exclude briefs, credentials, generated code, checkpoints, and unapproved nested fields (`lib/adapters/observability/structured-log-progress-publisher.ts:3-49`, `tests/engine.test.ts:289-315`). Terminal error logs use the same request ID and redact common key formats.
 
-`GET /api/health` reports environment, commit SHA, and configuration readiness without consuming provider quota (`app/api/health/route.ts:7`). Managed deployments without distributed admission control return 503.
+`GET /api/health` reports environment, commit SHA, and configuration readiness without consuming provider quota (`app/api/health/route.ts:7`). Managed deployments using process-local admission return `degraded`; strict deployments missing distributed admission control return 503.
 
 Sentry or an equivalent exception tracker is not installed. Structured Vercel logs support reconstruction; alerting and longer retention remain an explicit operations gap.
 

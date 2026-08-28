@@ -120,6 +120,12 @@ npm test            PASS — tests 54, pass 54, fail 0
 npx playwright test PASS — tests 20, pass 20, fail 0 (desktop + mobile Chrome)
 ```
 
+## Production incident hardening — admission bootstrap
+
+- The live production incident after the Fast-first deployment exposed a bootstrap hazard: fail-closed admission made the whole product unavailable before Upstash was provisioned. Missing configuration now enters an observable `degraded` memory-fallback mode, while configured-store failures still fail closed. `RATE_LIMIT_FAIL_CLOSED=true` restores strict readiness once production Redis is installed.
+
+Pattern/principle: **Observable Degradation** — a missing optional bootstrap dependency reduces protection without taking the product offline, while health output keeps the compromise explicit.
+
 ## What a senior engineer would still flag
 
 - Most pure scoring, archetype, contrast, and generation services still live under the legacy `lib/engine` area. Dependency tests prevent infrastructure from leaking inward, but deeper migration into `lib/domain` remains deliberately incremental to avoid mixing file movement with behavior changes (`docs/ARCHITECTURE.md:21-31`, `tests/engine.test.ts:225-240`).
