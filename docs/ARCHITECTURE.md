@@ -103,6 +103,7 @@ HTML and lightweight React run in isolated previews. Next.js output is inspected
 
 - Blocklist and reference library: versioned static JSON repositories.
 - Generation history: browser repository over `localStorage`, capped at 20 entries.
+- Editable projects: browser IndexedDB repository, complete canonical project files, autosave, and up to eight local revisions per project (`lib/ports/editor-projects.ts`, `lib/adapters/storage/indexeddb-editor-project-repository.ts`).
 - Provider/Pexels keys: browser-local BYOK storage; never application persistence.
 - Cliché suggestions: structured-log repository pending a durable review queue.
 
@@ -122,6 +123,6 @@ Sentry or an equivalent exception tracker is not installed. Structured Vercel lo
 
 ## CI/CD, environments, and rollback
 
-Pull requests and `main` run typecheck, lint, unit tests, production build, and Playwright. A weekly workflow runs `npm audit --omit=dev --audit-level=high`. `.env*` is ignored except `.env.example`.
+Pull requests and `main` run typecheck, lint, unit tests, production build, and Playwright. CodeQL analyzes JavaScript/TypeScript on pushes, pull requests, and a weekly schedule; pull requests also run dependency review. A weekly workflow runs `npm audit --omit=dev --audit-level=high`, and Dependabot proposes grouped dependency updates. Every third-party workflow action is pinned to an immutable commit SHA. `.env*` is ignored except `.env.example`.
 
 Preview and Production must use separate Upstash databases/tokens. Provider and Pexels keys remain browser-local BYOK values and are not Vercel variables. `/api/health` exposes `VERCEL_GIT_COMMIT_SHA`, making a deployment traceable to source. Rotation, the required GitHub branch-ruleset status check, and one-step rollback (`vercel rollback`) are documented in `docs/OPERATIONS.md`.

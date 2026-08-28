@@ -126,13 +126,36 @@ npx playwright test PASS — tests 20, pass 20, fail 0 (desktop + mobile Chrome)
 
 Pattern/principle: **Observable Degradation** — a missing optional bootstrap dependency reduces protection without taking the product offline, while health output keeps the compromise explicit.
 
+## Release increment — Live Project Studio 0.7
+
+- Added a dedicated local-first project editor with an IndexedDB repository port, autosave, project switching, bounded revisions, and portable `.verve.json` records.
+- Connected generated results and curated demos to `/editor`; HTML and React remain live-previewable while Next.js keeps a truthful inspect/edit/export execution boundary.
+- Prevented stale Render Gate reports, temporary preview probes, and browser-only asset rewrites from leaking into canonical saved or exported source.
+- Strengthened deterministic form and motion readiness contracts and added explicit 360/768/1440 viewport presets.
+- Removed agent/tool instruction residue and starter template assets, disabled Next.js agent-file generation, and renamed the Anthropic adapter without changing provider support.
+- Added CodeQL, dependency review, Dependabot, immutable action pins, and the load-smoke harness.
+
+Pattern/principle: **Local-First Repository + Evidence Freshness** — project state persists behind an IndexedDB port, while every rendered report is tied to the exact preview revision that produced it.
+
+Verification gate:
+
+```text
+npm run build        PASS — Next.js 16.3.1 compiled and listed 22 routes
+npm run lint         PASS — no diagnostics
+npm run typecheck    PASS — tsc --noEmit
+npm test             PASS — tests 60, pass 60, fail 0
+npx playwright test  PASS — tests 22, pass 22, fail 0 (desktop + mobile Chrome)
+npm audit --omit=dev PASS — found 0 vulnerabilities
+npm run test:load    PASS — 80/80 HTTP 200, concurrency 16, p95 241 ms
+```
+
 ## What a senior engineer would still flag
 
 - Most pure scoring, archetype, contrast, and generation services still live under the legacy `lib/engine` area. Dependency tests prevent infrastructure from leaking inward, but deeper migration into `lib/domain` remains deliberately incremental to avoid mixing file movement with behavior changes (`docs/ARCHITECTURE.md:21-31`, `tests/engine.test.ts:225-240`).
 - Circuit-breaker state is request-scoped. It protects repeated calls within one generation, but it does not aggregate provider failures across requests or serverless instances; a distributed provider-health policy would be a separate reliability project (`lib/adapters/composition-root.ts:21-44`, `lib/adapters/llm/factory.ts:30-38`).
-- No load test proves the 100-concurrent-user target or validates real provider quotas. Redis now makes admission globally correct, while actual throughput remains bounded by Vercel and each BYOK provider account; the test scripts contain unit and browser checks but no load harness (`package.json:5-14`).
+- A quota-free load-smoke harness now validates health or admission behavior and p95 latency, but no recorded production benchmark proves the 100-concurrent-user target or validates real provider quotas. Actual throughput remains bounded by Vercel and each BYOK provider account (`scripts/load-smoke.mjs`, `package.json`).
 - Structured logs are present, but Sentry/equivalent alerting, retention, dashboards, and cross-service tracing are not. Cliché suggestions also remain structured logs rather than a durable moderation queue (`lib/adapters/observability/structured-log-progress-publisher.ts:31-49`, `package.json:15-45`).
 - `/api/health` validates required configuration only; it deliberately does not live-ping Redis or LLM providers. A separate synthetic monitor should exercise a bounded real route (`lib/application/read-health-use-case.ts:3-17`).
-- Generation history remains capped browser `localStorage`, not IndexedDB or optional encrypted sync (`lib/history.ts:8-29`, `lib/adapters/storage/browser-history-repository.ts:4-9`).
+- Lightweight generation history remains capped browser `localStorage`; complete projects deliberately opened in `/editor` now use IndexedDB with bounded revisions. Optional encrypted cross-device sync remains unimplemented (`lib/history.ts`, `lib/ports/editor-projects.ts`).
 - GitHub branch protection/rulesets are repository settings and cannot be proven from this local checkout. `main` must require `CI / verify` before the workflow truly blocks merges.
-- GitHub Actions are version-tag pinned (`@v4`) rather than commit-SHA pinned. Teams with a stricter software-supply-chain policy should pin action revisions and automate their updates (`.github/workflows/ci.yml:20-21`, `.github/workflows/security-audit.yml:16-17`).
+- GitHub Actions are commit-SHA pinned, with Dependabot configured to propose monthly workflow updates. Repository-level rulesets and security-feature enablement still require verification in GitHub settings (`.github/workflows`, `.github/dependabot.yml`).

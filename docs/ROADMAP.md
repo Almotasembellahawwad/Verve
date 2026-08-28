@@ -48,12 +48,12 @@ This document tracks shipped foundations and the next evidence-driven product wo
 - [x] Browser-local brand kit with owned logos/images embedded in preview and ZIP without sending binary content to the provider
 - [x] Template Diversity Gate for Verve's own repeated cross-industry art-direction fingerprint
 - [x] Laptop-width workbench regression at 1366×768
-- [ ] Motion Gate that verifies the generated code implements the declared animation language and reduced-motion contract
+- [x] Motion Gate that blocks authored animation without a reduced-motion contract
 - [ ] Rendered screenshot audit at 360, 768, and 1440 pixels
 - [x] Browser console and deterministic broken-navigation evidence in the readiness report
 - [ ] Form-contract adapters for explicit email, webhook, or server-action behavior
 - [ ] Section-level regeneration without replacing the whole project
-- [ ] Persistent editable project snapshots in IndexedDB rather than large localStorage records
+- [x] Dedicated `/editor` with IndexedDB autosave, complete editable projects, portable import/export, and bounded local revisions
 - [ ] User acceptance/rejection signals to calibrate scoring against real outcomes
 
 ## Phase 2.2 — Collaboration and delivery

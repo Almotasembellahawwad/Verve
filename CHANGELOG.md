@@ -2,6 +2,25 @@
 
 All notable changes to Verve are documented here.
 
+## [0.7.0] — 2026-08-29 Live Project Studio
+
+### Added
+
+- Added a dedicated `/editor` workspace with project switching, live HTML/React preview, an editable Next.js source inspector, autosave, local revisions, and `.verve.json` import/export.
+- Added an IndexedDB repository boundary for full editable projects while keeping provider keys and generation history under their existing browser-local policies.
+- Added CodeQL, pull-request dependency review, grouped Dependabot updates, and a quota-free load-smoke command.
+
+### Changed
+
+- Fast remains the default generation policy; generated results and public demos can now continue directly into the editor.
+- Project validation now blocks placeholder form submission and authored motion without a reduced-motion contract.
+- Preview viewport presets now exercise 360, 768, and 1440 pixel layouts.
+- GitHub Actions use immutable commit SHAs and the package version is `0.7.0`.
+
+### Removed
+
+- Removed repository agent instruction files, starter SVG assets, and tool-specific adapter class naming. Anthropic remains a fully supported runtime provider.
+
 ## [0.6.0] — 2026-08-27 Brand Inputs + Diversity Gate
 
 ### Added

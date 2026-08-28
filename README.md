@@ -6,6 +6,15 @@ Verve is an open-source project intelligence engine for generating distinctive w
 
 [Development preview](https://verve-dev.vercel.app/) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [MIT License](LICENSE)
 
+## What changed in 0.7 Live Project Studio
+
+- **Dedicated project editor** — `/editor` opens generated or demo projects in a focused multi-file workspace with live HTML/React preview and a complete Next.js source inspector.
+- **Local-first persistence** — editable projects autosave to IndexedDB, remain available after reload, and support up to eight named local revisions per project.
+- **Portable workspaces** — import and export `.verve.json` project records without an account or server-side project database.
+- **Edit-safe delivery** — previews, validation, snapshots, and ZIP exports follow the canonical edited source; temporary render probes never leak into saved projects.
+- **Stronger production gates** — placeholder forms and authored motion without a reduced-motion policy now block readiness; preview presets cover 360, 768, and 1440 pixels.
+- **Supply-chain checks** — CI actions are commit-SHA pinned, with CodeQL, dependency review, Dependabot, and a quota-free load-smoke harness.
+
 ## What changed in 0.6 Brand Inputs + Diversity Gate
 
 - **Owned brand kit** — supply an existing name, approved colors, identity constraints, logo, and up to four PNG/JPG/WebP/SVG assets before generation.
@@ -180,7 +189,7 @@ npm run dev
 
 Open `http://localhost:3000`. Add a provider key from the key manager. It is saved under Verve’s browser-local storage namespace and is never written to the repository or a Verve database.
 
-The optional canonical-site setting is documented in [`.env.example`](.env.example). Provider and Pexels keys are entered in the browser key manager and must not be added to environment files. Pexels is optional for using Verve, but approved media is not optional for a brief classified as image-dependent: without it Verve never invents remote URLs, exports honest labeled placeholders, and keeps readiness blocked until real assets are supplied. Uploaded binary assets stay in the current browser session and ZIP; only their manifest and user-authored direction are sent with the provider request, and binary content is intentionally omitted from lightweight localStorage history.
+The optional canonical-site setting is documented in [`.env.example`](.env.example). Provider and Pexels keys are entered in the browser key manager and must not be added to environment files. Pexels is optional for using Verve, but approved media is not optional for a brief classified as image-dependent: without it Verve never invents remote URLs, exports honest labeled placeholders, and keeps readiness blocked until real assets are supplied. Only asset manifests and user-authored direction are sent with provider requests. Lightweight generation history omits binary content; projects explicitly opened in `/editor` persist their complete editable workspace in this browser's IndexedDB.
 
 ## Commands
 
@@ -191,6 +200,7 @@ npm run lint       # ESLint
 npm test           # deterministic engine tests
 npm run build      # production build
 npm start          # serve the production build
+npm run test:load  # quota-free admission/health load smoke
 ```
 
 ## API

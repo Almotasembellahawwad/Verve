@@ -25,9 +25,11 @@ Generation stages emit one-line JSON logs with `requestId`, `pipelineEvent`, `st
 
 No Sentry or equivalent exception tracker is wired in this pass. Vercel logs are sufficient for request reconstruction, but alerting, retention, and cross-service tracing remain an explicit gap.
 
+For a quota-free deployment smoke, run `npm run test:load`. It targets `/api/health` by default and can target the safely rejected generation-admission path without a provider key. Configure `VERVE_LOAD_URL`, `VERVE_LOAD_REQUESTS`, `VERVE_LOAD_CONCURRENCY`, `VERVE_LOAD_ROUTE=admission`, and `VERVE_LOAD_P95_MS` when recording an environment benchmark. This is an admission and latency smoke, not proof of provider throughput.
+
 ## Deployment and rollback
 
-GitHub Actions runs typecheck, lint, unit tests, production build, and Playwright for every pull request and `main` push. A separate weekly workflow runs the production-dependency audit. To make failures block merge, the GitHub ruleset for `main` must require the `CI / verify` status check; a workflow file cannot enforce that repository setting by itself.
+GitHub Actions runs typecheck, lint, unit tests, production build, and Playwright for every pull request and `main` push. CodeQL, pull-request dependency review, Dependabot, and a weekly production-dependency audit cover the software-supply-chain baseline. Actions are pinned to immutable commit SHAs. To make failures block merge, the GitHub ruleset for `main` must require the `CI / verify` status check; a workflow file cannot enforce that repository setting by itself.
 
 Vercel deployments are traceable through the commit returned by `/api/health`. To restore the immediately previous production deployment:
 

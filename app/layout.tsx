@@ -43,7 +43,7 @@ const softwareApplication = {
   codeRepository: REPOSITORY_URL,
   description: SITE_DESCRIPTION,
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-  featureList: ["Multi-file project generation", "Native HTML preview", "React sandbox preview", "Recoverable AI pipeline", "Local browser API key storage", "ZIP export"],
+  featureList: ["Multi-file project generation", "Local-first live project editor", "IndexedDB autosave and revisions", "Native HTML preview", "React sandbox preview", "Recoverable AI pipeline", "Local browser API key storage", "ZIP export"],
 };
 
 export default function RootLayout({

@@ -76,6 +76,9 @@ function DocsContent() {
           <p className={styles.sectionLead}>
             Think of the pipeline as four phases: Understand, Direct, Build, and Prove. The numbered modules make failures inspectable; they are not separate agents. Fast mode uses two core model calls and local preflight rules, while Studio adds adversarial critique and bounded repair. Both modes return the same runnable project contract.
           </p>
+          <p className={styles.sectionLead}>
+            Delivery continues in the local-first <Link href="/editor">project editor</Link>: complete projects autosave to IndexedDB, keep bounded revisions, and re-run deterministic validation as source changes. HTML and React preview live; full Next.js remains an honest inspect, edit, and export boundary.
+          </p>
 
           <div className={styles.pipeline}>
             {[
@@ -108,34 +111,17 @@ function DocsContent() {
 
           <div className={styles.codeBlock}>
             <div className={styles.codeBlockHeader}>
-              <span>pipeline.ts — orchestrator</span>
+              <span>run-generation-use-case.ts — application boundary</span>
             </div>
-            <pre className={styles.code}>{`// Simplified — see lib/engine/pipeline.ts for full implementation
-export async function runPipeline(input: PipelineInput): Promise<PipelineResult> {
-  const llm = createAdapter(input.provider, input.apiKey, input.model, input.signal);
-  const briefAnalysis = await analyzeBrief(llm, input.brief, input.existingCode);
-  const inputBlocklist = runBlocklistFilter(input.brief, input.existingCode);
-  const fast = input.mode === "fast";
-  const archetype = fast
-    ? resolveArchetypeLocally(briefAnalysis)
-    : await resolveArchetype(llm, briefAnalysis);
-  let designPlan = await generateDesignPlan(llm, briefAnalysis, inputBlocklist.systemPromptInjection);
-  let finalCritique = fast
-    ? critiquePlanLocally(designPlan)
-    : await runSelfCritique(llm, designPlan, briefAnalysis);
-  
-  while (!fast && !finalCritique.passed && revisionCount < maxRevisions) {
-    revisionCount++;
-    designPlan = await generateDesignPlan(llm, briefAnalysis, inputBlocklist.systemPromptInjection, previousCritique);
-    finalCritique = await runSelfCritique(llm, designPlan, briefAnalysis);
-  }
-  
-  designPlan.colorPalette = fixPaletteContrast(designPlan.colorPalette).fixedPalette;
-  const generatedCode = await generateCode(llm, briefAnalysis, designPlan, ...);
-  const quality = await runCodeQualityLoop(llm, generatedCode.code, ..., !fast);
-  const finalBlocklist = runBlocklistFilter(quality.code);
-  const project = buildGeneratedProject(generatedCode, briefAnalysis, designPlan);
-  return scoreAndSerialize({ briefAnalysis, designPlan, finalCritique, quality, finalBlocklist, project });
+            <pre className={styles.code}>{`// Simplified — transport and provider details are injected at the edge.
+export async function runGenerationUseCase(input, dependencies) {
+  const strategy = createGenerationStrategy(input.mode);
+  const brief = await strategy.analyzeBrief(input, dependencies);
+  const context = await buildDeterministicContext(brief, dependencies);
+  const direction = await strategy.direct(brief, context, dependencies);
+  const generated = await strategy.build(brief, direction, dependencies);
+  const project = buildGeneratedProject(generated, brief, direction.plan);
+  return proveAndSerialize(project, direction, context);
 }`}</pre>
           </div>
         </section>
