@@ -3,35 +3,8 @@
 // Shared types + model registry for all LLM providers
 // =========================================================
 
-export type LLMMessage = {
-  role: "user" | "assistant";
-  content: string;
-};
-
-export type LLMOptions = {
-  systemPrompt?: string;
-  temperature?: number;
-  maxTokens?: number;
-  // Per-call reasoning effort for GPT-5.6 / o-series reasoning models.
-  // Controls how many internal reasoning tokens are consumed before output.
-  // Use 'low' for short JSON tasks, 'medium' for planning, 'high' for code.
-  // If omitted, adapter defaults to 'medium'.
-  reasoningEffort?: "none" | "low" | "medium" | "high" | "xhigh" | "max";
-  // Per-call deadline. Adapters clamp this to their provider safety ceiling.
-  timeoutMs?: number;
-  // Providers that support structured output can enforce this JSON schema.
-  // Other adapters may safely ignore it because Zod still validates locally.
-  responseFormat?: {
-    name: string;
-    schema: Record<string, unknown>;
-  };
-};
-
-export interface LLMAdapter {
-  complete(messages: LLMMessage[], options?: LLMOptions): Promise<string>;
-}
-
-export type Provider = "anthropic" | "openai" | "gemini" | "openrouter";
+export type { LLMAdapter, LLMMessage, LLMOptions, LLMPort, Provider } from "../ports/llm";
+import type { Provider } from "../ports/llm";
 
 // ── Model Registry ───────────────────────────────────────────────────────────
 // IDs here are the EXACT strings sent to each provider API.

@@ -666,6 +666,41 @@
   margin-bottom: 24px;
 }
 
+.evidenceBadge,
+.degradedBadge {
+  padding: 5px 8px;
+  border: 1px solid color-mix(in srgb, var(--status-success) 35%, var(--border-subtle));
+  color: var(--status-success);
+  font: 650 9px/1 var(--font-plex-mono), monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.degradedBadge {
+  border-color: color-mix(in srgb, var(--status-warning) 50%, var(--border-subtle));
+  color: var(--status-warning);
+}
+
+.evidenceCard {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 24px;
+  padding: 16px;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--bg-raised) 86%, var(--brand) 3%);
+}
+
+.evidenceHead { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.evidenceHead > div { display: flex; align-items: center; gap: 9px; }
+.evidenceHead span { color: var(--text-muted); font: 650 10px/1 var(--font-display); letter-spacing: .12em; }
+.evidenceHead strong { color: var(--brand); font: 700 11px/1 var(--font-display); text-transform: uppercase; }
+.evidenceHead > b { color: var(--text-secondary); font: 600 11px/1 var(--font-body); }
+.evidenceGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin: 0; background: var(--border-subtle); }
+.evidenceGrid > div { min-width: 0; padding: 10px; background: var(--bg-surface); }
+.evidenceGrid dt { color: var(--text-muted); font: 600 9px/1.2 var(--font-plex-mono), monospace; letter-spacing: .08em; text-transform: uppercase; }
+.evidenceGrid dd { overflow-wrap: anywhere; margin: 7px 0 0; color: var(--text-secondary); font: 600 11px/1.35 var(--font-body); }
+.evidenceWarnings { margin: 0; padding-inline-start: 18px; color: var(--status-warning); font: 400 12px/1.55 var(--font-body); }
+
 .verdict {
   font-size: 14px;
   color: var(--text-secondary);
@@ -1397,7 +1432,9 @@
 
   .assetSourceStatus > small { grid-column: 1 / -1; }
 
-  .mediaGateHead { align-items: flex-start; flex-direction: column; }
+  .mediaGateHead,
+  .evidenceHead { align-items: flex-start; flex-direction: column; }
+  .evidenceGrid { grid-template-columns: 1fr 1fr; }
 
   /* Toolbar wraps */
   .panelToolbar {

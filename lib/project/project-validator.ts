@@ -155,10 +155,10 @@ export function validateGeneratedProject(project: GeneratedProject): ProjectVali
     ? check("font-assets", "Font assets", "warning", `Font "${unbackedFont}" is referenced without a bundled font or @font-face declaration.`)
     : check("font-assets", "Font assets", "pass", "Every named font reference has a local declaration."));
 
-  const placeholderSignals = combined.match(/\b(?:lorem ipsum|todo:|dummy content|fake testimonial|replace me)\b/gi) ?? [];
+  const placeholderSignals = combined.match(/\b(?:lorem ipsum|todo:|dummy content|fake testimonial|replace me|pending|tbd|to be confirmed|coming soon)\b/gi) ?? [];
   checks.push(placeholderSignals.length === 0
     ? check("content-truth", "Content truthfulness", "pass", "No explicit fake or unfinished content markers were detected.")
-    : check("content-truth", "Content truthfulness", "warning", "Placeholder or unfinished content markers remain."));
+    : check("content-truth", "Content truthfulness", "warning", `${placeholderSignals.length} placeholder or unfinished content marker(s) remain.`));
 
   const failed = checks.filter((item) => item.status === "fail").length;
   const warnings = checks.filter((item) => item.status === "warning").length;

@@ -25,6 +25,23 @@ export type ProjectValidation = {
   warnings: number;
 };
 
+export type ProjectReadinessAxis = {
+  status: "ready" | "review-required" | "blocked";
+  score: number;
+  blockers: string[];
+  warnings: string[];
+};
+
+export type ProjectReadiness = {
+  status: "ready" | "review-required" | "blocked";
+  score: number;
+  axes?: {
+    technical: ProjectReadinessAxis;
+    content: ProjectReadinessAxis;
+    launch: ProjectReadinessAxis;
+  };
+};
+
 export type GeneratedProject = {
   schemaVersion: 1;
   name: string;
@@ -34,9 +51,6 @@ export type GeneratedProject = {
   dependencies: Record<string, string>;
   scripts: Record<string, string>;
   warnings: string[];
-  readiness: {
-    status: "ready" | "review-required" | "blocked";
-    score: number;
-  };
+  readiness: ProjectReadiness;
   validation: ProjectValidation;
 };

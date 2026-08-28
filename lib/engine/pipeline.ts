@@ -14,14 +14,14 @@
 // [06] Scorer (J)              → DistinctivenessReport
 // =========================================================
 
-import { analyzeBrief, analyzeBriefLocally, type BriefAnalysis }      from "./brief-analyzer";
+import type { BriefAnalysis }                                        from "./brief-analyzer";
 import { runBlocklistFilter, type BlocklistResult }                    from "./blocklist-filter";
 import { generateDesignPlan, type DesignPlan }                        from "./plan-generator";
 import { runSelfCritique, formatCritiqueForRegeneration, type CritiqueResult } from "./critique-loop";
 import { generateCode, type GeneratedCode }                            from "./code-generator";
 import { generateDistinctivenessReport, type DistinctivenessReport }   from "./scorer";
 import { sourceAssets, type AssetBundle }                              from "./asset-sourcer";
-import { resolveArchetype, formatArchetypeForPlanGenerator, type ArchetypeResolution } from "./brand-archetype-resolver";
+import { formatArchetypeForPlanGenerator, type ArchetypeResolution } from "./brand-archetype-resolver";
 import { buildAnimationLanguage, formatAnimationForCodeGen, type AnimationLanguage } from "./animation-language";
 import { analyzeCompetitiveField, type CompetitiveAnalysis }           from "./competitive-field";
 import { runRestraintCheck, type RestraintResult }                     from "./restraint-check";  // Module N
@@ -31,16 +31,24 @@ import { fixPaletteContrast, type ContrastFixReport }             from "./contra
 import { createAdapter }                                              from "../llm-adapter";
 import type { BrandProfile, OwnedAssetManifest } from "../project/brand-kit";
 import { inspectDesignDiversity, type DesignDiversityResult } from "./design-diversity";
-import type { Provider }                                               from "../llm-adapter/types";
+import { DEFAULT_MODEL, type Provider }                                from "../llm-adapter/types";
 import { buildGeneratedProject }                                      from "../project/project-builder";
 import type { GeneratedProject }                                      from "../project/types";
-import { critiquePlanLocally, generateDesignPlanLocally, resolveArchetypeLocally } from "./fast-path";
+import { inspectAssetUsage, type AssetUsageEvidence } from "./asset-usage";
+import {
+  buildExecutionEvidence,
+  type CritiqueEvidenceSource,
+  type ExecutionEvidence,
+  type PipelineDegradation,
+} from "./execution-evidence";
+import { critiquePlanLocally, generateDesignPlanLocally } from "./fast-path";
 import { runOptionalProviderStep }                                    from "./provider-resilience";
 import {
   checkpointMatchesInput,
   createPipelineCheckpoint,
   type PipelineCheckpoint,
 } from "./pipeline-checkpoint";
+import { createGenerationStrategy, type GenerationMode } from "../application/generation-strategy";
 
 
 // ── Result type ───────────────────────────────────────────────────────────────
@@ -60,6 +68,8 @@ export type PipelineResult = {
   restraintResult:        RestraintResult;        // Module N (Dieter Rams)
   engineeringResult:      EngineeringResult;      // Dual Scoring — Engineering axis
   diversityResult:        DesignDiversityResult;  // Cross-industry house-template gate
+  assetUsage:             AssetUsageEvidence;
+  execution:              ExecutionEvidence;
   codeQualityResult:      CodeQualityResult;      // Phase 3.5: post-gen repair
   contrastReport:         ContrastFixReport;
   revisionCount:          number;
@@ -67,7 +77,7 @@ export type PipelineResult = {
   project:                GeneratedProject;
 };
 
-export type GenerationMode = "fast" | "studio";
+export type { GenerationMode } from "../application/generation-strategy";
 
 export type PipelineEvent = {
   event: "stage_start" | "stage_done" | "stage_flag" | "stage_retry" | "stage_degraded" | "checkpoint";
@@ -119,6 +129,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     checkpoint,
   } = input;
   const revisionLimit = Math.min(MAX_REVISION_CYCLES, Math.max(0, maxRevisions));
+  const strategy = createGenerationStrategy(mode);
   const brandContext = JSON.stringify({ brandProfile, ownedAssets });
   const checkpointInput = { brief, existingCode, framework, mode, brandContext };
   const resumeCheckpoint = checkpointMatchesInput(checkpoint, checkpointInput)
@@ -126,8 +137,18 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     : undefined;
 
   let activeStageId = "boot";
+  const degradations: PipelineDegradation[] = [];
+  let resolvedModel = model ?? DEFAULT_MODEL[provider];
   const emit = (event: PipelineEvent["event"], data: Record<string, unknown>, stageId?: string) => {
     if (event === "stage_start" && typeof data.id === "string") activeStageId = data.id;
+    if (event === "stage_degraded") {
+      const reason = data.reason === "timeout" || data.reason === "provider-unavailable" ? data.reason : "unknown";
+      degradations.push({
+        stageId: typeof data.id === "string" ? data.id : activeStageId,
+        reason,
+        message: typeof data.message === "string" ? data.message : "An optional provider step used its local fallback.",
+      });
+    }
     onEvent?.({ event, data, stageId });
   };
 
@@ -139,6 +160,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   // -- Create per-request LLM adapter (no singleton, no process.env leak) ----
   if (!apiKey) throw new Error("API key is required");
   const llm = createAdapter(provider, apiKey, model, signal, (attempt, waitMs, retryModel) => {
+    resolvedModel = retryModel.replace(/^fallback:\s*/i, "");
     emit("stage_retry", { attempt, waitMs, model: retryModel, stageId: activeStageId }, `${activeStageId}-retry-${attempt}`);
   });
 
@@ -147,13 +169,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   let elapsed = timer();
   const briefStep = resumeCheckpoint
     ? { value: resumeCheckpoint.briefAnalysis, degraded: false, reason: undefined, source: "checkpoint" as const }
-    : mode === "fast"
-    ? { value: analyzeBriefLocally(brief, existingCode), degraded: false, reason: undefined, source: "local-fast-path" as const }
-    : await runOptionalProviderStep(
-      () => analyzeBrief(llm, brief, existingCode),
-      () => analyzeBriefLocally(brief, existingCode),
-      signal
-    ).then((result) => ({ ...result, source: result.degraded ? "local-fallback" as const : "provider" as const }));
+    : await strategy.analyzeBrief(llm, brief, existingCode, signal);
   const briefAnalysis = briefStep.value;
   if (briefStep.degraded) {
     emit("stage_degraded", {
@@ -168,7 +184,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     durationMs: elapsed(),
     extra: { source: briefStep.source },
   }, "01-done");
-  if (mode === "fast") {
+  if (strategy.emitsCheckpoints()) {
     emit("checkpoint", {
       checkpoint: createPipelineCheckpoint({ ...checkpointInput, mode: "fast" }, "01", briefAnalysis),
     }, "checkpoint-01");
@@ -187,9 +203,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   // ── [02.5] Brand Archetype Resolution (Module I) ─────────────────────────
   emit("stage_start", { id: "02.5", name: "Brand Archetype Resolution", module: "Module I" }, "025-start");
   elapsed = timer();
-  const archetypeResolution = mode === "fast"
-    ? resolveArchetypeLocally(briefAnalysis)
-    : await resolveArchetype(llm, briefAnalysis);
+  const archetypeResolution = await strategy.resolveArchetype(llm, briefAnalysis);
   emit("stage_done", {
     id: "02.5",
     name: "Brand Archetype",
@@ -223,6 +237,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   let revisionCount  = 0;
   let previousCritique: string | undefined;
   let studioReviewDegraded = false;
+  let critiqueSource: CritiqueEvidenceSource = strategy.critiqueSource;
 
   emit("stage_start", { id: "03", name: "Design Plan Generation", module: "PlanGenerator + G" }, "03-start");
   elapsed = timer();
@@ -239,10 +254,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
         previousCritique,
         archetypeContext,
         animationContext,
-        {
-          timeoutMs: mode === "fast" ? 45_000 : 55_000,
-          reasoningEffort: mode === "fast" ? "low" : "medium",
-        }
+        strategy.planOptions()
       ),
       () => generateDesignPlanLocally(briefAnalysis),
       signal
@@ -256,23 +268,16 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
       message: "The provider could not return a valid plan; a brief-specific local plan preserved code generation.",
     }, "03-plan-degraded");
   }
-  if (mode === "fast") {
-    finalCritique = critiquePlanLocally(designPlan);
-  } else {
-    const review = await runOptionalProviderStep(
-      () => runSelfCritique(llm, designPlan, briefAnalysis, 30_000),
-      () => critiquePlanLocally(designPlan),
-      signal
-    );
-    finalCritique = review.value;
-    studioReviewDegraded = review.degraded;
-    if (review.degraded) {
-      emit("stage_degraded", {
-        id: "03",
-        reason: review.reason,
-        message: "Remote critique exceeded its budget; deterministic review preserved the run.",
-      }, "03-degraded");
-    }
+  const review = await strategy.critique(llm, designPlan, briefAnalysis, signal);
+  finalCritique = review.value;
+  studioReviewDegraded ||= review.degraded;
+  critiqueSource = review.degraded ? "local-fallback" : strategy.critiqueSource;
+  if (review.degraded) {
+    emit("stage_degraded", {
+      id: "03",
+      reason: review.reason,
+      message: "Remote critique exceeded its budget; deterministic review preserved the run.",
+    }, "03-degraded");
   }
   emit("stage_done", {
     id: "03",
@@ -280,11 +285,11 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     durationMs: elapsed(),
     extra: {
       signature: designPlan.signatureElement?.name,
-      review: resumedPlan ? "resumed checkpoint" : studioReviewDegraded ? "local fallback" : mode === "fast" ? "fast preflight" : "adversarial",
+      review: resumedPlan ? "resumed checkpoint" : studioReviewDegraded ? "local fallback" : strategy.mode === "fast" ? "fast preflight" : "adversarial",
     },
   }, "03-done");
 
-  while (mode === "studio" && !finalCritique.passed && revisionCount < revisionLimit) {
+  while (strategy.allowsRevision() && !finalCritique.passed && revisionCount < revisionLimit) {
     revisionCount++;
     emit("stage_flag", {
       id: "03",
@@ -331,6 +336,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     );
     finalCritique = revisedReview.value;
     studioReviewDegraded ||= revisedReview.degraded;
+    critiqueSource = revisedReview.degraded ? "local-fallback" : "provider";
     if (revisedReview.degraded) {
       emit("stage_degraded", {
         id: `03.r${revisionCount}`,
@@ -358,7 +364,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     durationMs: 0,
     extra: { fixes: contrastReport.fixesApplied, allPass: contrastReport.allPass },
   }, "04-done");
-  if (mode === "fast") {
+  if (strategy.emitsCheckpoints()) {
     emit("checkpoint", {
       checkpoint: createPipelineCheckpoint({ ...checkpointInput, mode: "fast" }, "04", briefAnalysis, designPlan),
     }, "checkpoint-04");
@@ -400,7 +406,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     generatedCode.code,
     signatureStr,
     framework,
-    mode === "studio" && provider !== "openrouter",
+    strategy.allowsCodeRepair(provider),
     briefAnalysis.rawBrief
   );
   emit("stage_done", {
@@ -418,7 +424,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   // Score the delivered code, not the user's brief/input. The input scan is
   // retained only as generation guidance and prompt-injection context.
   const blocklistResult = runBlocklistFilter(finalCode.code);
-  if (mode === "fast" && blocklistResult.matches.length > 0) {
+  if (strategy.mode === "fast" && blocklistResult.matches.length > 0) {
     finalCritique = {
       ...finalCritique,
       overallVerdict: `Fast structural preflight passed, but the delivered code contains ${blocklistResult.matches.length} blocked visual pattern${blocklistResult.matches.length === 1 ? "" : "s"}. Resolve them or run Studio for adversarial review.`,
@@ -456,6 +462,15 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     if (diversityResult.recommendation) distinctivenessReport.recommendations.unshift(diversityResult.recommendation);
     distinctivenessReport.clichesDetected.push(...diversityResult.fingerprints);
   }
+  if (critiqueSource !== "provider" && distinctivenessReport.score > 84) {
+    distinctivenessReport.score = 84;
+    distinctivenessReport.grade = "A";
+    distinctivenessReport.recommendations.unshift(
+      critiqueSource === "local-preflight"
+        ? "Fast mode provides structural evidence only. Run Studio for an adversarial distinctiveness score."
+        : "Studio critique used a local fallback, so the score is capped until adversarial review completes."
+    );
+  }
   emit("stage_done", {
     id: "06",
     name: "Norman 3-Level Report",
@@ -464,12 +479,13 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
   }, "06-done");
 
   emit("stage_start", { id: "07", name: "Project Assembly", module: "ProjectEngine" }, "07-start");
+  const assetUsage = inspectAssetUsage(assetBundle, finalCode.code);
   const project = buildGeneratedProject(
     finalCode,
     briefAnalysis,
     designPlan,
     codeQualityResult.wasRepaired ? [] : codeQualityResult.issues,
-    [...assetBundle.readinessWarnings, ...diversityResult.warnings]
+    [...assetBundle.readinessWarnings, ...assetUsage.warnings, ...diversityResult.warnings]
   );
   emit("stage_done", {
     id: "07",
@@ -477,6 +493,15 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     durationMs: 0,
     extra: { files: project.files.length, readiness: project.readiness.score },
   }, "07-done");
+
+  const execution = buildExecutionEvidence({
+    requestedMode: mode,
+    provider,
+    requestedModel: model ?? DEFAULT_MODEL[provider],
+    resolvedModel,
+    critiqueSource,
+    degradations,
+  });
 
   return {
     mode,
@@ -496,6 +521,8 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     restraintResult,
     engineeringResult,
     diversityResult,
+    assetUsage,
+    execution,
     revisionCount,
     durationMs: Date.now() - start,
     project,

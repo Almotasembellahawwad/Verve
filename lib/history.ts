@@ -2,6 +2,8 @@
 // Design History — localStorage-based persistence
 // Stores up to 20 generation results with LRU eviction
 
+import { BrowserHistoryRepository } from "./adapters/storage/browser-history-repository";
+
 export const HISTORY_KEY = "verve_design_history";
 export const MAX_HISTORY  = 20;
 
@@ -23,25 +25,29 @@ export type HistoryEntry = {
   fullResult:  unknown; // complete API response, stored as-is
 };
 
+function repository(): BrowserHistoryRepository<HistoryEntry> {
+  return new BrowserHistoryRepository<HistoryEntry>(HISTORY_KEY, MAX_HISTORY);
+}
+
+function replaceHistory(entries: HistoryEntry[]): void {
+  const target = repository();
+  target.clear();
+  [...entries].reverse().forEach((entry) => target.put(entry));
+}
+
 function load(): HistoryEntry[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    return raw ? (JSON.parse(raw) as HistoryEntry[]) : [];
-  } catch {
-    return [];
-  }
+  return repository().list();
 }
 
 function save(entries: HistoryEntry[]): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(entries));
+    replaceHistory(entries);
   } catch {
     // localStorage full — evict oldest and retry
     const trimmed = entries.slice(-10);
     try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed));
+      replaceHistory(trimmed);
     } catch {
       // Storage can be disabled or unavailable (private mode / strict policy).
       // History is optional, so generation must continue without persistence.
@@ -75,7 +81,7 @@ export function deleteHistoryEntry(id: string): void {
 }
 
 export function clearHistory(): void {
-  if (typeof window !== "undefined") localStorage.removeItem(HISTORY_KEY);
+  repository().clear();
 }
 
 /** Format a history entry from a pipeline API response */

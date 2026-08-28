@@ -9,6 +9,8 @@ export function serializePipelineResult(result: PipelineResult, requestId?: stri
     inputBlocklistMatches: result.inputBlocklistResult.matches,
     blocklistMatches: result.blocklistResult.matches,
     assetBundle: result.assetBundle,
+    assetUsage: result.assetUsage,
+    execution: result.execution,
     competitiveField: {
       industry: result.competitiveAnalysis.industry,
       matched: result.competitiveAnalysis.matched,

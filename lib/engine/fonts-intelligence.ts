@@ -14,6 +14,7 @@
 // Cost: FREE (key is free from Google Cloud Console)
 
 import type { ArchetypeId } from "./brand-archetype-resolver";
+import { CircuitBreaker } from "../application/circuit-breaker";
 
 export type FontRecommendation = {
   family: string;
@@ -94,29 +95,24 @@ function makeRecommendation(
 
 // ── API validation (optional -- requires GOOGLE_FONTS_API_KEY) ────────────────
 
-let _fontsCache: Set<string> | null = null;
-
-async function getAvailableFonts(): Promise<Set<string>> {
-  if (_fontsCache) return _fontsCache;
-
-  const key = process.env.GOOGLE_FONTS_API_KEY;
+async function getAvailableFonts(
+  key?: string,
+  breaker = new CircuitBreaker("assets:google-fonts")
+): Promise<Set<string>> {
   if (!key) {
-    _fontsCache = new Set(); // empty = skip validation
-    return _fontsCache;
+    return new Set(); // empty = skip validation
   }
 
   try {
-    const res = await fetch(
+    const res = await breaker.execute(() => fetch(
       `https://www.googleapis.com/webfonts/v1/webfonts?key=${key}&sort=popularity`,
-      { next: { revalidate: 86400 } } // cache 24h in Next.js
-    );
+      { next: { revalidate: 86400 } }
+    ));
     if (!res.ok) throw new Error("Fonts API error");
     const data = await res.json() as { items: { family: string; axes?: { tag: string }[] }[] };
-    _fontsCache = new Set(data.items.map((f) => f.family));
-    return _fontsCache;
+    return new Set(data.items.map((font) => font.family));
   } catch {
-    _fontsCache = new Set();
-    return _fontsCache;
+    return new Set();
   }
 }
 
@@ -125,10 +121,11 @@ async function getAvailableFonts(): Promise<Set<string>> {
 export async function selectFontsForArchetype(
   archetypeId: ArchetypeId,
   proposedDisplay?: string,
-  proposedBody?: string
+  proposedBody?: string,
+  dependencies: { googleFontsApiKey?: string; breaker?: CircuitBreaker } = {}
 ): Promise<FontIntelligenceResult> {
   const curated = ARCHETYPE_FONTS[archetypeId] ?? ARCHETYPE_FONTS["everyman"];
-  const available = await getAvailableFonts();
+  const available = await getAvailableFonts(dependencies.googleFontsApiKey, dependencies.breaker);
 
   // Validate proposed fonts against API (if key exists), fallback to curated
   const resolveFont = (proposed: string | undefined, curatedFallback: string): string => {

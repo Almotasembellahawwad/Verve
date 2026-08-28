@@ -2,26 +2,10 @@ import type { LLMAdapter } from "./llm-utils";
 import { extractJSON } from "./llm-utils";
 import type { BriefAnalysis } from "./brief-analyzer";
 import { buildCognitiveGroundingPrompt } from "./cognitive-principles";
-import refraw from "../../data/reference-library.json";
 import { z } from "zod";
 import type { LLMOptions } from "../llm-adapter/types";
-
-type RefEntry = {
-  id: string;
-  name: string;
-  industry: string;
-  mood: string[];
-  what_makes_it_work: string;
-  specific_techniques: string[];
-  color_palette: string[];
-  tags: string[];
-};
-
-type RefData = {
-  entries: RefEntry[];
-};
-
-const refData = refraw as RefData;
+import { staticReferenceLibraryRepository } from "../adapters/storage/static-content-repositories";
+import type { ReferenceEntry, ReferenceLibraryRepositoryPort } from "../ports/repositories";
 
 export type DesignPlan = {
   colorPalette: { name: string; hex: string; role: string }[];
@@ -49,6 +33,7 @@ export type PlanGenerationOptions = {
   timeoutMs?: number;
   reasoningEffort?: LLMOptions["reasoningEffort"];
   allowSchemaRetry?: boolean;
+  referenceRepository?: ReferenceLibraryRepositoryPort;
 };
 
 const DesignPlanOutputSchema = z.object({
@@ -137,8 +122,11 @@ const DESIGN_PLAN_JSON_SCHEMA: Record<string, unknown> = {
   required: ["colorPalette", "typePairing", "layoutConcept", "signatureElement", "referencesSampled", "cognitiveGrounding"],
 };
 
-function getRelevantReferences(analysis: BriefAnalysis): RefEntry[] {
-  const scored = refData.entries.map((ref) => {
+function getRelevantReferences(
+  analysis: BriefAnalysis,
+  repository: ReferenceLibraryRepositoryPort = staticReferenceLibraryRepository
+): ReferenceEntry[] {
+  const scored = repository.list().map((ref) => {
     let score = 0;
     if (ref.industry === analysis.industry) score += 3;
     const toneTags = analysis.tone.toLowerCase().split(/[\s,]+/);
@@ -164,7 +152,7 @@ export async function generateDesignPlan(
   animationContext?: string,   // Module K injection
   options: PlanGenerationOptions = {}
 ): Promise<DesignPlan> {
-  const refs = getRelevantReferences(analysis);
+  const refs = getRelevantReferences(analysis, options.referenceRepository);
 
   const refContext = refs
     .map(

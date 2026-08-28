@@ -3,7 +3,7 @@
 // Module H: Asset Sourcing Engine
 //
 // Sources:
-//   - Pexels API (free, commercial use, no attribution required)
+//   - Pexels API (free; linked attribution is preserved for API compliance)
 //   - Lucide Icons (contextual, SVG-based)
 //   - Fontshare API (high-quality, less-common than Google Fonts)
 //   - colorthief (extracts real palette from Pexels image — Phase 2.5)
@@ -26,6 +26,7 @@ import {
   type BrandProfile,
   type OwnedAssetManifest,
 } from "../project/brand-kit";
+import { CircuitBreaker } from "../application/circuit-breaker";
 
 const PEXELS_TIMEOUT_MS = 8_000;
 
@@ -41,10 +42,14 @@ export type PexelsPhoto = {
 
 export type AssetBundle = {
   photos: {
+    id: string;
     url: string;
     alt: string;
     photographer: string;
     credit: string;
+    source: "owned" | "pexels";
+    sourcePageUrl?: string;
+    photographerUrl?: string;
     dominant_hex: string;
   }[];
   icons: string[];
@@ -141,7 +146,8 @@ export async function sourceAssets(
   analysis: BriefAnalysis,
   pexelsKey?: string,
   brandProfile?: BrandProfile,
-  ownedAssets: OwnedAssetManifest[] = []
+  ownedAssets: OwnedAssetManifest[] = [],
+  breaker = new CircuitBreaker("assets:pexels")
 ): Promise<AssetBundle> {
   const warnings: string[] = [];
   const icons = getContextualIcons(analysis.industry, analysis.tone);
@@ -151,10 +157,12 @@ export async function sourceAssets(
   let photos: AssetBundle["photos"] = ownedAssets
     .filter((asset) => asset.kind === "image")
     .map((asset) => ({
+      id: `owned:${asset.path}`,
       url: asset.url,
       alt: asset.alt,
       photographer: "User supplied",
       credit: "User-owned asset",
+      source: "owned" as const,
       dominant_hex: "#888888",
     }));
   let extractedPalette: AssetBundle["extractedPalette"] = [];
@@ -162,20 +170,24 @@ export async function sourceAssets(
   if (pexelsKey && photos.length < 3) {
     try {
       const query = buildPexelsQuery(analysis);
-      const raw   = await fetchPexelsPhotos(query, pexelsKey, 3 - photos.length);
+      const raw = await breaker.execute(() => fetchPexelsPhotos(query, pexelsKey, 3 - photos.length));
 
       const sourcedPhotos = raw.map((p) => ({
+        id:           `pexels:${p.id}`,
         url:          p.src.large,
         alt:          p.alt,
         photographer: p.photographer,
         credit:       `Photo by ${p.photographer} on Pexels`,
+        source:        "pexels" as const,
+        sourcePageUrl: p.url,
+        photographerUrl: p.photographer_url,
         dominant_hex: "#888888", // overwritten below after real extraction
       }));
       photos = [...photos, ...sourcedPhotos];
 
-      if (sourcedPhotos.length > 0) {
+      if (sourcedPhotos.length > 0 && (mediaRequirement.level === "required" || mediaRequirement.level === "recommended")) {
         // Real palette extraction (Phase 2.5) — non-fatal if it fails
-        extractedPalette = await extractPaletteFromUrl(sourcedPhotos[0].url);
+        extractedPalette = await breaker.execute(() => extractPaletteFromUrl(sourcedPhotos[0].url));
         if (extractedPalette.length > 0) {
           sourcedPhotos[0].dominant_hex = extractedPalette[0].hex;
         }
@@ -199,13 +211,21 @@ export async function sourceAssets(
     `AVAILABLE ASSETS FOR THIS DESIGN:`,
     `MEDIA POLICY: ${mediaRequirement.level.toUpperCase()} — minimum approved images: ${mediaRequirement.minimumAssets}. ${mediaRequirement.reason}`,
     photos.length > 0
-      ? `Photos (${photos.length}): ${photos.map((p, i) => `[Photo ${i + 1}] ${p.url} (credit: ${p.credit})`).join(", ")}`
+      ? `AVAILABLE PHOTOS (${photos.length} found, not yet used): ${photos.map((p, i) => `[Photo ${i + 1}] ${p.url} (credit: ${p.credit}${p.sourcePageUrl ? `; source: ${p.sourcePageUrl}` : ""})`).join(", ")}`
       : "Photos: None available — use an honest labeled asset placeholder when imagery is essential",
     extractedPalette.length > 0
       ? `Palette extracted from hero photo: ${extractedPalette.map((c) => `${c.hex} (${c.role})`).join(", ")}`
       : "",
     `Icons (Lucide — use these names): ${icons.join(", ")}`,
     `Font stack: ${font.family} via ${font.source}; runtime import: ${font.cssImport}`,
+    photos.some((photo) => photo.source === "pexels")
+      ? "PEXELS DELIVERY CONTRACT: If a Pexels photo is used, include a visible linked credit to Pexels and the named photographer. A fetched photo is not automatically selected."
+      : "",
+    mediaRequirement.level === "required" && photos.length > 0
+      ? `USAGE CONTRACT: The delivered code must use at least ${mediaRequirement.minimumAssets} available photo(s).`
+      : mediaRequirement.level === "optional"
+        ? "USAGE CONTRACT: Photography is optional. Use it only when it materially supports the primary job; otherwise leave it unused."
+        : "",
     warnings.length > 0 ? `Sourcing warnings: ${warnings.join("; ")}` : "",
     readinessWarnings.length > 0 ? `READINESS GATE: ${readinessWarnings.join("; ")}` : "",
   ]

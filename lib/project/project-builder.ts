@@ -4,6 +4,7 @@ import type { DesignPlan } from "../engine/plan-generator";
 import { findUnsupportedQuantifiedClaims } from "../engine/content-safety";
 import type { GeneratedProject, ProjectFile, ProjectFramework } from "./types";
 import { validateGeneratedProject } from "./project-validator";
+import { evaluateProjectReadiness } from "./readiness";
 
 function slugify(value: string): string {
   const slug = value
@@ -119,16 +120,10 @@ function finalizeProject(project: Omit<GeneratedProject, "validation"> | Generat
     validation: { status: "ready", score: 100, checks: [], failed: 0, warnings: 0 },
   } as GeneratedProject;
   const validation = validateGeneratedProject(provisional);
-  const riskReadiness = readiness(provisional.warnings);
-  const status = validation.status === "blocked" || riskReadiness.status === "blocked"
-    ? "blocked"
-    : validation.status === "review-required" || riskReadiness.status === "review-required"
-      ? "review-required"
-      : "ready";
   return {
     ...provisional,
     validation,
-    readiness: { status, score: Math.min(validation.score, riskReadiness.score) },
+    readiness: evaluateProjectReadiness(validation, provisional.warnings),
   };
 }
 
@@ -221,12 +216,52 @@ function htmlProject(
   plan: DesignPlan
 ): GeneratedProject {
   const scripts = {};
+  const split = splitHtmlEntry(generated.code);
   const files = [
-    file("index.html", generated.code, "html"),
+    file("index.html", split.html, "html"),
+    file("styles.css", split.css, "css"),
+    ...(split.javascript ? [file("script.js", split.javascript, "javascript")] : []),
     file("README.md", projectReadme(name, "html", analysis, plan, scripts), "markdown", "documentation"),
   ];
   const warnings = inspectProductionRisks(generated.code, analysis.rawBrief);
   return finalizeProject({ schemaVersion: 1, name, framework: "html", entryFile: "index.html", files, dependencies: {}, scripts, warnings, readiness: readiness(warnings) });
+}
+
+/**
+ * The model concentrates on one coherent document; the assembler owns delivery
+ * topology. This keeps prompt output reliable while exporting a maintainable
+ * HTML/CSS/JS project instead of a misleading single-file bundle.
+ */
+export function splitHtmlEntry(source: string): { html: string; css: string; javascript: string } {
+  const styles: string[] = [];
+  const scripts: string[] = [];
+  let html = source.replace(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi, (_block, content: string) => {
+    styles.push(content.trim());
+    return "";
+  });
+
+  html = html.replace(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi, (block, attributes: string, content: string) => {
+    if (/\bsrc\s*=|\btype\s*=\s*["'](?:application\/ld\+json|application\/json)["']/i.test(attributes)) return block;
+    if (content.trim()) scripts.push(content.trim());
+    return "";
+  });
+
+  const stylesheet = '<link rel="stylesheet" href="./styles.css">';
+  html = /<\/head\s*>/i.test(html)
+    ? html.replace(/<\/head\s*>/i, `  ${stylesheet}\n</head>`)
+    : `${stylesheet}\n${html}`;
+  if (scripts.length > 0) {
+    const scriptTag = '<script src="./script.js" defer></script>';
+    html = /<\/body\s*>/i.test(html)
+      ? html.replace(/<\/body\s*>/i, `  ${scriptTag}\n</body>`)
+      : `${html}\n${scriptTag}`;
+  }
+
+  return {
+    html: html.trim(),
+    css: styles.join("\n\n") || "/* No page-specific styles were generated. */",
+    javascript: scripts.join("\n\n"),
+  };
 }
 
 export function inspectProductionRisks(code: string, rawBrief = ""): string[] {

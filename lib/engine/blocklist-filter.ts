@@ -1,22 +1,5 @@
-import clicheraw from "../../data/cliches.json";
-
-type ClicheEntry = {
-  id: string;
-  category: string;
-  pattern: string;
-  description: string;
-  example_values: string[];
-  severity: string;
-  date_observed: string;
-  tags: string[];
-};
-
-type ClicheData = {
-  version: string;
-  cliches: ClicheEntry[];
-};
-
-const clicheData = clicheraw as ClicheData;
+import { staticBlocklistRepository } from "../adapters/storage/static-content-repositories";
+import type { BlocklistRepositoryPort, ClicheData } from "../ports/repositories";
 
 export type BlocklistMatch = {
   id: string;
@@ -36,7 +19,12 @@ export type BlocklistResult = {
  * Checks brief text and existing code against the cliché blocklist.
  * Returns matches + a system prompt injection string for steps [3] and [4].
  */
-export function runBlocklistFilter(content: string, existingCode?: string): BlocklistResult {
+export function runBlocklistFilter(
+  content: string,
+  existingCode?: string,
+  repository: BlocklistRepositoryPort = staticBlocklistRepository
+): BlocklistResult {
+  const clicheData = repository.get();
   const fullText = [content, existingCode ?? ""].join("\n").toLowerCase();
   const matches: BlocklistMatch[] = [];
 
@@ -91,6 +79,6 @@ You MUST actively avoid every pattern above. When tempted to use a "safe" or "ne
   return { matches, blockedCategories, systemPromptInjection };
 }
 
-export function getAllCliches(): ClicheData {
-  return clicheData;
+export function getAllCliches(repository: BlocklistRepositoryPort = staticBlocklistRepository): ClicheData {
+  return repository.get();
 }

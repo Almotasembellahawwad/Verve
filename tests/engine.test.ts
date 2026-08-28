@@ -19,7 +19,8 @@ import type { CritiqueResult } from "../lib/engine/critique-loop";
 import { generateDistinctivenessReport } from "../lib/engine/scorer";
 import { scoreEngineering } from "../lib/engine/engineering-score";
 import { critiquePlanLocally, generateDesignPlanLocally, resolveArchetypeLocally } from "../lib/engine/fast-path";
-import { buildOpenRouterModelChain, OpenRouterAdapter, openRouterDeadline } from "../lib/llm-adapter/openrouter";
+import { buildOpenRouterModelChain, openRouterDeadline } from "../lib/llm-adapter/openrouter";
+import { createAdapter } from "../lib/llm-adapter";
 import { runRestraintCheck } from "../lib/engine/restraint-check";
 import { analyzeCompetitiveField } from "../lib/engine/competitive-field";
 import { findUnsupportedQuantifiedClaims } from "../lib/engine/content-safety";
@@ -39,6 +40,10 @@ import {
   isPipelineCheckpoint,
   type PipelineCheckpoint,
 } from "../lib/engine/pipeline-checkpoint";
+import { CircuitBreaker, CircuitOpenError } from "../lib/application/circuit-breaker";
+import { createGenerationStrategy } from "../lib/application/generation-strategy";
+import { executePipelineStages } from "../lib/application/pipeline-stage";
+import type { BlocklistRepositoryPort } from "../lib/ports/repositories";
 
 test("the public blocklist has truthful family and signal counts", () => {
   const data = getAllCliches();
@@ -104,6 +109,75 @@ test("URL critic rejects insecure and private-network targets before fetching", 
   await assert.rejects(() => fetchPublicDesignSource("https://127.0.0.1"), /private network/);
 });
 
+test("blocklist rules can be supplied through a repository port", () => {
+  const repository: BlocklistRepositoryPort = {
+    get: () => ({
+      version: "test",
+      cliches: [{
+        id: "custom-1",
+        category: "layout",
+        pattern: "Injected repository pattern",
+        description: "Test rule",
+        example_values: ["exact-custom-signal"],
+        severity: "high",
+        date_observed: "2026-08-28",
+        tags: ["test"],
+      }],
+    }),
+  };
+  assert.equal(runBlocklistFilter("exact-custom-signal", undefined, repository).matches[0]?.id, "custom-1");
+});
+
+test("Fast and Studio behavior is selected by one strategy factory", () => {
+  const fast = createGenerationStrategy("fast");
+  const studio = createGenerationStrategy("studio");
+  assert.equal(fast.emitsCheckpoints(), true);
+  assert.equal(fast.allowsRevision(), false);
+  assert.equal(fast.allowsCodeRepair("anthropic"), false);
+  assert.equal(studio.emitsCheckpoints(), false);
+  assert.equal(studio.allowsRevision(), true);
+  assert.equal(studio.allowsCodeRepair("anthropic"), true);
+  assert.equal(studio.allowsCodeRepair("openrouter"), false);
+});
+
+test("circuit breaker opens, fails fast, and recovers through half-open", async () => {
+  let now = 0;
+  let attempts = 0;
+  const breaker = new CircuitBreaker("test-provider", {
+    failureThreshold: 2,
+    failureWindowMs: 100,
+    cooldownMs: 50,
+    now: () => now,
+  });
+  const fail = () => breaker.execute(async () => {
+    attempts++;
+    throw new Error("provider down");
+  });
+  await assert.rejects(fail, /provider down/);
+  await assert.rejects(fail, /provider down/);
+  await assert.rejects(fail, (error: unknown) => error instanceof CircuitOpenError);
+  assert.equal(attempts, 2, "open circuit must not call the dependency");
+  now = 51;
+  assert.equal(await breaker.execute(async () => "recovered"), "recovered");
+  assert.equal(breaker.state, "closed");
+});
+
+test("pipeline stages receive immutable snapshots and can be reordered", async () => {
+  type Context = { value: number; trace: string[] };
+  const increment = {
+    id: "increment",
+    async execute(context: Readonly<Context>) { return { value: context.value + 1, trace: [...context.trace, "increment"] }; },
+  };
+  const double = {
+    id: "double",
+    async execute(context: Readonly<Context>) { return { value: context.value * 2, trace: [...context.trace, "double"] }; },
+  };
+  const first = await executePipelineStages([increment, double], { value: 2, trace: [] });
+  const second = await executePipelineStages([double, increment], { value: 2, trace: [] });
+  assert.deepEqual(first, { value: 6, trace: ["increment", "double"] });
+  assert.deepEqual(second, { value: 5, trace: ["double", "increment"] });
+});
+
 test("every public demo is a complete, runnable native project", () => {
   assert.equal(PUBLIC_DEMOS.length, 3);
   for (const demo of PUBLIC_DEMOS) {
@@ -160,7 +234,7 @@ test("OpenRouter sends modern completion, fallback, reasoning, and structured-ou
   };
 
   try {
-    const adapter = new OpenRouterAdapter("test-key", "openai/gpt-oss-20b:free");
+    const adapter = createAdapter("openrouter", "test-key", "openai/gpt-oss-20b:free");
     const output = await adapter.complete([{ role: "user", content: "Return JSON" }], {
       maxTokens: 1000,
       reasoningEffort: "low",

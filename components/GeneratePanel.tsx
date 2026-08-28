@@ -85,6 +85,24 @@ type PipelineResult = {
     warnings: string[];
     readinessWarnings: string[];
   };
+  assetUsage?: {
+    available: number;
+    required: number;
+    used: number;
+    attributed: number;
+    warnings: string[];
+  };
+  execution?: {
+    requestedMode: "fast" | "studio";
+    effectiveMode: "fast" | "studio" | "studio-degraded";
+    provider: Provider;
+    requestedModel: string;
+    resolvedModel: string;
+    critiqueSource: "provider" | "local-preflight" | "local-fallback";
+    scoreConfidence: "structural" | "adversarial";
+    degraded: boolean;
+    degradations: { stageId: string; reason: string; message: string }[];
+  };
   plan: {
     colorPalette: { name: string; hex: string; role: string }[];
     typePairing: { display: string; body: string; rationale: string };
@@ -906,6 +924,11 @@ export default function GeneratePanel() {
               ) : (
                 <span className={styles.duration}>{(result.durationMs / 1000).toFixed(1)}s</span>
               )}
+              {result.execution && (
+                <span className={result.execution.degraded ? styles.degradedBadge : styles.evidenceBadge}>
+                  {result.execution.effectiveMode.replace("-", " ")} · {result.execution.scoreConfidence}
+                </span>
+              )}
               <button
                 className={styles.certBtn}
                 onClick={() => setCertOpen(true)}
@@ -1141,6 +1164,42 @@ export default function GeneratePanel() {
                 <p className={styles.verdict}>{result.critique.verdict}</p>
               </div>
 
+              {result.execution && (
+                <section className={styles.evidenceCard} aria-label="Generation evidence">
+                  <div className={styles.evidenceHead}>
+                    <div><span>EXECUTION RECEIPT</span><strong>{result.execution.effectiveMode.replace("-", " ")}</strong></div>
+                    <b>{result.execution.scoreConfidence} evidence</b>
+                  </div>
+                  <dl className={styles.evidenceGrid}>
+                    <div><dt>Requested</dt><dd>{result.execution.requestedMode}</dd></div>
+                    <div><dt>Critique</dt><dd>{result.execution.critiqueSource.replace("-", " ")}</dd></div>
+                    <div><dt>Provider</dt><dd>{result.execution.provider}</dd></div>
+                    <div><dt>Resolved model</dt><dd>{result.execution.resolvedModel}</dd></div>
+                  </dl>
+                  {result.execution.degradations.length > 0 && (
+                    <ul className={styles.evidenceWarnings}>
+                      {result.execution.degradations.map((item, index) => (
+                        <li key={`${item.stageId}-${index}`}>Stage {item.stageId}: {item.message} ({item.reason})</li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              )}
+
+              {result.project.readiness.axes && (
+                <section className={styles.evidenceCard} aria-label="Project readiness evidence">
+                  <div className={styles.evidenceHead}>
+                    <div><span>PROJECT READINESS</span><strong>{result.project.readiness.status.replace("-", " ")}</strong></div>
+                    <b>{result.project.readiness.score}/100 launch</b>
+                  </div>
+                  <dl className={styles.evidenceGrid}>
+                    {Object.entries(result.project.readiness.axes).map(([name, value]) => (
+                      <div key={name}><dt>{name}</dt><dd>{value.score}/100 · {value.status.replace("-", " ")}</dd></div>
+                    ))}
+                  </dl>
+                </section>
+              )}
+
               {result.distinctivenessReport.clichesDetected.length > 0 && (
                 <div className={styles.reportSection}>
                   <h3 className={styles.reportSectionTitle}>
@@ -1190,7 +1249,9 @@ export default function GeneratePanel() {
                       <strong>{result.assetBundle.mediaRequirement.level}</strong>
                     </div>
                     <b>
-                      {result.assetBundle.photos.length}/{result.assetBundle.mediaRequirement.minimumAssets} approved
+                      {result.assetUsage
+                        ? `${result.assetUsage.available} found · ${result.assetUsage.used} used · ${result.assetUsage.required} required`
+                        : `${result.assetBundle.photos.length} found · ${result.assetBundle.mediaRequirement.minimumAssets} required`}
                     </b>
                   </div>
                   <p>{result.assetBundle.mediaRequirement.reason}</p>
@@ -1199,7 +1260,12 @@ export default function GeneratePanel() {
                       {result.assetBundle.readinessWarnings.map((warning) => <li key={warning}>{warning}</li>)}
                     </ul>
                   ) : (
-                    <small>Asset requirement satisfied for the selected direction.</small>
+                    <small>{result.assetUsage?.used
+                      ? `${result.assetUsage.used} asset(s) are present in the delivered code.`
+                      : "Available assets were not automatically treated as selected or used."}</small>
+                  )}
+                  {result.assetUsage && result.assetUsage.warnings.length > 0 && (
+                    <ul>{result.assetUsage.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
                   )}
                 </div>
               )}
@@ -1208,11 +1274,11 @@ export default function GeneratePanel() {
                 <div className={styles.mediaGate} data-level={result.diversityResult.passed ? "optional" : "required"}>
                   <div className={styles.mediaGateHead}>
                     <div><span>TEMPLATE DIVERSITY GATE</span><strong>{result.diversityResult.passed ? "pass" : "review"}</strong></div>
-                    <b>{result.diversityResult.passed ? "No house template detected" : `Score capped at ${result.diversityResult.scoreCap}`}</b>
+                    <b>{result.diversityResult.passed ? "No configured house fingerprint detected" : `Score capped at ${result.diversityResult.scoreCap}`}</b>
                   </div>
                   {result.diversityResult.fingerprints.length > 0 ? (
                     <ul>{result.diversityResult.fingerprints.map((fingerprint) => <li key={fingerprint}>{fingerprint}</li>)}</ul>
-                  ) : <small>The result does not repeat Verve&apos;s cross-industry editorial recipe.</small>}
+                  ) : <small>The deterministic fingerprints did not match. This is structural evidence, not proof of visual uniqueness.</small>}
                   {result.diversityResult.recommendation && <p>{result.diversityResult.recommendation}</p>}
                 </div>
               )}
