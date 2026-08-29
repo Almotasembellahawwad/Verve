@@ -5,6 +5,7 @@ import { findUnsupportedQuantifiedClaims } from "../engine/content-safety";
 import type { GeneratedProject, ProjectFile, ProjectFramework } from "./types";
 import { validateGeneratedProject } from "./project-validator";
 import { evaluateProjectReadiness } from "./readiness";
+import { hasHtmlEndTag, insertBeforeHtmlEndTag, rewriteHtmlElements } from "../security/structural-html";
 
 function slugify(value: string): string {
   const slug = value
@@ -235,26 +236,27 @@ function htmlProject(
 export function splitHtmlEntry(source: string): { html: string; css: string; javascript: string } {
   const styles: string[] = [];
   const scripts: string[] = [];
-  let html = source.replace(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi, (_block, content: string) => {
-    styles.push(content.trim());
-    return "";
+  let html = rewriteHtmlElements(source, "style", (element) => {
+    if (element.content.trim()) styles.push(element.content.trim());
+    return "\n";
   });
 
-  html = html.replace(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi, (block, attributes: string, content: string) => {
-    if (/\bsrc\s*=|\btype\s*=\s*["'](?:application\/ld\+json|application\/json)["']/i.test(attributes)) return block;
-    if (content.trim()) scripts.push(content.trim());
-    return "";
+  html = rewriteHtmlElements(html, "script", (element) => {
+    const type = element.attributes.get("type")?.trim().toLowerCase();
+    if (element.attributes.has("src") || type === "application/ld+json" || type === "application/json") {
+      return element.source;
+    }
+    if (element.content.trim()) scripts.push(element.content.trim());
+    return "\n";
   });
 
   const stylesheet = '<link rel="stylesheet" href="./styles.css">';
-  html = /<\/head\s*>/i.test(html)
-    ? html.replace(/<\/head\s*>/i, `  ${stylesheet}\n</head>`)
+  html = hasHtmlEndTag(html, "head")
+    ? insertBeforeHtmlEndTag(html, "head", `  ${stylesheet}\n`)
     : `${stylesheet}\n${html}`;
   if (scripts.length > 0) {
     const scriptTag = '<script src="./script.js" defer></script>';
-    html = /<\/body\s*>/i.test(html)
-      ? html.replace(/<\/body\s*>/i, `  ${scriptTag}\n</body>`)
-      : `${html}\n${scriptTag}`;
+    html = insertBeforeHtmlEndTag(html, "body", `  ${scriptTag}\n`);
   }
 
   return {

@@ -37,7 +37,7 @@ This document tracks shipped foundations and the next evidence-driven product wo
 - [x] GPT-5.6 Responses API, per-call deadlines, optional-stage fallback, accurate stage timing, and missed-heartbeat recovery
 - [x] Native HTML/CSS preview with zero package downloads and isolated execution
 - [x] Editable no-key public demo for first-run product proof
-- [x] Dedicated `/demos` result gallery, separate from the generation homepage and product-evidence showcase
+- [x] Unified `/examples` stories with live results, design decisions, optional evidence, and direct editor continuation
 - [x] Public metadata surface: canonical URL, social cards, robots, sitemap, manifest, and structured data
 - [x] Privacy-bounded result Share Kit with PNG score card and GitHub feedback path
 

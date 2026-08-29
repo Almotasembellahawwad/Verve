@@ -257,6 +257,7 @@ function TelemetryLog({ stages, extras = {} }: { stages: StageState[]; extras?: 
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function GeneratePanel() {
+  const [hydrated, setHydrated] = useState(false);
   const router = useRouter();
   const [brief, setBrief] = useState("");
   const [existingCode, setExistingCode] = useState("");
@@ -286,6 +287,10 @@ export default function GeneratePanel() {
   const telemetryTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const latestCheckpointRef = useRef<PipelineCheckpoint | null>(null);
+
+  useEffect(() => {
+    setHydrated(true); // eslint-disable-line react-hooks/set-state-in-effect -- prevent native details toggles before hydration
+  }, []);
 
   // Reload apiKey when provider changes — reads from localStorage (external system)
   useEffect(() => {
@@ -599,10 +604,10 @@ export default function GeneratePanel() {
       <div className={styles.panel}>
         <div className={styles.workbenchHeader}>
           <div>
-            <span>WORKBENCH / 02</span>
-            <h3>Turn a brief into a visual thesis.</h3>
+            <span>CREATE / BRIEF</span>
+            <h3>Begin with the intent.</h3>
           </div>
-          <p>Keys remain in this browser. Every pipeline decision stays inspectable.</p>
+          <p>Fast is ready by default. Provider, framework, brand, and media controls stay available when you need them.</p>
         </div>
         {/* ── Top toolbar ─────────────────────────────────────────── */}
         <div className={styles.panelToolbar}>
@@ -614,11 +619,10 @@ export default function GeneratePanel() {
           >
             ◱ History
           </button>
-          <a href="/lab" className={styles.toolbarLink} target="_blank" title="Prompt Engineering Lab">
-            ▧ Lab
-          </a>
         </div>
       {/* -- Provider Row -------------------------------------------------------- */}
+      <details className={styles.advancedSettings} inert={hydrated ? undefined : true}>
+        <summary><span>Provider settings</span><b>{PROVIDERS.find((item) => item.id === provider)?.label} · {apiKey ? "key ready" : "key needed"}</b><i>+</i></summary>
       <div className={styles.providerRow}>
         <div className={styles.providerGroup}>
           <span className={styles.label}>AI provider</span>
@@ -685,6 +689,7 @@ export default function GeneratePanel() {
         </small>
         <b aria-hidden="true">Manage ↗</b>
       </button>
+      </details>
 
       {/* ── Input ─────────────────────────────────────────────────────────── */}
       <div className={styles.inputSection}>
@@ -729,6 +734,9 @@ export default function GeneratePanel() {
           </p>
         </div>
 
+        <details className={styles.advancedSettings} inert={hydrated ? undefined : true}>
+          <summary><span>Project options</span><b>{mode === "fast" ? "Fast" : "Studio"} · {framework}</b><i>+</i></summary>
+          <div className={styles.advancedBody}>
         <div className={styles.optionsRow}>
           <fieldset className={styles.modeFieldset} disabled={loading}>
             <legend className={styles.label}>Generation mode</legend>
@@ -813,6 +821,8 @@ export default function GeneratePanel() {
           onProfileChange={setBrandProfile}
           onAssetsChange={setOwnedAssets}
         />
+          </div>
+        </details>
 
         {/* Missing API Key Banner */}
         {missingKey && (

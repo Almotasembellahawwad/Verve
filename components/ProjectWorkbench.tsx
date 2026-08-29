@@ -22,11 +22,14 @@ import { projectFileDataUrl } from "@/lib/project/brand-kit";
 
 type Viewport = "mobile" | "tablet" | "desktop";
 type BottomPanel = "problems" | "console";
+export type WorkbenchFocusMode = "preview" | "code" | "split";
 
 type ProjectWorkbenchProps = {
   project: GeneratedProject;
   onProjectChange?: (project: GeneratedProject) => void;
   readOnly?: boolean;
+  focusMode?: WorkbenchFocusMode;
+  showDiagnostics?: boolean;
 };
 
 const VIEWPORT_LABELS: Array<{ id: Viewport; label: string; width: string }> = [
@@ -51,7 +54,7 @@ async function downloadProjectFiles(project: GeneratedProject): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
-function NextProjectInspector({ project, onProjectChange, readOnly = false }: ProjectWorkbenchProps) {
+function NextProjectInspector({ project, onProjectChange, readOnly = false, showDiagnostics = true }: ProjectWorkbenchProps) {
   const [files, setFiles] = useState(project.files);
   const [selectedPath, setSelectedPath] = useState(project.entryFile);
   const [downloading, setDownloading] = useState(false);
@@ -142,7 +145,7 @@ function NextProjectInspector({ project, onProjectChange, readOnly = false }: Pr
         </section>
       </div>
 
-      <div className={styles.bottomPanel}>
+      {showDiagnostics && <div className={styles.bottomPanel}>
         <div className={styles.bottomTabs}>
           <div className={styles.inspectorTab}>Problems <span>{problemChecks.length}</span></div>
           <div className={styles.validationSummary}>
@@ -158,12 +161,12 @@ function NextProjectInspector({ project, onProjectChange, readOnly = false }: Pr
           ))}
           {problemChecks.length === 0 && <p className={styles.noProblems}>No deterministic problems detected.</p>}
         </div>
-      </div>
+      </div>}
     </section>
   );
 }
 
-function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = false }: ProjectWorkbenchProps & { probeId: string }) {
+function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true }: ProjectWorkbenchProps & { probeId: string }) {
   const { sandpack } = useSandpack();
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [bottomPanel, setBottomPanel] = useState<BottomPanel>("problems");
@@ -258,7 +261,7 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
         </div>
       )}
 
-      <SandpackLayout className={styles.sandpackLayout}>
+      <SandpackLayout className={styles.sandpackLayout} data-mode={focusMode}>
         <SandpackFileExplorer className={styles.explorer} />
         <SandpackCodeEditor className={styles.editor} showTabs showLineNumbers wrapContent readOnly={readOnly} />
         <div className={styles.previewRail}>
@@ -277,7 +280,7 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
         </div>
       </SandpackLayout>
 
-      <div className={styles.bottomPanel}>
+      {showDiagnostics && <div className={styles.bottomPanel}>
         <div className={styles.bottomTabs} role="tablist" aria-label="Project diagnostics">
           <button type="button" role="tab" aria-selected={bottomPanel === "problems"} onClick={() => setBottomPanel("problems")}>
             Problems <span>{totalProblems}</span>
@@ -315,12 +318,12 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
             <SandpackConsole standalone showHeader={false} showSetupProgress />
           </div>
         )}
-      </div>
+      </div>}
     </section>
   );
 }
 
-export default function ProjectWorkbench({ project, onProjectChange, readOnly = false }: ProjectWorkbenchProps) {
+export default function ProjectWorkbench({ project, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true }: ProjectWorkbenchProps) {
   const probeId = useId();
   const files = useMemo(
     () => instrumentSandboxFiles(project, probeId),
@@ -328,11 +331,11 @@ export default function ProjectWorkbench({ project, onProjectChange, readOnly = 
   );
 
   if (!supportsLiveSandbox(project.framework)) {
-    return <NextProjectInspector project={project} onProjectChange={onProjectChange} readOnly={readOnly} />;
+    return <NextProjectInspector project={project} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} />;
   }
 
   if (project.framework === "html") {
-    return <NativeHtmlWorkbench key={`${project.name}-${project.files.length}`} project={project} onProjectChange={onProjectChange} readOnly={readOnly} />;
+    return <NativeHtmlWorkbench key={`${project.name}-${project.files.length}`} project={project} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} />;
   }
 
   return (
@@ -369,7 +372,7 @@ export default function ProjectWorkbench({ project, onProjectChange, readOnly = 
       }}
       options={{ activeFile: `/${project.entryFile}`, visibleFiles: project.files.map((item) => `/${item.path}`) }}
     >
-      <ProjectWorkspaceBody project={project} probeId={probeId} onProjectChange={onProjectChange} readOnly={readOnly} />
+      <ProjectWorkspaceBody project={project} probeId={probeId} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} />
     </SandpackProvider>
   );
 }

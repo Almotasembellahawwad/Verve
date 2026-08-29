@@ -43,6 +43,11 @@ function DocsContent() {
           ))}
           <li className={styles.sidebarDivider} />
           <li>
+            <Link href="/lab" className={styles.sidebarLink}>
+              Advanced lab →
+            </Link>
+          </li>
+          <li>
             <a href="https://github.com/Almotasembellahawwad/Verve" target="_blank" rel="noopener noreferrer" className={styles.sidebarLink}>
               GitHub ↗
             </a>

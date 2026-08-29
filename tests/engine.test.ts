@@ -8,9 +8,9 @@ import { fixPaletteContrast } from "../lib/engine/contrast-fixer";
 import { extractJSON } from "../lib/engine/llm-utils";
 import { runCodeQualityLoop } from "../lib/engine/code-quality-loop";
 import { PROVIDER_MODELS } from "../lib/llm-adapter/types";
-import { fetchPublicDesignSource } from "../lib/security/safe-url";
+import { fetchPublicDesignSource, normalizeFetchedDesignSource } from "../lib/security/safe-url";
 import type { LLMAdapter } from "../lib/llm-adapter/types";
-import { buildGeneratedProject, buildRecoveryProject, inspectProductionRisks } from "../lib/project/project-builder";
+import { buildGeneratedProject, buildRecoveryProject, inspectProductionRisks, splitHtmlEntry } from "../lib/project/project-builder";
 import { analyzeBriefLocally, type BriefAnalysis } from "../lib/engine/brief-analyzer";
 import type { DesignPlan } from "../lib/engine/plan-generator";
 import { validateGeneratedProject } from "../lib/project/project-validator";
@@ -158,6 +158,27 @@ test("provider registry contains no retired model IDs", () => {
 test("URL critic rejects insecure and private-network targets before fetching", async () => {
   await assert.rejects(() => fetchPublicDesignSource("http://example.com"), /public HTTPS/);
   await assert.rejects(() => fetchPublicDesignSource("https://127.0.0.1"), /private network/);
+});
+
+test("URL critic structurally removes active HTML without creating new tags", () => {
+  const normalized = normalizeFetchedDesignSource(`<!doctype html>
+    <html><head><title> Verve &amp; Co </title><style>.secret { display: none }</style></head>
+    <body>
+      <!-- <script>commented()</script> -->
+      <<script data-note=">">blocked()</script\t\n ignored>script>
+      <iframe src="https://example.com"><p>Hidden frame copy</p></iframe >
+      <p>Visible&nbsp;text &#38; detail</p>
+    </body></html>`);
+
+  assert.equal(normalized.title, "Verve & Co");
+  assert.doesNotMatch(normalized.source, /<!--/);
+  assert.doesNotMatch(normalized.source, /<script/i);
+  assert.doesNotMatch(normalized.source, /blocked\(\)|Hidden frame copy/);
+  assert.doesNotMatch(normalized.visibleText, /blocked\(\)|Hidden frame copy/);
+  assert.match(normalized.visibleText, /Visible text & detail$/);
+
+  const unterminated = normalizeFetchedDesignSource("<p>Before</p><script>blocked forever");
+  assert.equal(unterminated.visibleText, "Before");
 });
 
 test("blocklist rules can be supplied through a repository port", () => {
@@ -747,6 +768,50 @@ test("native HTML preview inlines local files without mutating the exported proj
   assert.match(preview, /native-probe/);
   assert.doesNotMatch(preview, /href="\.\/styles\.css"/);
   assert.equal(project.files[0].content, originalHtml);
+});
+
+test("HTML project splitting accepts irregular end tags without regex filtering", () => {
+  const split = splitHtmlEntry(`<!doctype html><html><head>
+    <style data-note="a>b">main { color: tomato; }</style\t\n ignored>
+    <script type="application/ld+json">{"name":"Verve"}</script>
+  </head><body><main>Safe structure</main>
+    <script data-note="a>b">window.ready = true;</script \t\n ignored>
+    <script src="./vendor.js"></script>
+  </body></html>`);
+
+  assert.match(split.css, /main \{ color: tomato; \}/);
+  assert.match(split.javascript, /window\.ready = true/);
+  assert.match(split.html, /href="\.\/styles\.css"/);
+  assert.match(split.html, /src="\.\/script\.js"/);
+  assert.match(split.html, /type="application\/ld\+json"/);
+  assert.match(split.html, /src="\.\/vendor\.js"/);
+  assert.doesNotMatch(split.html, /data-note="a>b">window\.ready/);
+
+  const joinedBoundary = splitHtmlEntry("<scr<style>.x{color:red}</style>ipt>not a script</scr" + "ipt>");
+  assert.doesNotMatch(joinedBoundary.html, /<script>not a script/i);
+});
+
+test("native HTML preview handles quoted brackets and escapes raw-text end tags", () => {
+  const base = buildRecoveryProject("Structural preview fixture", "html", "test");
+  const project = {
+    ...base,
+    files: [
+      {
+        ...base.files[0],
+        content: '<!doctype html><html><head><link data-note="a>b" href="./styles.css" rel="preload stylesheet"></head><body><main>Preview</main><script data-note="a>b" type="module" src="script.js"></script\t\n ignored></body></html>',
+      },
+      { path: "styles.css", content: 'main::after { content: "</STYLE >"; }', language: "css", role: "source" as const },
+      { path: "script.js", content: 'window.closingTag = "</ScRiPt >";', language: "javascript", role: "source" as const },
+    ],
+  };
+
+  const preview = buildHtmlPreviewDocument(project, "structural-probe");
+  assert.match(preview, /data-verve-source="styles\.css"/);
+  assert.match(preview, /data-verve-source="script\.js"/);
+  assert.match(preview, /<\\\/STYLE >/);
+  assert.match(preview, /<\\\/ScRiPt >/);
+  assert.doesNotMatch(preview, /href="\.\/styles\.css"/);
+  assert.doesNotMatch(preview, /src="script\.js"/);
 });
 
 test("Render Gate instrumentation stays ephemeral and supports HTML and React previews", () => {

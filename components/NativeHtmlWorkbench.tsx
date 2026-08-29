@@ -8,6 +8,7 @@ import { buildHtmlPreviewDocument } from "@/lib/project/html-preview";
 import { isRenderGateReport, type RenderGateReport } from "@/lib/project/render-gate";
 import styles from "./ProjectWorkbench.module.css";
 import { projectFileDataUrl } from "@/lib/project/brand-kit";
+import type { WorkbenchFocusMode } from "./ProjectWorkbench";
 
 type Viewport = "mobile" | "tablet" | "desktop";
 
@@ -37,9 +38,11 @@ type Props = {
   project: GeneratedProject;
   onProjectChange?: (project: GeneratedProject) => void;
   readOnly?: boolean;
+  focusMode?: WorkbenchFocusMode;
+  showDiagnostics?: boolean;
 };
 
-export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly = false }: Props) {
+export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true }: Props) {
   const baseProbeId = useId();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [files, setFiles] = useState(project.files);
@@ -155,7 +158,7 @@ export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly
         </div>
       )}
 
-      <div className={styles.nativeLayout}>
+      <div className={styles.nativeLayout} data-mode={focusMode}>
         <nav className={styles.fileList} aria-label="Project files">
           {files.map((item) => (
             <button
@@ -206,7 +209,7 @@ export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly
         </div>
       </div>
 
-      <div className={styles.bottomPanel}>
+      {showDiagnostics && <div className={styles.bottomPanel}>
         <div className={styles.bottomTabs}>
           <div className={styles.inspectorTab}>Problems <span>{totalProblems}</span></div>
           <div className={styles.validationSummary}>{validation.failed} failed · {validation.warnings} warnings · {validation.checks.length} checks</div>
@@ -225,7 +228,7 @@ export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly
           {totalProblems === 0 && renderReport && <p className={styles.noProblems}>Static validation and the rendered result both passed.</p>}
           {totalProblems === 0 && !renderReport && <p className={styles.renderPending}>Render Gate is waiting for the preview document.</p>}
         </div>
-      </div>
+      </div>}
     </section>
   );
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AiDevelopmentPanel, { type AiStudioProposal } from "@/components/AiDevelopmentPanel";
-import ProjectWorkbench from "@/components/ProjectWorkbench";
+import ProjectWorkbench, { type WorkbenchFocusMode } from "@/components/ProjectWorkbench";
 import { SignalNav } from "@/components/SignalNav";
 import { PUBLIC_DEMOS } from "@/lib/demo/public-demo-gallery";
 import type { EditorProjectRecord } from "@/lib/ports/editor-projects";
@@ -25,7 +25,6 @@ import styles from "./editor.module.css";
 type SaveState = "loading" | "saved" | "unsaved" | "saving" | "error";
 const MAX_IMPORT_BYTES = 15_000_000;
 const MAX_PROJECT_CONTENT = 12_000_000;
-const WELCOME_PROJECT_ID = "verve-welcome-demo";
 
 function sameProjectContent(left: GeneratedProject | null, right: GeneratedProject): boolean {
   return Boolean(left)
@@ -93,7 +92,7 @@ function downloadJson(record: EditorProjectRecord, project: GeneratedProject): v
   URL.revokeObjectURL(url);
 }
 
-export default function EditorClient({ initialProjectId }: { initialProjectId: string | null }) {
+export default function EditorClient({ initialProjectId, initialDemoId }: { initialProjectId: string | null; initialDemoId: string | null }) {
   const importRef = useRef<HTMLInputElement>(null);
   const latestProjectRef = useRef<GeneratedProject | null>(null);
   const [records, setRecords] = useState<EditorProjectRecord[]>([]);
@@ -103,6 +102,9 @@ export default function EditorClient({ initialProjectId }: { initialProjectId: s
   const [workspaceVersion, setWorkspaceVersion] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const [aiProposal, setAiProposal] = useState<AiStudioProposal | null>(null);
+  const [workspaceView, setWorkspaceView] = useState<Exclude<WorkbenchFocusMode, "split">>("preview");
+  const [aiOpen, setAiOpen] = useState(true);
+  const [checksOpen, setChecksOpen] = useState(false);
 
   const refreshRecords = useCallback(async () => {
     const next = await listEditorProjects();
@@ -128,8 +130,12 @@ export default function EditorClient({ initialProjectId }: { initialProjectId: s
         const available = await refreshRecords();
         const requestedId = initialProjectId ?? getActiveEditorProjectId();
         let record = requestedId ? await getEditorProject(requestedId) : available[0];
-        if (!record) record = await createEditorProject(PUBLIC_DEMOS[0].result.project, "demo", WELCOME_PROJECT_ID);
-        if (!cancelled) await activate(record);
+        if (!record && initialDemoId) {
+          const demo = PUBLIC_DEMOS.find((item) => item.id === initialDemoId);
+          if (demo) record = await createEditorProject(demo.result.project, "demo");
+        }
+        if (!record && available.length === 0) setSaveState("saved");
+        if (record && !cancelled) await activate(record);
         if (!cancelled) await refreshRecords();
       } catch {
         if (!cancelled) {
@@ -146,7 +152,7 @@ export default function EditorClient({ initialProjectId }: { initialProjectId: s
     };
     void load();
     return () => { cancelled = true; };
-  }, [activate, initialProjectId, refreshRecords]);
+  }, [activate, initialDemoId, initialProjectId, refreshRecords]);
 
   useEffect(() => {
     if (!activeRecord || !workingProject || saveState !== "unsaved") return;
@@ -190,6 +196,7 @@ export default function EditorClient({ initialProjectId }: { initialProjectId: s
     latestProjectRef.current = saved.project;
     setWorkingProject(saved.project);
     setAiProposal(null);
+    setAiOpen(false);
     setWorkspaceVersion((version) => version + 1);
     setRecords((current) => [saved, ...current.filter((record) => record.id !== saved.id)]);
     setSaveState("saved");
@@ -212,6 +219,7 @@ export default function EditorClient({ initialProjectId }: { initialProjectId: s
     setActiveRecord(saved);
     setRecords((current) => [saved, ...current.filter((record) => record.id !== saved.id)]);
     setAiProposal(null);
+    setAiOpen(false);
     setNotice("AI proposal rejected. The accepted project was not changed.");
   };
 
@@ -269,7 +277,14 @@ export default function EditorClient({ initialProjectId }: { initialProjectId: s
     await deleteEditorProject(activeRecord.id);
     const remaining = await refreshRecords();
     if (remaining[0]) await activate(remaining[0]);
-    else await createDemoWorkspace();
+    else {
+      setActiveRecord(null);
+      setWorkingProject(null);
+      latestProjectRef.current = null;
+      setAiProposal(null);
+      setSaveState("saved");
+      window.history.replaceState({}, "", "/editor");
+    }
   };
 
   const importProject = async (file: File | undefined) => {
@@ -297,87 +312,63 @@ export default function EditorClient({ initialProjectId }: { initialProjectId: s
   return (
     <main className={styles.page}>
       <SignalNav />
-      <header className={styles.hero}>
-        <div className={styles.heroRail} aria-hidden="true"><span>V/</span><i /><span>EDITOR</span></div>
-        <div className={styles.heroCopy}>
-          <span>AI DEVELOPMENT STUDIO / HUMAN-CONTROLLED</span>
-          <h1>Keep asking.<br /><em>Stop when it is yours.</em></h1>
-          <p>Direct an AI model, inspect its multi-file proposal in the live result, accept or reject it, and keep developing until the project reaches your standard.</p>
-        </div>
-        <div className={styles.heroStatus}>
-          <span data-state={saveState}>{saveState.toUpperCase()}</span>
-          <small>No account · staged AI patches · browser-local history</small>
-        </div>
-      </header>
+      <input ref={importRef} type="file" accept="application/json,.json" hidden onChange={(event) => void importProject(event.target.files?.[0])} />
 
-      <section className={styles.controlDeck} aria-label="Editor project controls">
-        <label>
-          <span>Active project</span>
+      <header className={styles.appBar} aria-label="Editor controls">
+        <div className={styles.editorIdentity}><strong>Editor</strong><span data-state={saveState}>{saveState === "saved" ? "Saved locally" : saveState}</span></div>
+        <label className={styles.projectPicker}>
+          <span>Project</span>
           <select value={activeRecord?.id ?? ""} onChange={(event) => void switchProject(event.target.value)} disabled={!activeRecord}>
-            {records.map((record) => <option value={record.id} key={record.id}>{record.title} · {record.origin}</option>)}
+            {records.map((record) => <option value={record.id} key={record.id}>{record.title}</option>)}
+            {!activeRecord && <option value="">No project open</option>}
           </select>
         </label>
-        <button type="button" onClick={() => void createDemoWorkspace()}>New demo workspace</button>
-        <button type="button" onClick={() => importRef.current?.click()}>Import .verve.json</button>
-        <input ref={importRef} type="file" accept="application/json,.json" hidden onChange={(event) => void importProject(event.target.files?.[0])} />
-        <Link href="/#workspace">Generate another project</Link>
-      </section>
+        {activeRecord && workingProject && <>
+          <div className={styles.viewSwitch} role="group" aria-label="Workspace view">
+            <button type="button" aria-pressed={workspaceView === "preview"} onClick={() => setWorkspaceView("preview")}>Preview</button>
+            <button type="button" aria-pressed={workspaceView === "code"} onClick={() => setWorkspaceView("code")}>Code</button>
+          </div>
+          <button type="button" className={styles.toolToggle} aria-pressed={aiOpen} onClick={() => setAiOpen((value) => !value)}>AI</button>
+          <button type="button" className={styles.toolToggle} aria-pressed={checksOpen} onClick={() => setChecksOpen((value) => !value)}>Checks</button>
+          <details className={styles.projectMenu}>
+            <summary>Project <span aria-hidden="true">⌄</span></summary>
+            <div className={styles.projectMenuPanel}>
+              <label><span>Name</span><input value={activeRecord.title} onChange={(event) => setActiveRecord({ ...activeRecord, title: event.target.value })} onBlur={(event) => void saveTitle(event.target.value)} maxLength={120} /></label>
+              <dl><div><dt>Framework</dt><dd>{workingProject.framework}</dd></div><div><dt>Files</dt><dd>{workingProject.files.length}</dd></div><div><dt>Readiness</dt><dd>{workingProject.readiness.score}/100</dd></div></dl>
+              <div className={styles.menuActions}>
+                <button type="button" onClick={() => void snapshot()}>Capture revision</button>
+                <button type="button" onClick={() => downloadJson(activeRecord, workingProject)}>Export session</button>
+                <button type="button" onClick={() => importRef.current?.click()}>Import project</button>
+                <button type="button" onClick={() => void createDemoWorkspace()}>Open example project</button>
+                <Link href="/create">Create another project</Link>
+                <button type="button" className={styles.danger} onClick={() => void removeActiveProject()}>Delete local project</button>
+              </div>
+              <div className={styles.revisions}><span>History / {activeRecord.snapshots.length}</span>{activeRecord.snapshots.map((item) => <button type="button" onClick={() => void restoreSnapshot(item.id)} key={item.id}><strong>{item.label}</strong><small>{new Date(item.createdAt).toLocaleString()}</small></button>)}{activeRecord.snapshots.length === 0 && <p>No captured revisions yet.</p>}</div>
+            </div>
+          </details>
+        </>}
+      </header>
 
       {notice && <div className={styles.notice} role="status"><span>{notice}</span><button type="button" onClick={() => setNotice(null)}>Dismiss</button></div>}
 
       {activeRecord && workingProject ? (
-        <>
-          <AiDevelopmentPanel
-            key={activeRecord.id}
-            project={workingProject}
-            iterations={activeRecord.iterations ?? []}
-            onPreview={setAiProposal}
-            onAccept={acceptAiProposal}
-            onReject={rejectAiProposal}
-          />
-          {aiProposal && <div className={styles.proposalBanner} role="status"><b>STAGED PROPOSAL</b><span>The workbench is previewing unaccepted AI changes. Review the result and deterministic diagnostics, then accept or reject above.</span></div>}
-          <section className={styles.editorStage}>
-          <aside className={styles.sessionRail}>
-            <span className={styles.sectionIndex}>01 / SESSION</span>
-            <label>
-              <span>Workspace name</span>
-              <input value={activeRecord.title} onChange={(event) => setActiveRecord({ ...activeRecord, title: event.target.value })} onBlur={(event) => void saveTitle(event.target.value)} maxLength={120} />
-            </label>
-            <dl>
-              <div><dt>Framework</dt><dd>{workingProject.framework}</dd></div>
-              <div><dt>Files</dt><dd>{workingProject.files.length}</dd></div>
-              <div><dt>Readiness</dt><dd>{workingProject.readiness.status} · {workingProject.readiness.score}/100</dd></div>
-              <div><dt>Origin</dt><dd>{activeRecord.origin}</dd></div>
-            </dl>
-            <div className={styles.sessionActions}>
-              <button type="button" onClick={() => void snapshot()}>Capture revision</button>
-              <button type="button" onClick={() => downloadJson(activeRecord, workingProject)}>Export session</button>
-              <button type="button" className={styles.danger} onClick={() => void removeActiveProject()}>Delete local project</button>
-            </div>
-            <div className={styles.revisions}>
-              <span>Revisions / {activeRecord.snapshots.length}</span>
-              {activeRecord.snapshots.map((item) => (
-                <button type="button" onClick={() => void restoreSnapshot(item.id)} key={item.id}>
-                  <strong>{item.label}</strong>
-                  <small>{new Date(item.createdAt).toLocaleString()}</small>
-                </button>
-              ))}
-              {activeRecord.snapshots.length === 0 && <p>Capture a stable point before a larger edit.</p>}
-            </div>
-          </aside>
-          <div className={styles.workbenchWrap}>
-            <div className={styles.workbenchMeta}><span>03 / SOURCE + LIVE RESULT</span><span>{aiProposal ? "READ-ONLY PROPOSAL PREVIEW" : saveState === "saved" ? "ACCEPTED PROJECT · SAVED LOCALLY" : "WORKSPACE CHANGING"}</span></div>
+        <section className={styles.editorShell} data-ai-open={aiOpen || undefined}>
+          <div className={styles.canvas}>
+            {aiProposal && <div className={styles.proposalBanner} role="status"><b>Proposal preview</b><span>You are viewing staged AI changes. The accepted project is still untouched.</span></div>}
+            <div className={styles.canvasMeta}><span>{workspaceView === "preview" ? "LIVE PREVIEW" : "PROJECT FILES"}</span><span>{aiProposal ? "PROPOSAL" : "ACCEPTED PROJECT"} · {workingProject.readiness.score}/100</span></div>
             <ProjectWorkbench
               key={`${activeRecord.id}-${workspaceVersion}-${aiProposal?.id ?? "accepted"}`}
               project={aiProposal?.project ?? workingProject}
               onProjectChange={aiProposal ? undefined : handleProjectChange}
               readOnly={Boolean(aiProposal)}
+              focusMode={workspaceView}
+              showDiagnostics={checksOpen}
             />
           </div>
-          </section>
-        </>
+          {aiOpen && <aside className={styles.aiDrawer} aria-label="AI change assistant"><AiDevelopmentPanel key={activeRecord.id} project={workingProject} iterations={activeRecord.iterations ?? []} onPreview={(proposal) => { setAiProposal(proposal); if (proposal) setAiOpen(true); }} onAccept={acceptAiProposal} onReject={rejectAiProposal} /></aside>}
+        </section>
       ) : (
-        <section className={styles.loading} aria-live="polite">Opening the local project workspace…</section>
+        saveState === "loading" ? <section className={styles.loading} aria-live="polite">Opening your local projects…</section> : <section className={styles.emptyState}><span>EDITOR / NO PROJECT OPEN</span><h1>What would you like to develop?</h1><p>Create a new project, explore a ready example, or import a Verve workspace from this browser.</p><div><Link href="/create">Create a project →</Link><Link href="/examples">Open an example</Link><button type="button" onClick={() => importRef.current?.click()}>Import .verve.json</button></div></section>
       )}
     </main>
   );

@@ -232,3 +232,19 @@
   .sourcePanel pre { height: 520px; }
   .nextEditor { height: 520px; }
 }
+
+.sandpackLayout[data-mode="preview"],
+.nativeLayout[data-mode="preview"] { grid-template-columns: minmax(0, 1fr) !important; }
+.sandpackLayout[data-mode="preview"] .explorer,
+.sandpackLayout[data-mode="preview"] .editor,
+.nativeLayout[data-mode="preview"] .fileList,
+.nativeLayout[data-mode="preview"] .sourcePanel { display: none !important; }
+.sandpackLayout[data-mode="code"],
+.nativeLayout[data-mode="code"] { grid-template-columns: 180px minmax(0, 1fr) !important; }
+.sandpackLayout[data-mode="code"] .previewRail,
+.nativeLayout[data-mode="code"] .previewRail { display: none !important; }
+
+@media (max-width: 760px) {
+  .sandpackLayout[data-mode="code"], .nativeLayout[data-mode="code"] { grid-template-columns: 1fr !important; }
+  .sandpackLayout[data-mode="code"] .explorer, .nativeLayout[data-mode="code"] .fileList { max-height: 160px; overflow: auto; }
+}

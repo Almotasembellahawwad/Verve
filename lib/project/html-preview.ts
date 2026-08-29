@@ -1,22 +1,16 @@
 import type { GeneratedProject } from "./types";
 import { createRenderProbeSource } from "./render-gate";
 import { replaceOwnedAssetReferences } from "./brand-kit";
+import {
+  escapeHtmlAttribute,
+  escapeRawTextEndTags,
+  hasHtmlStartTag,
+  insertBeforeHtmlEndTag,
+  rewriteHtmlElements,
+} from "../security/structural-html";
 
 function normalizePath(path: string): string {
   return path.replace(/^[./\\]+/, "").replace(/\\/g, "/");
-}
-
-function escapeInlineScript(code: string): string {
-  return code.replace(/<\/script/gi, "<\\/script");
-}
-
-function escapeInlineStyle(code: string): string {
-  return code.replace(/<\/style/gi, "<\\/style");
-}
-
-function injectBeforeClose(html: string, tag: "head" | "body", content: string): string {
-  const close = new RegExp(`<\\/${tag}\\s*>`, "i");
-  return close.test(html) ? html.replace(close, `${content}</${tag}>`) : `${html}\n${content}`;
 }
 
 /**
@@ -35,34 +29,32 @@ export function buildHtmlPreviewDocument(project: GeneratedProject, probeId: str
   const entryPath = normalizePath(project.entryFile || "index.html");
   let html = files.get(entryPath) ?? files.get("index.html") ?? "";
 
-  html = html.replace(
-    /<link\b([^>]*?)href=["']([^"']+)["']([^>]*)>/gi,
-    (link, before: string, href: string, after: string) => {
-      const rel = `${before} ${after}`.match(/rel=["']([^"']+)["']/i)?.[1]?.toLowerCase() ?? "";
+  html = rewriteHtmlElements(html, "link", (element) => {
+      const href = element.attributes.get("href");
+      const rel = element.attributes.get("rel")?.toLowerCase() ?? "";
+      if (!href) return element.source;
       const localPath = normalizePath(href.split(/[?#]/, 1)[0] ?? href);
       const css = files.get(localPath);
-      if (!css || !rel.split(/\s+/).includes("stylesheet")) return link;
-      return `<style data-verve-source="${localPath}">${escapeInlineStyle(css)}</style>`;
-    }
-  );
+      if (!css || !rel.split(/\s+/).includes("stylesheet")) return element.source;
+      return `<style data-verve-source="${escapeHtmlAttribute(localPath)}">${escapeRawTextEndTags(css, "style")}</style>`;
+    });
 
-  html = html.replace(
-    /<script\b([^>]*?)src=["']([^"']+)["']([^>]*)>\s*<\/script\s*>/gi,
-    (script, before: string, src: string, after: string) => {
+  html = rewriteHtmlElements(html, "script", (element) => {
+      const src = element.attributes.get("src");
+      if (!src) return element.source;
       const localPath = normalizePath(src.split(/[?#]/, 1)[0] ?? src);
       const js = files.get(localPath);
-      if (!js) return script;
-      const moduleType = `${before} ${after}`.match(/type=["']module["']/i) ? ' type="module"' : "";
-      return `<script${moduleType} data-verve-source="${localPath}">${escapeInlineScript(js)}</script>`;
-    }
-  );
+      if (!js) return element.source;
+      const moduleType = element.attributes.get("type")?.toLowerCase() === "module" ? ' type="module"' : "";
+      return `<script${moduleType} data-verve-source="${escapeHtmlAttribute(localPath)}">${escapeRawTextEndTags(js, "script")}</script>`;
+    });
 
-  if (!/<meta\b[^>]*name=["']viewport["']/i.test(html)) {
-    html = injectBeforeClose(html, "head", '<meta name="viewport" content="width=device-width,initial-scale=1">');
+  if (!hasHtmlStartTag(html, "meta", (attributes) => attributes.get("name")?.toLowerCase() === "viewport")) {
+    html = insertBeforeHtmlEndTag(html, "head", '<meta name="viewport" content="width=device-width,initial-scale=1">');
   }
 
   html = replaceOwnedAssetReferences(html, project.files);
 
-  const probe = `<script data-verve-render-probe>${escapeInlineScript(createRenderProbeSource(probeId))}</script>`;
-  return injectBeforeClose(html, "body", probe);
+  const probe = `<script data-verve-render-probe>${escapeRawTextEndTags(createRenderProbeSource(probeId), "script")}</script>`;
+  return insertBeforeHtmlEndTag(html, "body", probe);
 }

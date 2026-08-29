@@ -1,5 +1,12 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import {
+  decodeHtmlTextEntities,
+  readFirstHtmlElementText,
+  removeHtmlComments,
+  removeHtmlElements,
+  stripHtmlMarkup,
+} from "./structural-html";
 
 const MAX_RESPONSE_BYTES = 1_000_000;
 const MAX_REDIRECTS = 3;
@@ -72,6 +79,25 @@ async function readLimitedText(response: Response): Promise<string> {
 
 export type DesignSource = { finalUrl: string; title: string; source: string; visibleText: string };
 
+export function normalizeFetchedDesignSource(raw: string): Omit<DesignSource, "finalUrl"> {
+  // This excerpt is untrusted model evidence, never renderable markup. Structural
+  // removal avoids both regex bypasses and token-joining that can create new tags.
+  const withoutComments = removeHtmlComments(raw, " ");
+  const source = removeHtmlElements(
+    withoutComments,
+    ["script", "noscript", "iframe", "object", "embed"],
+    " "
+  ).slice(0, 14_000);
+  const titleText = readFirstHtmlElementText(source, "title") ?? "Untitled page";
+  const title = decodeHtmlTextEntities(titleText).replace(/\s+/g, " ").trim().slice(0, 300) || "Untitled page";
+  const visibleDocument = removeHtmlElements(source, ["style", "title", "template"], " ");
+  const visibleText = decodeHtmlTextEntities(stripHtmlMarkup(visibleDocument, " "))
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 6_000);
+  return { title, source, visibleText };
+}
+
 export async function fetchPublicDesignSource(value: string): Promise<DesignSource> {
   let url = await assertPublicHttpsUrl(value);
 
@@ -103,20 +129,7 @@ export async function fetchPublicDesignSource(value: string): Promise<DesignSour
     }
 
     const raw = await readLimitedText(response);
-    const safeSource = raw
-      .replace(/<!--[\s\S]*?-->/g, "")
-      .replace(/<(script|noscript|iframe|object|embed)[^>]*>[\s\S]*?<\/\1>/gi, "")
-      .slice(0, 14_000);
-    const title = safeSource.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() ?? "Untitled page";
-    const visibleText = safeSource
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/&nbsp;/gi, " ")
-      .replace(/&amp;/gi, "&")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 6_000);
-    return { finalUrl: url.toString(), title, source: safeSource, visibleText };
+    return { finalUrl: url.toString(), ...normalizeFetchedDesignSource(raw) };
   }
 
   throw new Error("Unable to fetch the page");

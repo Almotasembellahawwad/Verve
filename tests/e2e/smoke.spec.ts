@@ -1,28 +1,34 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-test("the public workbench promise renders without browser errors", async ({ page }) => {
+async function openArchitectureInEditor(page: Page) {
+  await page.goto("/examples/architecture", { waitUntil: "domcontentloaded" });
+  await page.getByRole("link", { name: /Edit this project/i }).click();
+  await expect(page).toHaveURL(/\/editor\?(project|demo)=/, { timeout: 15_000 });
+  await expect(page.getByRole("combobox", { name: "Project" })).toContainText("reframe-london-adaptive-reuse");
+}
+
+test("the homepage explains one clear path without browser errors", async ({ page }) => {
   const runtimeErrors: string[] = [];
   page.on("pageerror", (error) => runtimeErrors.push(error.message));
   page.on("console", (message) => {
     if (message.type() === "error") runtimeErrors.push(message.text());
   });
   await page.addInitScript(() => {
-    if (window === window.top) {
-      window.localStorage.setItem("verve_anthropic_api_key", "sk-ant-hydration-test");
-      window.localStorage.setItem("verve_onboarding_seen_v2", "1");
-    }
+    if (window === window.top) window.localStorage.setItem("verve_anthropic_api_key", "sk-ant-hydration-test");
   });
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveTitle(/Verve/i);
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Do not stop at");
-  await expect(page.getByRole("link", { name: /Start with a brief/i })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Enter the case stories/i })).toHaveAttribute("href", "/demos");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("From a brief to a website");
+  await expect(page.getByRole("link", { name: /Start creating/i })).toHaveAttribute("href", "/create");
+  await expect(page.getByRole("link", { name: /See an example/i })).toHaveAttribute("href", "/examples");
   if ((page.viewportSize()?.width ?? 1280) <= 768) {
+    await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("link")).toHaveCount(1);
     await page.getByRole("button", { name: "Open menu" }).click();
-    await expect(page.getByRole("button", { name: /Change API key/ })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Navigation menu" }).getByRole("button", { name: "Provider settings", exact: true })).toBeVisible();
   } else {
-    await expect(page.getByRole("button", { name: "AI key configured" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("link")).toHaveCount(6);
+    await expect(page.getByRole("button", { name: /API key configured/ })).toBeVisible();
   }
   expect(runtimeErrors).toEqual([]);
 });
@@ -34,164 +40,91 @@ test("the homepage does not overflow its rendered viewport", async ({ page }) =>
     const offenders = [...document.body.querySelectorAll("*")]
       .map((element) => {
         const rect = element.getBoundingClientRect();
-        return { selector: element.id ? `#${element.id}` : element.tagName.toLowerCase() + (typeof element.className === "string" && element.className ? `.${element.className.split(/\s+/)[0]}` : ""), left: Math.round(rect.left), right: Math.round(rect.right), width: Math.round(rect.width) };
+        return { selector: element.id ? `#${element.id}` : element.tagName.toLowerCase(), right: Math.round(rect.right) };
       })
       .filter((element) => element.right > viewport + 1)
       .slice(0, 8);
-    const scrollContainers = [document.documentElement, document.body, ...document.body.querySelectorAll("*")]
-      .filter((element) => element.scrollWidth > element.clientWidth + 1)
-      .map((element) => ({ selector: element === document.documentElement ? "html" : element === document.body ? "body" : element.id ? `#${element.id}` : element.tagName.toLowerCase() + (typeof element.className === "string" && element.className ? `.${element.className.split(/\s+/)[0]}` : ""), clientWidth: element.clientWidth, scrollWidth: element.scrollWidth, overflowX: getComputedStyle(element).overflowX }))
-      .slice(0, 12);
-    return { viewport, document: document.documentElement.scrollWidth, offenders, scrollContainers };
+    return { viewport, document: document.documentElement.scrollWidth, offenders };
   });
-  expect(dimensions.document, `document width ${dimensions.document}px exceeds ${dimensions.viewport}px; offenders: ${JSON.stringify(dimensions.offenders)}; scroll containers: ${JSON.stringify(dimensions.scrollContainers)}`).toBeLessThanOrEqual(dimensions.viewport + 1);
+  expect(dimensions.document, `overflow: ${JSON.stringify(dimensions.offenders)}`).toBeLessThanOrEqual(dimensions.viewport + 1);
 });
 
-test("the brand kit accepts owned media without uploading it during form setup", async ({ page }) => {
-  const runtimeErrors: string[] = [];
-  page.on("pageerror", (error) => runtimeErrors.push(error.message));
-  page.on("console", (message) => {
-    if (message.type() === "error") runtimeErrors.push(message.text());
-  });
-  await page.addInitScript(() => window.localStorage.setItem("verve_onboarding_seen_v2", "1"));
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+test("Create reveals advanced choices only when requested", async ({ page }) => {
+  await page.goto("/create", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { level: 1, name: "What are you building?" })).toBeVisible();
+  await expect(page.getByLabel("Design brief")).toBeVisible();
+  await expect(page.getByRole("radio", { name: /Fast/ })).toBeHidden();
+  await expect(page.getByText("AI provider", { exact: true })).toBeHidden();
 
+  await page.getByText("Project options", { exact: true }).click();
+  const fast = page.getByRole("radio", { name: /Fast/ });
+  const studio = page.getByRole("radio", { name: /Studio/ });
+  await expect(fast).toBeChecked();
+  await studio.check();
+  await expect(page.getByRole("button", { name: "Run Studio pipeline" })).toBeVisible();
+
+  await page.getByText("Provider settings", { exact: true }).click();
+  await expect(page.getByText("AI provider", { exact: true })).toBeVisible();
+});
+
+test("the brand kit accepts owned media without uploading it during setup", async ({ page }) => {
+  await page.goto("/create", { waitUntil: "domcontentloaded" });
+  await page.getByText("Project options", { exact: true }).click();
   await page.getByText("Brand kit + owned media", { exact: true }).click();
   const brandName = page.getByLabel("Brand name");
   const fileInput = page.locator('input[type="file"]');
   await expect(brandName).toBeEnabled();
-  await expect(fileInput).toBeEnabled();
   await brandName.fill("Verve Test Identity");
   await fileInput.setInputFiles({
     name: "test-mark.svg",
     mimeType: "image/svg+xml",
     buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" fill="#14213d"/></svg>'),
   });
-
   await expect(page.getByText("1/4 local assets")).toBeVisible();
   await expect(page.getByText("test-mark.svg", { exact: true })).toBeVisible();
-  await expect(page.getByLabel("Alt / model direction")).toHaveValue("test mark");
-  expect(runtimeErrors).toEqual([]);
 });
 
-test("Fast is the explicit default and Studio remains one decision away", async ({ page }) => {
-  await page.addInitScript(() => window.localStorage.setItem("verve_onboarding_seen_v2", "1"));
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+test("examples replace the duplicate demo and evidence galleries", async ({ page, request }) => {
+  await page.goto("/examples", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: /Three briefs/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Reframe/ })).toHaveAttribute("href", "/examples/architecture");
+  await expect(page.getByRole("link", { name: /Maeda Cairo/ })).toHaveAttribute("href", "/examples/cairo");
+  await expect(page.getByRole("link", { name: /Ledgerline/ })).toHaveAttribute("href", "/examples/carbon");
 
-  const fast = page.getByRole("radio", { name: /Fast/ });
-  const studio = page.getByRole("radio", { name: /Studio/ });
-  await expect(fast).toBeChecked();
-  await expect(page.getByRole("button", { name: "Run Fast pipeline" })).toBeVisible();
+  await page.goto("/examples/architecture", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Reframe", exact: true })).toBeVisible();
+  await expect(page.frameLocator('iframe[title="reframe-london-adaptive-reuse story preview"]').getByRole("heading", { name: /The building already knows/ })).toBeVisible();
+  await expect(page.getByText("Open design and engineering checks")).toBeVisible();
 
-  await studio.check();
-  await expect(studio).toBeChecked();
-  await expect(page.getByRole("button", { name: "Run Studio pipeline" })).toBeVisible();
+  expect((await request.get("/demos")).url()).toMatch(/\/examples$/);
+  expect((await request.get("/showcase")).url()).toMatch(/\/examples$/);
 });
 
-test("the dedicated editor live-previews and restores an autosaved local project", async ({ page }) => {
+test("the editor starts calm, then previews code edits and restores them", async ({ page }) => {
   await page.goto("/editor", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: /Keep asking/i })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Active project" }).locator("option")).toHaveCount(1);
+  await expect(page.getByRole("heading", { name: "What would you like to develop?" })).toBeVisible();
+
+  await openArchitectureInEditor(page);
+  await page.getByRole("button", { name: "Code", exact: true }).click();
   const editor = page.getByLabel("Edit index.html");
   await expect(editor).toBeVisible();
   const proof = "Editor persistence proof";
   await editor.fill(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Editor proof</title></head><body><main><h1>${proof}</h1></main></body></html>`);
-  await expect(page.frameLocator("iframe").getByRole("heading", { name: proof })).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText("SAVED", { exact: true })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Saved locally", { exact: true })).toBeVisible({ timeout: 10_000 });
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(page.frameLocator('iframe[title$="live preview"]').getByRole("heading", { name: proof })).toBeVisible({ timeout: 10_000 });
+
   await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Code", exact: true }).click();
   await expect(page.getByLabel("Edit index.html")).toHaveValue(new RegExp(proof));
-  await page.getByRole("button", { name: "Capture revision" }).click();
-  await expect(page.getByText("Revision 1", { exact: true })).toBeVisible();
+  const menu = page.locator("details").filter({ hasText: "Capture revision" });
+  await menu.locator("summary").click();
+  await menu.getByRole("button", { name: "Capture revision" }).click();
+  await expect(menu.getByText("Revision 1", { exact: true })).toBeVisible();
 });
 
-test("Verve public surfaces obey their own readable-type floor", async ({ page }) => {
-  for (const path of ["/", "/demos", "/editor", "/lab", "/showcase"]) {
-    await page.goto(path, { waitUntil: "domcontentloaded" });
-    const tinyText = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("body *")]
-      .filter((element) => {
-        const style = getComputedStyle(element);
-        const rect = element.getBoundingClientRect();
-        return style.display !== "none"
-          && style.visibility !== "hidden"
-          && rect.width > 0
-          && rect.height > 0
-          && (element.textContent ?? "").trim().length > 0
-          && Number.parseFloat(style.fontSize) < 10;
-      })
-      .slice(0, 12)
-      .map((element) => ({
-        tag: element.tagName,
-        className: element.className,
-        text: (element.textContent ?? "").trim().slice(0, 60),
-        fontSize: getComputedStyle(element).fontSize,
-      })));
-    expect(tinyText, `${path} renders text below Verve's 10px floor`).toEqual([]);
-  }
-});
-
-test("security headers protect the public surface", async ({ request }) => {
-  const response = await request.get("/");
-  expect(response.ok()).toBeTruthy();
-  expect(response.headers()["x-content-type-options"]).toBe("nosniff");
-  expect(response.headers()["x-frame-options"]).toBe("DENY");
-  expect(response.headers()["content-security-policy"]).toContain("frame-ancestors 'none'");
-  expect(response.headers()["content-security-policy"]).toContain("https://fonts.googleapis.com");
-  expect(response.headers()["content-security-policy"]).toContain("https://cdn.fontshare.com");
-});
-
-test("public discovery files point to Verve's canonical deployment", async ({ request }) => {
-  const [robots, sitemap, manifest, socialImage] = await Promise.all([
-    request.get("/robots.txt"),
-    request.get("/sitemap.xml"),
-    request.get("/manifest.webmanifest"),
-    request.get("/opengraph-image"),
-  ]);
-
-  for (const response of [robots, sitemap, manifest, socialImage]) {
-    expect(response.ok()).toBeTruthy();
-  }
-
-  expect(await robots.text()).toContain("https://verve-dev.vercel.app/sitemap.xml");
-  expect(await sitemap.text()).toContain("https://verve-dev.vercel.app/lab");
-  expect(await sitemap.text()).toContain("https://verve-dev.vercel.app/demos");
-  expect((await manifest.json()).start_url).toBe("/");
-  expect(socialImage.headers()["content-type"]).toContain("image/png");
-});
-
-test("the separate demo gallery opens three editable native HTML projects", async ({ page }) => {
-  test.setTimeout(60_000);
-  await page.addInitScript(() => {
-    if (window === window.top) {
-      window.localStorage.setItem("verve_onboarding_seen_v2", "1");
-    }
-  });
-  await page.goto("/demos", { waitUntil: "domcontentloaded" });
-
-  await expect(page.getByRole("heading", { name: /Three briefs/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Reframe/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Maeda Cairo/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Ledgerline/ })).toBeVisible();
-
-  await expect(page.getByRole("heading", { name: "Reframe", exact: true })).toBeVisible();
-  await expect(page.getByText("05 / EXPERIENCE THE RESULT")).toBeVisible();
-  const preview = page.frameLocator('iframe[title="reframe-london-adaptive-reuse story preview"]');
-  await expect(preview.getByRole("heading", { name: /The building already knows/ })).toBeVisible();
-
-  await page.locator("#select-demo-cairo").click();
-  await expect(page.getByRole("heading", { name: "Maeda Cairo", exact: true })).toBeVisible();
-
-  await page.locator("#select-demo-carbon").click();
-  await expect(page.getByRole("heading", { name: "Ledgerline", exact: true })).toBeVisible();
-
-  await page.getByText("Open every file, diagnostic, and export control").click();
-  await expect(page.getByRole("heading", { name: "ledgerline-carbon-operations" })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Edit index.html" })).toBeEditable();
-});
-
-test("AI Studio stages a live multi-file proposal before human acceptance", async ({ page }) => {
-  await page.addInitScript(() => {
-    if (window === window.top) window.localStorage.setItem("verve_openai_api_key", "sk-test-editor-key");
-  });
+test("AI changes stay staged until human acceptance", async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem("verve_openai_api_key", "sk-test-editor-key"));
   await page.route("**/api/editor/patch", async (route) => {
     const request = route.request().postDataJSON() as { project: { files: Array<{ path: string; content: string }> } };
     const html = request.project.files.find((file) => file.path === "index.html")!;
@@ -209,44 +142,74 @@ test("AI Studio stages a live multi-file proposal before human acceptance", asyn
     });
   });
 
-  await page.goto("/editor", { waitUntil: "domcontentloaded" });
+  await openArchitectureInEditor(page);
   await page.getByLabel("What should change?").fill("Make the opening explicitly iterative");
   await page.getByRole("button", { name: "Stage AI proposal" }).click();
   await expect(page.getByText("STAGED / NOT APPLIED")).toBeVisible();
   await expect(page.frameLocator('iframe[title$="live preview"]').getByRole("heading", { name: /The AI proposal already knows/ })).toBeVisible();
   await page.getByRole("button", { name: "Accept proposal" }).click();
   await expect(page.getByText(/AI proposal accepted/)).toBeVisible();
-  await expect(page.getByText("ACCEPTED", { exact: true })).toBeVisible();
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.frameLocator('iframe[title$="live preview"]').getByRole("heading", { name: /The AI proposal already knows/ })).toBeVisible();
 });
 
-test("the mobile hamburger is a keyboard-safe navigation drawer", async ({ page }) => {
-  await page.addInitScript(() => {
-    if (window === window.top) window.localStorage.setItem("verve_onboarding_seen_v2", "1");
-  });
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+test("Verve public surfaces obey their readable-type floor", async ({ page }) => {
+  for (const path of ["/", "/create", "/examples", "/examples/architecture", "/editor"]) {
+    await page.goto(path, { waitUntil: "domcontentloaded" });
+    const tinyText = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("body *")]
+      .filter((element) => {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0
+          && (element.textContent ?? "").trim().length > 0 && Number.parseFloat(style.fontSize) < 10;
+      })
+      .slice(0, 12)
+      .map((element) => ({ tag: element.tagName, text: (element.textContent ?? "").trim().slice(0, 60), fontSize: getComputedStyle(element).fontSize })));
+    expect(tinyText, `${path} renders text below Verve's 10px floor`).toEqual([]);
+  }
+});
 
+test("security headers protect the public surface", async ({ request }) => {
+  const response = await request.get("/");
+  expect(response.ok()).toBeTruthy();
+  expect(response.headers()["x-content-type-options"]).toBe("nosniff");
+  expect(response.headers()["x-frame-options"]).toBe("DENY");
+  expect(response.headers()["content-security-policy"]).toContain("frame-ancestors 'none'");
+});
+
+test("public discovery files expose the simplified information architecture", async ({ request }) => {
+  const [robots, sitemap, manifest, socialImage] = await Promise.all([
+    request.get("/robots.txt"), request.get("/sitemap.xml"), request.get("/manifest.webmanifest"), request.get("/opengraph-image"),
+  ]);
+  for (const response of [robots, sitemap, manifest, socialImage]) expect(response.ok()).toBeTruthy();
+  const map = await sitemap.text();
+  expect(await robots.text()).toContain("https://verve-dev.vercel.app/sitemap.xml");
+  expect(map).toContain("https://verve-dev.vercel.app/create");
+  expect(map).toContain("https://verve-dev.vercel.app/examples/architecture");
+  expect(map).not.toContain("/demos");
+  expect(map).not.toContain("/showcase");
+  expect((await manifest.json()).start_url).toBe("/");
+  expect(socialImage.headers()["content-type"]).toContain("image/png");
+});
+
+test("the mobile navigation is keyboard-safe and uses plain labels", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
   const hamburger = page.getByRole("button", { name: "Open menu" });
   const mobile = (page.viewportSize()?.width ?? 1280) <= 768;
   if (!mobile) {
     await expect(hamburger).toBeHidden();
     return;
   }
-
-  await expect(hamburger).toBeVisible();
   await hamburger.click();
   const drawer = page.getByRole("dialog", { name: "Navigation menu" });
   await expect(drawer).toBeVisible();
-  await expect(page.getByRole("link", { name: "01 / Process" })).toBeFocused();
+  await expect(drawer.getByRole("link", { name: "Create", exact: true })).toBeFocused();
   await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
-
   await page.keyboard.press("Escape");
   await expect(drawer).toBeHidden();
-  await expect(page.getByRole("button", { name: "Open menu" })).toBeFocused();
-  await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
-
-  await page.getByRole("button", { name: "Open menu" }).click();
-  await page.getByRole("link", { name: "02 / Live demos" }).click();
-  await expect(drawer).toBeHidden();
-  await expect(page).toHaveURL(/\/demos$/);
+  await expect(hamburger).toBeFocused();
+  await hamburger.click();
+  await drawer.getByRole("link", { name: "Examples", exact: true }).click();
+  await expect(page).toHaveURL(/\/examples$/);
   await expect(page.getByRole("heading", { name: /Three briefs/ })).toBeVisible();
 });

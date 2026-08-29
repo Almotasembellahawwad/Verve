@@ -1,11 +1,5 @@
-import type { Metadata } from "next";
-import ShowcaseClient from "./ShowcaseClient";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Evidence Showcase — Verve",
-  description: "See the category gravity, Verve intervention, design decision, runnable result, and engineering receipt behind three public projects.",
-};
-
-export default function ShowcasePage() {
-  return <ShowcaseClient />;
+export default function ShowcaseRedirect() {
+  redirect("/examples");
 }
