@@ -18,6 +18,70 @@ export type RenderGateReport = {
   checks: RenderGateCheck[];
 };
 
+export const RENDER_EVIDENCE_WIDTHS = [360, 768, 1440] as const;
+export type RenderEvidenceWidth = (typeof RENDER_EVIDENCE_WIDTHS)[number];
+
+export type RenderEvidenceMatrix = {
+  reports: Partial<Record<RenderEvidenceWidth, RenderGateReport>>;
+  covered: number;
+  complete: boolean;
+  status: "waiting" | "collecting" | "pass" | "review" | "fail";
+  score: number;
+  failures: number;
+  warnings: number;
+};
+
+export function createRenderEvidenceMatrix(): RenderEvidenceMatrix {
+  return {
+    reports: {},
+    covered: 0,
+    complete: false,
+    status: "waiting",
+    score: 85,
+    failures: 0,
+    warnings: 0,
+  };
+}
+
+function evidenceWidth(width: number): RenderEvidenceWidth | undefined {
+  return RENDER_EVIDENCE_WIDTHS.find((candidate) => Math.abs(candidate - width) <= 2);
+}
+
+export function recordRenderEvidence(
+  matrix: RenderEvidenceMatrix,
+  report: RenderGateReport
+): RenderEvidenceMatrix {
+  const width = evidenceWidth(report.viewport.width);
+  if (!width) return matrix;
+  const previous = matrix.reports[width];
+  if (previous && previous.sequence > report.sequence) return matrix;
+
+  const reports = { ...matrix.reports, [width]: report };
+  const captured = RENDER_EVIDENCE_WIDTHS.flatMap((candidate) => reports[candidate] ? [reports[candidate]!] : []);
+  const checks = captured.flatMap((item) => item.checks);
+  const failures = checks.filter((check) => check.status === "fail").length;
+  const warnings = checks.filter((check) => check.status === "warning").length;
+  const covered = captured.length;
+  const complete = covered === RENDER_EVIDENCE_WIDTHS.length;
+  const status = failures > 0
+    ? "fail"
+    : warnings > 0
+      ? "review"
+      : complete
+        ? "pass"
+        : "collecting";
+
+  return {
+    reports,
+    covered,
+    complete,
+    status,
+    score: Math.max(0, 100 - failures * 35 - warnings * 8 - (RENDER_EVIDENCE_WIDTHS.length - covered) * 5),
+    failures,
+    warnings,
+  };
+}
+
 const PROBE_FILE = "/__verve_render_probe.js";
 const REACT_PROBE_FILE = "/src/__verve_render_probe.js";
 

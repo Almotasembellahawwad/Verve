@@ -6,6 +6,15 @@ Verve is an open-source project intelligence engine for generating distinctive w
 
 [Development preview](https://verve-dev.vercel.app/) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [MIT License](LICENSE)
 
+## Verve Engine v2 foundation
+
+- **Executable project specification** — every run now produces a bounded `VerveProjectSpec` between planning and code generation, covering intent, facts, sections, components, interactions, responsive behavior, visual rules, media policy, invariants, and novelty levers.
+- **Quality-diversity portfolio** — the planning call explores exactly three structurally different directions, estimates their likelihood, and selects one by brief fit, feasibility, and novelty instead of sampling one answer blindly.
+- **Private local design memory** — the browser keeps at most 20 bounded direction fingerprints, never briefs or API keys. Recent fingerprints are sent only with the generation request that uses them to discourage repeated topology and signature combinations.
+- **Inspectable Stage Graph** — deterministic post-plan work now runs as immutable, independently testable experience-contract and direction-diversity stages.
+- **Three-viewport render evidence** — HTML and React readiness cannot pass from one convenient preview. Render Gate retains separate evidence at 360, 768, and 1440 pixels and resets it when source changes.
+- **Fast stays fast** — the richer search and validation remain inside the existing plan and code calls, so Fast still spends two core model calls.
+
 ## What changed in 0.8 Simplified Product Flow
 
 - **Four clear destinations** — the global navigation is now Create, Examples, Editor, and Docs; provider keys and GitHub remain utilities rather than competing product steps.
@@ -145,6 +154,10 @@ Spoken or written brief + optional owned brand kit
 [03] Design plan ───────── local preflight in Fast / critique loop in Studio
         ↓
 [04] Deterministic contrast correction
+        |
+[04.1] VerveProjectSpec experience contract
+        |
+[04.2] Quality-diversity assessment + local novelty memory
         ↓
 [05] Production-minded entry code
         ↓

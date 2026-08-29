@@ -33,6 +33,12 @@ import {
   type LocalOwnedAsset,
 } from "@/lib/project/brand-kit";
 import { DEFAULT_GENERATION_MODE, type GenerationMode } from "@/lib/domain/generation-mode";
+import type { DirectionPortfolio } from "@/lib/domain/design-direction";
+import { fingerprintDirection } from "@/lib/engine/direction-portfolio";
+import {
+  getRecentLocalDesignFingerprints,
+  rememberLocalDesignDirection,
+} from "@/lib/client/design-memory";
 
 const PROVIDERS: { id: Provider; label: string; icon: string }[] = [
   { id: "anthropic",  label: "Claude",     icon: "A" },
@@ -48,7 +54,7 @@ const PIPELINE_STAGES = [
   { id: "02.5", name: "BRAND ARCHETYPE",         module: "Module I",            status: "RESOLVING"   },
   { id: "02.6", name: "ANIMATION LANGUAGE",      module: "Module K",            status: "DERIVING"    },
   { id: "03",   name: "PLAN + ADVERSARIAL REVIEW", module: "PlanGenerator + G", status: "CRITIQUING"  },
-  { id: "04",   name: "CONTRAST AUTO-FIX",       module: "Module O",            status: "VERIFYING"   },
+  { id: "04",   name: "DESIGN CONTRACT GATES",   module: "contrast + spec + QD", status: "VERIFYING"   },
   { id: "05",   name: "CODE GENERATION",         module: "code-generator.ts",   status: "COMPILING"   },
   { id: "05.5", name: "CODE VALIDATION",         module: "CodeQualityLoop",     status: "REPAIRING"    },
   { id: "06",   name: "NORMAN 3-LEVEL SCORE",    module: "scorer.ts",           status: "SCORING"     },
@@ -135,6 +141,14 @@ type PipelineResult = {
     layoutConcept: string;
     signatureElement: { name: string; description: string; justification: string };
     referencesSampled: string[];
+    directionPortfolio?: DirectionPortfolio;
+  };
+  directionDiversity?: {
+    passed: boolean;
+    diversityScore: number;
+    historicalNoveltyScore: number | null;
+    recommendedDirectionId: string;
+    warnings: string[];
   };
   critique: {
     passed: boolean;
@@ -214,6 +228,12 @@ type PipelineResult = {
   durationMs: number;
   project: GeneratedProject;
 };
+
+function rememberResultDirection(result: PipelineResult, outcome: "generated" | "accepted"): void {
+  const portfolio = result.plan.directionPortfolio;
+  const selected = portfolio?.candidates.find((candidate) => candidate.id === portfolio.selectedDirectionId);
+  if (selected) rememberLocalDesignDirection(fingerprintDirection(selected), outcome);
+}
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- used as type source below
 const FRAMEWORKS = ["nextjs", "react", "html"] as const;
@@ -344,7 +364,11 @@ export default function GeneratePanel() {
 
   // ── SSE-based telemetry: update stage from real events ──────────────────
   const updateStage = (stageId: string, state: StageState, extra?: string) => {
-    const normalizedStageId = stageId.startsWith("03.r") ? "03" : stageId;
+    const normalizedStageId = stageId.startsWith("03.r")
+      ? "03"
+      : stageId.startsWith("04.")
+        ? "04"
+        : stageId;
     setStageStates((prev) => {
       const idx = PIPELINE_STAGES.findIndex((s) => s.id === normalizedStageId);
       if (idx < 0) return prev;
@@ -413,6 +437,7 @@ export default function GeneratePanel() {
           pexelsKey: getLocalApiKey("pexels") || undefined,
           brandProfile,
           ownedAssets: assetManifest,
+          recentDirectionFingerprints: getRecentLocalDesignFingerprints(),
           checkpoint: resumeCheckpoint && checkpointMatchesInput(resumeCheckpoint, {
             brief,
             existingCode: existingCode || undefined,
@@ -486,6 +511,7 @@ export default function GeneratePanel() {
             const enriched = ownedAssets.length > 0
               ? { ...data, project: attachOwnedAssets(data.project, ownedAssets) }
               : data;
+            rememberResultDirection(enriched, "generated");
             setResult(enriched);
             latestCheckpointRef.current = null;
             setActiveView("project");
@@ -991,7 +1017,10 @@ export default function GeneratePanel() {
               <button
                 className={styles.editorLaunchBtn}
                 type="button"
-                onClick={() => void launchProjectEditor(result.project, result.demo ? "demo" : "generation").then((href) => router.push(href))}
+                onClick={() => {
+                  rememberResultDirection(result, "accepted");
+                  void launchProjectEditor(result.project, result.demo ? "demo" : "generation").then((href) => router.push(href));
+                }}
               >
                 Open in Editor ↗
               </button>
@@ -1042,6 +1071,34 @@ export default function GeneratePanel() {
                   <div><span className={styles.metaKey}>Tone</span><span className={styles.metaVal}>{result.briefAnalysis.tone}</span></div>
                 </div>
               </div>
+
+              {result.plan.directionPortfolio && (
+                <div className={styles.planCard}>
+                  <h3 className={styles.planCardTitle}>Direction Portfolio</h3>
+                  <div className={styles.metaGrid}>
+                    <div>
+                      <span className={styles.metaKey}>Structural diversity</span>
+                      <span className={styles.metaVal}>{result.directionDiversity?.diversityScore ?? 0}/100</span>
+                    </div>
+                    <div>
+                      <span className={styles.metaKey}>Recent-result novelty</span>
+                      <span className={styles.metaVal}>
+                        {result.directionDiversity?.historicalNoveltyScore == null
+                          ? "New memory"
+                          : `${result.directionDiversity.historicalNoveltyScore}/100`}
+                      </span>
+                    </div>
+                    {result.plan.directionPortfolio.candidates.map((candidate) => (
+                      <div key={candidate.id} style={{ gridColumn: "1/-1" }}>
+                        <span className={styles.metaKey}>
+                          {candidate.id === result.plan.directionPortfolio?.selectedDirectionId ? "Selected direction" : "Alternative direction"}
+                        </span>
+                        <span className={styles.metaVal}>{candidate.concept} / fit {candidate.briefFit}/100</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Module I: Archetype Card */}
               {result.archetype && (

@@ -15,7 +15,14 @@ import type { GeneratedProject } from "@/lib/project/types";
 import { validateGeneratedProject } from "@/lib/project/project-validator";
 import { mergeEditorFiles } from "@/lib/project/editor-project";
 import { liveSandboxTemplate, supportsLiveSandbox } from "@/lib/project/live-sandbox";
-import { instrumentSandboxFiles, isRenderGateReport, type RenderGateReport } from "@/lib/project/render-gate";
+import {
+  createRenderEvidenceMatrix,
+  instrumentSandboxFiles,
+  isRenderGateReport,
+  recordRenderEvidence,
+  RENDER_EVIDENCE_WIDTHS,
+  type RenderEvidenceWidth,
+} from "@/lib/project/render-gate";
 import NativeHtmlWorkbench from "./NativeHtmlWorkbench";
 import styles from "./ProjectWorkbench.module.css";
 import { projectFileDataUrl } from "@/lib/project/brand-kit";
@@ -32,14 +39,26 @@ type ProjectWorkbenchProps = {
   showDiagnostics?: boolean;
 };
 
-const VIEWPORT_LABELS: Array<{ id: Viewport; label: string; width: string }> = [
-  { id: "mobile", label: "360", width: "360px" },
-  { id: "tablet", label: "768", width: "768px" },
-  { id: "desktop", label: "1440", width: "1440px" },
+const VIEWPORT_LABELS: Array<{ id: Viewport; label: string; width: string; pixels: RenderEvidenceWidth }> = [
+  { id: "mobile", label: "360", width: "360px", pixels: 360 },
+  { id: "tablet", label: "768", width: "768px", pixels: 768 },
+  { id: "desktop", label: "1440", width: "1440px", pixels: 1440 },
 ];
 
 function projectTemplate(project: GeneratedProject): "react" | "static" {
   return liveSandboxTemplate(project.framework);
+}
+
+function sandboxFilesRevision(files: Record<string, { code: string }>): number {
+  let hash = 2166136261;
+  for (const [path, file] of Object.entries(files).sort(([left], [right]) => left.localeCompare(right))) {
+    const value = `${path}\u0000${file.code}`;
+    for (let index = 0; index < value.length; index++) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+  }
+  return hash >>> 0;
 }
 
 async function downloadProjectFiles(project: GeneratedProject): Promise<void> {
@@ -171,7 +190,14 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [bottomPanel, setBottomPanel] = useState<BottomPanel>("problems");
   const [downloading, setDownloading] = useState(false);
-  const [renderReport, setRenderReport] = useState<RenderGateReport | null>(null);
+  const filesRevision = useMemo(() => sandboxFilesRevision(sandpack.files), [sandpack.files]);
+  const [renderEvidenceState, setRenderEvidenceState] = useState(() => ({
+    revision: filesRevision,
+    evidence: createRenderEvidenceMatrix(),
+  }));
+  const renderEvidence = renderEvidenceState.revision === filesRevision
+    ? renderEvidenceState.evidence
+    : createRenderEvidenceMatrix();
   const selectedViewport = VIEWPORT_LABELS.find((item) => item.id === viewport)!;
 
   const editedProject = useMemo<GeneratedProject>(
@@ -181,29 +207,42 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
   const validation = useMemo(() => validateGeneratedProject(editedProject), [editedProject]);
   const problemChecks = validation.checks.filter((item) => item.status !== "pass");
   const runtimeError = sandpack.error?.message ?? null;
-  const renderProblems = renderReport?.checks.filter((item) => item.status !== "pass") ?? [];
-  const renderFailures = renderProblems.filter((item) => item.status === "fail").length;
-  const renderWarnings = renderProblems.filter((item) => item.status === "warning").length;
+  const renderProblems = RENDER_EVIDENCE_WIDTHS.flatMap((width) =>
+    (renderEvidence.reports[width]?.checks ?? [])
+      .filter((item) => item.status !== "pass")
+      .map((item) => ({ ...item, viewportWidth: width }))
+  );
+  const renderFailures = renderEvidence.failures;
+  const renderWarnings = renderEvidence.warnings;
   const totalProblems = problemChecks.length + renderProblems.length + (runtimeError ? 1 : 0);
   const riskScore = Math.max(0, 100 - project.warnings.length * 18);
-  const renderScore = renderReport ? Math.max(0, 100 - renderFailures * 35 - renderWarnings * 8) : 85;
+  const renderScore = renderEvidence.covered > 0 ? renderEvidence.score : 85;
   const readinessScore = Math.min(validation.score, riskScore, renderScore);
   const readinessStatus = validation.status === "blocked" || renderFailures > 0 || runtimeError
     ? "blocked"
-    : !renderReport
+    : !renderEvidence.complete
       ? "verifying"
     : validation.status === "review-required" || project.warnings.length > 0 || renderWarnings > 0
       ? "review-required"
       : "ready";
-  const renderGateStatus = !renderReport ? "WAITING" : renderFailures > 0 ? "FAIL" : renderWarnings > 0 ? "REVIEW" : "PASS";
+  const renderGateStatus = `${renderEvidence.status.toUpperCase()} ${renderEvidence.covered}/3`;
 
   useEffect(() => {
     const receiveReport = (event: MessageEvent<unknown>) => {
-      if (isRenderGateReport(event.data, probeId)) setRenderReport(event.data);
+      if (isRenderGateReport(event.data, probeId)) {
+        const report = event.data;
+        setRenderEvidenceState((current) => ({
+          revision: filesRevision,
+          evidence: recordRenderEvidence(
+            current.revision === filesRevision ? current.evidence : createRenderEvidenceMatrix(),
+            report
+          ),
+        }));
+      }
     };
     window.addEventListener("message", receiveReport);
     return () => window.removeEventListener("message", receiveReport);
-  }, [probeId]);
+  }, [filesRevision, probeId]);
 
   useEffect(() => {
     onProjectChange?.(editedProject);
@@ -236,10 +275,7 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
                 type="button"
                 key={item.id}
                 className={viewport === item.id ? styles.activeViewport : ""}
-                onClick={() => {
-                  setRenderReport(null);
-                  setViewport(item.id);
-                }}
+                onClick={() => setViewport(item.id)}
               >
                 {item.label}
               </button>
@@ -269,7 +305,7 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
             <span>LIVE SANDBOX · {sandpack.status.toUpperCase()} / RENDER GATE · {renderGateStatus}</span>
             <span>{selectedViewport.width}</span>
           </div>
-          <div className={styles.previewViewport} style={{ maxWidth: selectedViewport.width }}>
+          <div className={styles.previewViewport} style={{ width: selectedViewport.width }}>
             <SandpackPreview
               className={styles.preview}
               showOpenInCodeSandbox={false}
@@ -305,13 +341,13 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
               </div>
             ))}
             {renderProblems.map((item) => (
-              <div key={`render-${item.id}`} className={item.status === "fail" ? styles.problemFail : styles.problemWarning}>
+              <div key={`render-${item.viewportWidth}-${item.id}`} className={item.status === "fail" ? styles.problemFail : styles.problemWarning}>
                 <b>Render · {item.title}</b>
                 <span>{item.message}</span>
               </div>
             ))}
-            {totalProblems === 0 && renderReport && <p className={styles.noProblems}>Static validation and the rendered result both passed.</p>}
-            {totalProblems === 0 && !renderReport && <p className={styles.renderPending}>Render Gate is waiting for the preview document.</p>}
+            {totalProblems === 0 && renderEvidence.complete && <p className={styles.noProblems}>Static validation and all three rendered viewports passed.</p>}
+            {totalProblems === 0 && !renderEvidence.complete && <p className={styles.renderPending}>Viewport evidence {renderEvidence.covered}/3. Open each width to complete the render audit.</p>}
           </div>
         ) : (
           <div role="tabpanel" className={styles.consolePanel}>

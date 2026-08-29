@@ -3,6 +3,8 @@ import { NullProgressPublisher } from "../ports/progress";
 
 export interface PipelineStage<TContext extends object> {
   readonly id: string;
+  readonly name?: string;
+  readonly module?: string;
   execute(context: Readonly<TContext>): Promise<Partial<TContext>>;
 }
 
@@ -17,11 +19,15 @@ export async function executePipelineStages<TContext extends object>(
 ): Promise<TContext> {
   let context = { ...initial };
   for (const stage of stages) {
-    progress.publish({ event: "stage_start", stageId: stage.id, data: { id: stage.id } });
+    const metadata = {
+      id: stage.id,
+      ...(stage.name ? { name: stage.name } : {}),
+      ...(stage.module ? { module: stage.module } : {}),
+    };
+    progress.publish({ event: "stage_start", stageId: stage.id, data: metadata });
     const output = await stage.execute(Object.freeze({ ...context }));
     context = { ...context, ...output };
-    progress.publish({ event: "stage_done", stageId: stage.id, data: { id: stage.id } });
+    progress.publish({ event: "stage_done", stageId: stage.id, data: metadata });
   }
   return context;
 }
-

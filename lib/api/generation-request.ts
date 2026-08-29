@@ -16,6 +16,17 @@ const BrandProfileSchema = z.object({
   notes: z.string().max(1200).optional(),
 });
 
+const DirectionFingerprintSchema = z.object({
+  directionId: z.string().min(1).max(80),
+  topology: z.string().min(1).max(700),
+  hierarchy: z.string().min(1).max(700),
+  spatialRhythm: z.string().min(1).max(700),
+  typographyRole: z.string().min(1).max(700),
+  mediaStrategy: z.string().min(1).max(700),
+  interactionMetaphor: z.string().min(1).max(700),
+  signatureMechanism: z.string().min(1).max(700),
+});
+
 /** Shared by JSON and SSE so both delivery paths accept the exact same contract. */
 export const GenerationRequestSchema = z.object({
   brief: z.string().min(10).max(5000),
@@ -28,6 +39,7 @@ export const GenerationRequestSchema = z.object({
   brandProfile: BrandProfileSchema.optional(),
   ownedAssets: z.array(OwnedAssetSchema).max(4).optional().default([]),
   mode: z.enum(GENERATION_MODES).optional().default(DEFAULT_GENERATION_MODE),
+  recentDirectionFingerprints: z.array(DirectionFingerprintSchema).max(12).optional().default([]),
   checkpoint: PipelineCheckpointSchema.optional(),
 });
 
