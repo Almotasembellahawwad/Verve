@@ -6,6 +6,8 @@ export function serializePipelineResult(result: PipelineResult, requestId?: stri
     mode: result.mode,
     briefAnalysis: result.briefAnalysis,
     plan: result.designPlan,
+    projectSpec: result.projectSpec,
+    directionDiversity: result.directionDiversity,
     inputBlocklistMatches: result.inputBlocklistResult.matches,
     blocklistMatches: result.blocklistResult.matches,
     assetBundle: result.assetBundle,

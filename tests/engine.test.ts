@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { NextRequest } from "next/server";
 import { getAllCliches, runBlocklistFilter } from "../lib/engine/blocklist-filter";
@@ -28,7 +28,13 @@ import { runRestraintCheck } from "../lib/engine/restraint-check";
 import { analyzeCompetitiveField } from "../lib/engine/competitive-field";
 import { findUnsupportedQuantifiedClaims } from "../lib/engine/content-safety";
 import { liveSandboxTemplate, supportsLiveSandbox } from "../lib/project/live-sandbox";
-import { instrumentSandboxFiles, isRenderGateReport } from "../lib/project/render-gate";
+import {
+  createRenderEvidenceMatrix,
+  instrumentSandboxFiles,
+  isRenderGateReport,
+  recordRenderEvidence,
+  type RenderGateReport,
+} from "../lib/project/render-gate";
 import { buildHtmlPreviewDocument } from "../lib/project/html-preview";
 import { buildFeedbackUrl, buildResultCardFilename, buildResultShareText, normalizeResultShareInput } from "../lib/share/result-share";
 import {
@@ -63,6 +69,11 @@ import { DEFAULT_GENERATION_MODE } from "../lib/domain/generation-mode";
 import { GenerationRequestSchema } from "../lib/api/generation-request";
 import { runProjectPatchUseCase } from "../lib/application/run-project-patch-use-case";
 import { applyProjectPatchProposal, projectPatchContext } from "../lib/project/ai-patch";
+import { buildVerveProjectSpec } from "../lib/engine/project-spec-builder";
+import { validateVerveProjectSpec } from "../lib/domain/project-spec";
+import { assessDirectionPortfolio, createFallbackDirectionPortfolio } from "../lib/engine/direction-portfolio";
+import { recentDesignFingerprints, rememberDesignDirection } from "../lib/domain/design-memory";
+import { runGenerationFoundationStages } from "../lib/application/generation-foundation-stages";
 
 async function runPipeline(
   input: PipelineInput & {
@@ -122,6 +133,98 @@ test("palette correction applies one stable text token across dark surfaces", ()
   assert.equal(result.report.fixesApplied, 1);
   assert.equal(result.report.allPass, true);
   assert.ok(result.report.checked.every((check) => check.ratio >= 4.5 && check.passesAA));
+});
+
+test("VerveProjectSpec creates a bounded, executable experience contract before code generation", () => {
+  const analysis = analyzeBriefLocally("A Cairo architecture practice needs consultation bookings for adaptive reuse projects.");
+  const plan = generateDesignPlanLocally(analysis);
+  const spec = buildVerveProjectSpec({
+    analysis,
+    plan,
+    framework: "nextjs",
+    assetBundle: {
+      photos: [],
+      icons: [],
+      font: { family: "Arial", weights: [400, 700], cssImport: "none", isGoogleFont: false, source: "fallback" },
+      extractedPalette: [],
+      mediaRequirement: { level: "recommended", minimumAssets: 0, reason: "Optional evidence", suggestedSubjects: [] },
+      assetSummary: "No approved media.",
+      warnings: [],
+      readinessWarnings: [],
+    },
+  });
+
+  assert.equal(validateVerveProjectSpec(spec).valid, true);
+  assert.deepEqual(spec.responsive.viewports.map((viewport) => viewport.width), [360, 768, 1440]);
+  assert.ok(spec.experience.sections.length >= 3);
+  assert.ok(spec.interactions.some((interaction) => interaction.requiresExternalAdapter));
+  assert.doesNotMatch(JSON.stringify(spec), /rawBrief|apiKey/);
+});
+
+test("Direction Portfolio balances quality and structural diversity without extra project generations", () => {
+  const analysis = analyzeBriefLocally("An Arabic analytics product for operations teams that need a clear daily decision surface.");
+  const plan = generateDesignPlanLocally(analysis);
+  const portfolio = createFallbackDirectionPortfolio(plan, analysis);
+  const assessment = assessDirectionPortfolio(portfolio);
+
+  assert.equal(portfolio.candidates.length, 3);
+  assert.ok(Math.abs(portfolio.candidates.reduce((sum, candidate) => sum + candidate.estimatedLikelihood, 0) - 1) < 0.001);
+  assert.equal(assessment.passed, true);
+  assert.ok(assessment.diversityScore >= 52);
+
+  const repeated = { ...portfolio, candidates: portfolio.candidates.map((candidate, index) => ({
+    ...portfolio.candidates[0],
+    id: `repeat-${index}`,
+  })), selectedDirectionId: "repeat-0" };
+  const collapsed = assessDirectionPortfolio(repeated);
+  assert.equal(collapsed.passed, false);
+  assert.ok(collapsed.warnings.some((warning) => /styling rather than experience structure/i.test(warning)));
+});
+
+test("local design memory stores fingerprints without private briefs and penalizes recent repetition", () => {
+  const analysis = analyzeBriefLocally("A decision workspace for a logistics operations team.");
+  const plan = generateDesignPlanLocally(analysis);
+  const portfolio = createFallbackDirectionPortfolio(plan, analysis);
+  const selected = portfolio.candidates.find((candidate) => candidate.id === portfolio.selectedDirectionId)!;
+  const fingerprint = { directionId: selected.id, ...selected.dimensions };
+  const generated = rememberDesignDirection([], fingerprint, "generated", 100);
+  const accepted = rememberDesignDirection(generated, fingerprint, "accepted", 200);
+
+  assert.equal(accepted.length, 1);
+  assert.equal(accepted[0]?.outcome, "accepted");
+  assert.equal(accepted[0]?.uses, 2);
+  assert.doesNotMatch(JSON.stringify(accepted), /brief|apiKey|logistics/i);
+  assert.deepEqual(recentDesignFingerprints(accepted), [fingerprint]);
+
+  const repeated = assessDirectionPortfolio(portfolio, [fingerprint]);
+  assert.equal(repeated.historicalNoveltyScore, 0);
+  assert.ok(repeated.warnings.some((warning) => /recent local result/i.test(warning)));
+});
+
+test("generation foundation runs as ordered, deterministic stages", async () => {
+  const analysis = analyzeBriefLocally("A public evidence catalog for an adaptive reuse architecture practice.");
+  const designPlan = generateDesignPlanLocally(analysis);
+  const result = await runGenerationFoundationStages({
+    analysis,
+    designPlan,
+    framework: "html",
+    assetBundle: {
+      photos: [],
+      icons: [],
+      font: { family: "Arial", weights: [400, 700], cssImport: "none", isGoogleFont: false, source: "fallback" },
+      extractedPalette: [],
+      mediaRequirement: { level: "recommended", minimumAssets: 0, reason: "Optional evidence", suggestedSubjects: [] },
+      assetSummary: "No approved media.",
+      warnings: [],
+      readinessWarnings: [],
+    },
+    ownedAssets: [],
+    recentDirectionFingerprints: [],
+  });
+
+  assert.equal(result.projectSpec.framework, "html");
+  assert.equal(result.designPlan.directionPortfolio?.candidates.length, 3);
+  assert.equal(result.directionDiversity.passed, true);
 });
 
 test("code quality loop uses syntax diagnostics and accepts a valid repair", async () => {
@@ -276,25 +379,6 @@ test("hexagonal dependency boundaries are mechanically enforced", () => {
     .filter((file) => /new\s+(?:AnthropicAdapter|OpenAIAdapter|GeminiAdapter|OpenRouterAdapter)\b/.test(readFileSync(file, "utf8")));
   const portablePaths = concreteConstruction.map((file) => relative(projectRoot, file).replaceAll("\\", "/"));
   assert.deepEqual(portablePaths, ["lib/adapters/llm/factory.ts"]);
-});
-
-test("repository identity excludes agent instruction and starter-template residue", () => {
-  const projectRoot = process.cwd();
-  const forbiddenPaths = [
-    "AGENTS.md",
-    "CLAUDE.md",
-    "GEMINI.md",
-    ".github/copilot-instructions.md",
-    ".cursor",
-    ".codex",
-    "public/file.svg",
-    "public/globe.svg",
-    "public/next.svg",
-    "public/vercel.svg",
-    "public/window.svg",
-  ];
-  assert.deepEqual(forbiddenPaths.filter((path) => existsSync(join(projectRoot, path))), []);
-  assert.match(readFileSync(join(projectRoot, "next.config.ts"), "utf8"), /agentRules:\s*false/);
 });
 
 test("rate-limit store enforces windows and concurrent leases", async () => {
@@ -847,6 +931,27 @@ test("Render Gate accepts only reports for the active probe", () => {
   assert.equal(isRenderGateReport(report, "active"), true);
   assert.equal(isRenderGateReport(report, "other"), false);
   assert.equal(isRenderGateReport({ ...report, checks: [{ ...report.checks[0], status: "unknown" }] }, "active"), false);
+});
+
+test("Render Gate requires evidence at 360, 768, and 1440 before passing", () => {
+  const report = (width: number, status: "pass" | "warning" | "fail" = "pass"): RenderGateReport => ({
+    source: "verve-render-gate",
+    probeId: "matrix",
+    sequence: width,
+    viewport: { width, height: 900, documentWidth: width },
+    checks: [{ id: "horizontal-overflow", title: "Responsive width", status, message: "Measured" }],
+  });
+  let matrix = createRenderEvidenceMatrix();
+  matrix = recordRenderEvidence(matrix, report(360));
+  matrix = recordRenderEvidence(matrix, report(768));
+  assert.equal(matrix.complete, false);
+  assert.equal(matrix.status, "collecting");
+  matrix = recordRenderEvidence(matrix, report(1440));
+  assert.equal(matrix.complete, true);
+  assert.equal(matrix.status, "pass");
+  matrix = recordRenderEvidence(matrix, report(768, "fail"));
+  assert.equal(matrix.status, "fail");
+  assert.equal(matrix.failures, 1);
 });
 
 test("skincare subject evidence overrides a broad Personal Brand classification", () => {

@@ -6,6 +6,7 @@ import {
 } from "./brand-archetype-resolver";
 import type { CritiqueResult } from "./critique-loop";
 import type { DesignPlan } from "./plan-generator";
+import { createFallbackDirectionPortfolio } from "./direction-portfolio";
 
 const KEYWORD_ARCHETYPES: Array<[ArchetypeId, RegExp]> = [
   ["caregiver", /health|care|clinic|medical|wellness|charity|nonprofit/i],
@@ -130,7 +131,7 @@ export function generateDesignPlanLocally(analysis: BriefAnalysis): DesignPlan {
     ],
   };
 
-  return {
+  const plan: DesignPlan = {
     colorPalette: direction.palette,
     typePairing: {
       display: direction.display,
@@ -154,6 +155,8 @@ export function generateDesignPlanLocally(analysis: BriefAnalysis): DesignPlan {
     },
     rawPlan: "Deterministic local resilience plan generated from the supplied brief.",
   };
+  plan.directionPortfolio = createFallbackDirectionPortfolio(plan, analysis);
+  return plan;
 }
 
 export function critiquePlanLocally(plan: DesignPlan): CritiqueResult {

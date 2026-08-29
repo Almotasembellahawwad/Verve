@@ -5,17 +5,23 @@ import JSZip from "jszip";
 import type { GeneratedProject, ProjectFile } from "@/lib/project/types";
 import { validateGeneratedProject } from "@/lib/project/project-validator";
 import { buildHtmlPreviewDocument } from "@/lib/project/html-preview";
-import { isRenderGateReport, type RenderGateReport } from "@/lib/project/render-gate";
+import {
+  createRenderEvidenceMatrix,
+  isRenderGateReport,
+  recordRenderEvidence,
+  RENDER_EVIDENCE_WIDTHS,
+  type RenderEvidenceWidth,
+} from "@/lib/project/render-gate";
 import styles from "./ProjectWorkbench.module.css";
 import { projectFileDataUrl } from "@/lib/project/brand-kit";
 import type { WorkbenchFocusMode } from "./ProjectWorkbench";
 
 type Viewport = "mobile" | "tablet" | "desktop";
 
-const VIEWPORTS: Array<{ id: Viewport; label: string; width: string }> = [
-  { id: "mobile", label: "360", width: "360px" },
-  { id: "tablet", label: "768", width: "768px" },
-  { id: "desktop", label: "1440", width: "1440px" },
+const VIEWPORTS: Array<{ id: Viewport; label: string; width: string; pixels: RenderEvidenceWidth }> = [
+  { id: "mobile", label: "360", width: "360px", pixels: 360 },
+  { id: "tablet", label: "768", width: "768px", pixels: 768 },
+  { id: "desktop", label: "1440", width: "1440px", pixels: 1440 },
 ];
 
 const subscribeToHydration = () => () => undefined;
@@ -48,7 +54,7 @@ export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly
   const [files, setFiles] = useState(project.files);
   const [selectedPath, setSelectedPath] = useState(project.entryFile);
   const [viewport, setViewport] = useState<Viewport>("desktop");
-  const [renderReport, setRenderReport] = useState<RenderGateReport | null>(null);
+  const [renderEvidence, setRenderEvidence] = useState(createRenderEvidenceMatrix);
   const [previewRevision, setPreviewRevision] = useState(0);
   const [downloading, setDownloading] = useState(false);
   const activeProbeId = `${baseProbeId}-${previewRevision}`;
@@ -60,26 +66,33 @@ export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly
   const srcDoc = useMemo(() => buildHtmlPreviewDocument(editedProject, activeProbeId), [activeProbeId, editedProject]);
   const selectedViewport = VIEWPORTS.find((item) => item.id === viewport)!;
   const staticProblems = validation.checks.filter((item) => item.status !== "pass");
-  const renderProblems = renderReport?.checks.filter((item) => item.status !== "pass") ?? [];
-  const renderFailures = renderProblems.filter((item) => item.status === "fail").length;
-  const renderWarnings = renderProblems.filter((item) => item.status === "warning").length;
+  const renderProblems = RENDER_EVIDENCE_WIDTHS.flatMap((width) =>
+    (renderEvidence.reports[width]?.checks ?? [])
+      .filter((item) => item.status !== "pass")
+      .map((item) => ({ ...item, viewportWidth: width }))
+  );
+  const renderFailures = renderEvidence.failures;
+  const renderWarnings = renderEvidence.warnings;
   const totalProblems = staticProblems.length + renderProblems.length;
   const riskScore = Math.max(0, 100 - project.warnings.length * 18);
   const riskBlocked = project.readiness.status === "blocked" || project.warnings.some((warning) => warning.startsWith("BLOCKING:"));
-  const renderScore = renderReport ? Math.max(0, 100 - renderFailures * 35 - renderWarnings * 8) : 85;
+  const renderScore = renderEvidence.covered > 0 ? renderEvidence.score : 85;
   const readinessScore = Math.min(validation.score, riskScore, renderScore);
   const readinessStatus = validation.status === "blocked" || renderFailures > 0 || riskBlocked
     ? "blocked"
-    : !renderReport
+    : !renderEvidence.complete
       ? "verifying"
       : validation.status === "review-required" || project.warnings.length > 0 || renderWarnings > 0
         ? "review-required"
         : "ready";
-  const renderGateStatus = !renderReport ? "WAITING" : renderFailures > 0 ? "FAIL" : renderWarnings > 0 ? "REVIEW" : "PASS";
+  const renderGateStatus = `${renderEvidence.status.toUpperCase()} ${renderEvidence.covered}/3`;
 
   const receiveReport = useEffectEvent((message: MessageEvent<unknown>) => {
     if (message.source !== iframeRef.current?.contentWindow) return;
-    if (isRenderGateReport(message.data, activeProbeId)) setRenderReport(message.data);
+    if (isRenderGateReport(message.data, activeProbeId)) {
+      const report = message.data;
+      setRenderEvidence((current) => recordRenderEvidence(current, report));
+    }
   });
 
   useEffect(() => {
@@ -92,7 +105,7 @@ export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly
   }, [editedProject, onProjectChange]);
 
   const updateSelectedFile = (content: string) => {
-    setRenderReport(null);
+    setRenderEvidence(createRenderEvidenceMatrix());
     setPreviewRevision((revision) => revision + 1);
     setFiles((current) => current.map((item) => item.path === selectedFile.path ? { ...item, content } : item));
   };
@@ -100,7 +113,7 @@ export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly
   const resetFiles = () => {
     setFiles(project.files);
     setSelectedPath(project.entryFile);
-    setRenderReport(null);
+    setRenderEvidence(createRenderEvidenceMatrix());
     setPreviewRevision((revision) => revision + 1);
   };
 
@@ -130,10 +143,7 @@ export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly
                 type="button"
                 key={item.id}
                 className={viewport === item.id ? styles.activeViewport : ""}
-                onClick={() => {
-                  setRenderReport(null);
-                  setViewport(item.id);
-                }}
+                onClick={() => setViewport(item.id)}
               >
                 {item.label}
               </button>
@@ -197,7 +207,7 @@ export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly
             <span>NATIVE HTML · RUNNING / RENDER GATE · {renderGateStatus}</span>
             <span>{selectedViewport.width}</span>
           </div>
-          <div className={styles.previewViewport} style={{ maxWidth: selectedViewport.width }}>
+          <div className={styles.previewViewport} style={{ width: selectedViewport.width }}>
             <iframe
               ref={iframeRef}
               className={styles.nativePreview}
@@ -221,12 +231,12 @@ export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly
             </div>
           ))}
           {renderProblems.map((item) => (
-            <div key={`render-${item.id}`} className={item.status === "fail" ? styles.problemFail : styles.problemWarning}>
+            <div key={`render-${item.viewportWidth}-${item.id}`} className={item.status === "fail" ? styles.problemFail : styles.problemWarning}>
               <b>Render · {item.title}</b><span>{item.message}</span>
             </div>
           ))}
-          {totalProblems === 0 && renderReport && <p className={styles.noProblems}>Static validation and the rendered result both passed.</p>}
-          {totalProblems === 0 && !renderReport && <p className={styles.renderPending}>Render Gate is waiting for the preview document.</p>}
+          {totalProblems === 0 && renderEvidence.complete && <p className={styles.noProblems}>Static validation and all three rendered viewports passed.</p>}
+          {totalProblems === 0 && !renderEvidence.complete && <p className={styles.renderPending}>Viewport evidence {renderEvidence.covered}/3. Open each width to complete the render audit.</p>}
         </div>
       </div>}
     </section>

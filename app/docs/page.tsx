@@ -93,6 +93,8 @@ function DocsContent() {
               { id: "02.6", name: "Motion Language",     file: "animation-language.ts", desc: "Derives duration and easing tokens from the chosen archetype, including reduced-motion behavior." },
               { id: "03", name: "Plan + Critique",       file: "plan-generator.ts + critique-loop.ts",  desc: "Builds the design thesis and one signature element, then rejects and revises plans that remain generic." },
               { id: "04", name: "Contrast Enforcement", file: "contrast-fixer.ts",   desc: "Checks intended text/background pairs and applies one stable WCAG AA correction per text token." },
+              { id: "04.1", name: "Experience Contract", file: "project-spec-builder.ts", desc: "Compiles intent, facts, sections, components, interactions, responsive behavior, media policy, and brand invariants into a bounded VerveProjectSpec before code exists." },
+              { id: "04.2", name: "Direction Diversity", file: "direction-portfolio.ts", desc: "Assesses three structurally different directions against fit, feasibility, portfolio diversity, and bounded browser-local novelty memory without adding a provider call." },
               { id: "05", name: "Code Generation",       file: "code-generator.ts",  desc: "Generates full component code — responsive, accessible, prefers-reduced-motion aware. Output only produced after plan passes critique. Supports Next.js, React, and HTML+CSS." },
               { id: "05.5", name: "Syntax + Repair",     file: "code-quality-loop.ts", desc: "Parses TSX with TypeScript, verifies structure and the signature element, and performs one bounded repair pass." },
               { id: "06", name: "Proof Gates",           file: "scorer + diversity + engineering", desc: "Scores the delivered code, detects Verve's own repeated house template, and keeps visual distinctiveness separate from engineering and production readiness." },
@@ -294,7 +296,7 @@ event: recovery`,
         <section id="engine" className={styles.section}>
           <h2 className={styles.sectionTitle}>Engine</h2>
           <p className={styles.sectionLead}>
-            Each module in <code>/lib/engine/</code> is a pure function wrapping a single LLM call. Modules can be used independently of the pipeline.
+            Engine modules are bounded services: some wrap one provider call, while specification, diversity, validation, scoring, and project assembly remain deterministic. The application layer composes them as inspectable stages with immutable context patches.
           </p>
 
           {[
@@ -311,7 +313,7 @@ event: recovery`,
             {
               file: "plan-generator.ts",
               exports: "generateDesignPlan(analysis, blocklistInjection, previousCritique?): Promise<DesignPlan>",
-              desc: "Generates the design plan with 4-6 colors, type pairing, layout concept, and one mandatory signature element. Temperature: 0.8 (higher, for creative range). The previousCritique parameter enables revision cycles.",
+              desc: "Explores exactly three structurally different directions, selects one using quality-diversity evidence, then generates its color, typography, topology, cognitive grounding, and signature mechanism. Recent local fingerprints discourage repetition without exposing private briefs.",
             },
             {
               file: "critique-loop.ts",
@@ -321,7 +323,7 @@ event: recovery`,
             {
               file: "code-generator.ts",
               exports: "generateCode(analysis, plan, blocklistInjection, framework): Promise<GeneratedCode>",
-              desc: "Generates full component code in the target framework. Temperature: 0.4. Returns code string, framework, componentName, and setupNotes.",
+              desc: "Generates full component code in the target framework from both the selected design plan and the executable VerveProjectSpec. Returns code string, framework, componentName, and setupNotes.",
             },
             {
               file: "scorer.ts",

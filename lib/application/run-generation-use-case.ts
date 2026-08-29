@@ -52,6 +52,9 @@ import type { LLMPort, Provider } from "../ports/llm";
 import type { AssetSourcePort } from "../ports/assets";
 import type { BlocklistRepositoryPort, ReferenceLibraryRepositoryPort } from "../ports/repositories";
 import { NullProgressPublisher, type ProgressPublisherPort } from "../ports/progress";
+import type { VerveProjectSpec } from "../domain/project-spec";
+import type { DesignDirectionFingerprint, DirectionDiversityAssessment } from "../domain/design-direction";
+import { runGenerationFoundationStages } from "./generation-foundation-stages";
 
 
 // ── Result type ───────────────────────────────────────────────────────────────
@@ -65,6 +68,8 @@ export type PipelineResult = {
   archetypeResolution:    ArchetypeResolution;    // Module I
   animationLanguage:      AnimationLanguage;       // Module K
   designPlan:             DesignPlan;
+  projectSpec:            VerveProjectSpec;
+  directionDiversity:     DirectionDiversityAssessment;
   finalCritique:          CritiqueResult;
   generatedCode:          GeneratedCode;
   distinctivenessReport:  DistinctivenessReport;  // Module J (3-level Norman)
@@ -101,6 +106,7 @@ export type PipelineInput = {
   signal?: AbortSignal;
   mode?: GenerationMode;
   checkpoint?: PipelineCheckpoint;
+  recentDirectionFingerprints?: DesignDirectionFingerprint[];
 };
 
 export type GenerationDependencies = {
@@ -135,6 +141,7 @@ export async function runGenerationUseCase(
     signal,
     mode          = DEFAULT_GENERATION_MODE,
     checkpoint,
+    recentDirectionFingerprints = [],
   } = input;
   const revisionLimit = Math.min(MAX_REVISION_CYCLES, Math.max(0, maxRevisions));
   const strategy = createGenerationStrategy(mode);
@@ -257,7 +264,11 @@ export async function runGenerationUseCase(
         previousCritique,
         archetypeContext,
         animationContext,
-        { ...strategy.planOptions(), referenceRepository: dependencies.referenceLibraryRepository }
+        {
+          ...strategy.planOptions(),
+          referenceRepository: dependencies.referenceLibraryRepository,
+          recentDirectionFingerprints,
+        }
       ),
       () => generateDesignPlanLocally(briefAnalysis),
       signal
@@ -315,6 +326,7 @@ export async function runGenerationUseCase(
           reasoningEffort: "low",
           allowSchemaRetry: false,
           referenceRepository: dependencies.referenceLibraryRepository,
+          recentDirectionFingerprints,
         }
       ),
       () => designPlan,
@@ -378,6 +390,19 @@ export async function runGenerationUseCase(
     }, "checkpoint-04");
   }
 
+  const foundation = await runGenerationFoundationStages({
+    analysis: briefAnalysis,
+    designPlan,
+    framework,
+    assetBundle,
+    brandProfile,
+    ownedAssets,
+    recentDirectionFingerprints,
+  }, progress);
+  designPlan = foundation.designPlan;
+  const projectSpec = foundation.projectSpec;
+  const directionDiversity = foundation.directionDiversity;
+
   // ── [05] Code Generation ─────────────────────────────────────────────────
   const fullCodeContext = [
     inputBlocklistResult.systemPromptInjection,
@@ -394,7 +419,8 @@ export async function runGenerationUseCase(
     designPlan,
     fullCodeContext,
     framework,
-    mode
+    mode,
+    projectSpec
   );
   emit("stage_done", {
     id: "05",
@@ -493,7 +519,7 @@ export async function runGenerationUseCase(
     briefAnalysis,
     designPlan,
     codeQualityResult.wasRepaired ? [] : codeQualityResult.issues,
-    [...assetBundle.readinessWarnings, ...assetUsage.warnings, ...diversityResult.warnings]
+    [...assetBundle.readinessWarnings, ...assetUsage.warnings, ...directionDiversity.warnings, ...diversityResult.warnings]
   );
   emit("stage_done", {
     id: "07",
@@ -521,6 +547,8 @@ export async function runGenerationUseCase(
     archetypeResolution,
     animationLanguage,
     designPlan,
+    projectSpec,
+    directionDiversity,
     finalCritique,
     generatedCode:    finalCode,
     codeQualityResult,
