@@ -1,8 +1,20 @@
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 18px;
 }
+
+.advancedSettings { border: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--bg-raised) 68%, transparent); }
+.advancedSettings > summary { min-height: 54px; display: grid; grid-template-columns: 1fr auto auto; gap: 18px; align-items: center; padding: 0 16px; cursor: pointer; list-style: none; }
+.advancedSettings > summary::-webkit-details-marker { display: none; }
+.advancedSettings > summary span { color: var(--text-primary); font: 650 13px var(--font-display); }
+.advancedSettings > summary b { color: var(--text-muted); font: 500 11px var(--font-body); text-transform: uppercase; }
+.advancedSettings > summary i { color: var(--brand); font: 400 24px var(--font-display); font-style: normal; transition: transform var(--transition-fast); }
+.advancedSettings[open] > summary { border-bottom: 1px solid var(--border-subtle); }
+.advancedSettings[open] > summary i { transform: rotate(45deg); }
+.advancedSettings .providerRow { border: 0; }
+.advancedSettings .assetSourceStatus { margin-top: 0; border-inline: 0; border-bottom: 0; }
+.advancedBody { display: grid; gap: 18px; padding: 18px; }
 
 /* ── Provider selector row ───────────────────────────────── */
 .providerRow {

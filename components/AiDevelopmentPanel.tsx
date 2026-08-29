@@ -185,18 +185,16 @@ export default function AiDevelopmentPanel({ project, iterations = [], onPreview
     <section className={styles.studio} aria-labelledby="ai-studio-title">
       <header className={styles.header}>
         <div>
-          <span>01 / AI DEVELOPMENT LOOP</span>
-          <h2 id="ai-studio-title">Ask. Inspect. <em>Decide.</em></h2>
-          <p>The model stages a multi-file proposal. Verve renders and validates it before you choose what becomes part of the project.</p>
-        </div>
-        <div className={styles.safetyReceipt}>
-          <b>HUMAN ACCEPTANCE REQUIRED</b>
-          <span>Nothing is overwritten by an AI response.</span>
+          <span>AI ASSISTANT</span>
+          <h2 id="ai-studio-title">Describe a change.</h2>
+          <p>Verve will stage it for preview. Nothing changes until you accept.</p>
         </div>
       </header>
 
       <div className={styles.deck}>
         <div className={styles.composer}>
+          <details className={styles.advanced}>
+            <summary><span>Model settings</span><b>{mode} · {provider}</b><i>+</i></summary>
           <div className={styles.providerRow}>
             <label><span>Provider</span><select value={provider} onChange={(event) => changeProvider(event.target.value as Provider)}>
               <option value="openai">OpenAI</option><option value="anthropic">Claude</option><option value="gemini">Gemini</option><option value="openrouter">OpenRouter</option>
@@ -217,6 +215,7 @@ export default function AiDevelopmentPanel({ project, iterations = [], onPreview
               <b>Studio</b><span>Plan + implementation · 2 bounded calls</span>
             </button>
           </div>
+          </details>
 
           <label className={styles.promptLabel}>
             <span>{proposal ? "Revise the staged proposal" : "What should change?"}</span>
@@ -248,8 +247,7 @@ export default function AiDevelopmentPanel({ project, iterations = [], onPreview
           {error && <p className={styles.error} role="alert">{error}</p>}
         </div>
 
-        <aside className={styles.review} data-has-proposal={Boolean(proposal) || undefined}>
-          {proposal ? (
+        {proposal && <aside className={styles.review} data-has-proposal>
             <>
               <div className={styles.reviewState}><span>STAGED / NOT APPLIED</span><b>{proposal.mode.toUpperCase()} · {proposal.callCount} CALL{proposal.callCount > 1 ? "S" : ""}</b></div>
               <h3>{proposal.proposal.summary}</h3>
@@ -268,22 +266,15 @@ export default function AiDevelopmentPanel({ project, iterations = [], onPreview
                 <button type="button" className={styles.reject} onClick={() => void reject()} disabled={status !== "idle"}>{status === "rejecting" ? "Rejecting…" : "Reject"}</button>
               </div>
             </>
-          ) : (
-            <div className={styles.emptyReview}>
-              <span>PROPOSAL BAY / EMPTY</span>
-              <strong>The accepted project remains untouched.</strong>
-              <p>Your next request will appear here as a reviewable set of changed files while the live workbench shows the proposed result.</p>
-            </div>
-          )}
-        </aside>
+        </aside>}
 
-        <aside className={styles.iterations}>
-          <span>RECENT DECISIONS / {iterations.length}</span>
-          {iterations.slice(0, 6).map((item) => <div key={item.id} data-status={item.status}>
+        <details className={styles.iterations}>
+          <summary>Recent decisions <b>{iterations.length}</b></summary>
+          <div className={styles.iterationList}>{iterations.slice(0, 6).map((item) => <div key={item.id} data-status={item.status}>
             <b>{item.status.toUpperCase()}</b><strong>{item.summary}</strong><small>{item.mode} · {item.provider} · {new Date(item.createdAt).toLocaleString()}</small>
           </div>)}
-          {iterations.length === 0 && <p>Accepted and rejected AI proposals will become an inspectable local trail here.</p>}
-        </aside>
+          {iterations.length === 0 && <p>Accepted and rejected proposals will appear here.</p>}</div>
+        </details>
       </div>
 
       <ApiKeyModal isOpen={keysOpen} onClose={() => setKeysOpen(false)} onSave={() => undefined} />

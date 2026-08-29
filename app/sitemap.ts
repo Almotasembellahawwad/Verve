@@ -3,11 +3,13 @@ import { SITE_URL } from "@/lib/site";
 
 const pages = [
   { path: "", changeFrequency: "weekly" as const, priority: 1 },
-  { path: "/showcase", changeFrequency: "monthly" as const, priority: 0.8 },
-  { path: "/demos", changeFrequency: "monthly" as const, priority: 0.85 },
+  { path: "/create", changeFrequency: "weekly" as const, priority: 0.9 },
+  { path: "/examples", changeFrequency: "monthly" as const, priority: 0.85 },
+  { path: "/examples/architecture", changeFrequency: "monthly" as const, priority: 0.75 },
+  { path: "/examples/cairo", changeFrequency: "monthly" as const, priority: 0.75 },
+  { path: "/examples/carbon", changeFrequency: "monthly" as const, priority: 0.75 },
   { path: "/editor", changeFrequency: "monthly" as const, priority: 0.75 },
   { path: "/docs", changeFrequency: "weekly" as const, priority: 0.7 },
-  { path: "/lab", changeFrequency: "monthly" as const, priority: 0.6 },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

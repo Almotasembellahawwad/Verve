@@ -6,6 +6,15 @@ Verve is an open-source project intelligence engine for generating distinctive w
 
 [Development preview](https://verve-dev.vercel.app/) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [MIT License](LICENSE)
 
+## What changed in 0.8 Simplified Product Flow
+
+- **Four clear destinations** — the global navigation is now Create, Examples, Editor, and Docs; provider keys and GitHub remain utilities rather than competing product steps.
+- **Focused creation** — `/create` opens directly on the brief. Fast remains the default, while provider, framework, Studio, brand, and media controls use progressive disclosure.
+- **One examples system** — `/examples` replaces the duplicated Demos and Showcase experiences. Each story leads with a runnable result, then reveals the brief, category default, decision, and optional evidence.
+- **Editor as the continuation** — `/editor` starts with an intentional empty state and separates Preview, Code, AI, Checks, and Project actions. AI changes remain staged until explicit acceptance.
+- **Backward-compatible routes** — `/demos` and `/showcase` redirect to `/examples`; existing bookmarks continue to work without preserving duplicated interfaces.
+- **No forced onboarding** — the blocking first-visit modal was removed so the product teaches itself through labels, defaults, and contextual controls.
+
 ## What changed in 0.7 Live Project Studio
 
 - **Dedicated project editor** — `/editor` opens generated or demo projects in a focused multi-file workspace with live HTML/React preview and a complete Next.js source inspector.

@@ -2,20 +2,19 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import styles from "./SignalNav.module.css";
 import { ApiKeyModal, useApiKey } from "./ApiKeyModal";
 
 const NAV_LINKS = [
-  { href: "/#how-it-works", label: "01 / Process" },
-  { href: "/demos",        label: "02 / Live demos" },
-  { href: "/editor",       label: "03 / Editor" },
-  { href: "/#workspace",    label: "04 / Workbench" },
-  { href: "/showcase",      label: "05 / Evidence" },
-  { href: "/lab",           label: "06 / Lab" },
-  { href: "/docs",          label: "07 / Docs" },
+  { href: "/create", label: "Create" },
+  { href: "/examples", label: "Examples" },
+  { href: "/editor", label: "Editor" },
+  { href: "/docs", label: "Docs" },
 ] as const;
 
 export function SignalNav() {
+  const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -82,16 +81,8 @@ export function SignalNav() {
     return () => window.removeEventListener("verve:open-api-key-modal", openModal);
   }, []);
 
-  const handleDownloadReadme = () => {
-    const link = document.createElement("a");
-    link.href = "/api/readme";
-    link.download = "VERVE_README.md";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const hasKey = !!apiKey;
+  const isCurrent = (href: string) => pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
 
   return (
     <>
@@ -107,41 +98,23 @@ export function SignalNav() {
 
           {/* Desktop links */}
           <div className={styles.links} aria-label="Site sections">
-            {NAV_LINKS.map((link) => link.href.startsWith("/") ? (
-              <Link key={link.href} href={link.href} className={styles.link}>{link.label}</Link>
-            ) : (
-              <a key={link.href} href={link.href} className={styles.link}>{link.label}</a>
+            {NAV_LINKS.map((link) => (
+              <Link key={link.href} href={link.href} className={styles.link} aria-current={isCurrent(link.href) ? "page" : undefined}>{link.label}</Link>
             ))}
           </div>
 
           <div className={styles.actions}>
-            {/* README Download */}
-            <button
-              onClick={handleDownloadReadme}
-              className={styles.readmeBtn}
-              title="Download README with setup instructions"
-              aria-label="Download README"
-              id="nav-download-readme"
-            >
-              <DownloadIcon />
-              <span className={styles.readmeBtnLabel}>README</span>
-            </button>
-
-            {/* API Key Button */}
             <button
               onClick={() => setModalOpen(true)}
               className={`${styles.apiKeyBtn} ${hasKey ? styles.apiKeyBtnActive : ""}`}
-              title={hasKey ? "AI provider configured — click to change" : "Configure your AI provider API key"}
-              aria-label={hasKey ? "AI key configured" : "Configure AI key"}
+              title="Provider and API key settings"
+              aria-label={hasKey ? "Provider settings, API key configured" : "Provider settings"}
               id="nav-api-key"
             >
               <KeyIcon />
               <span className={styles.apiKeyLabel}>
-                {hasKey ? (
-                  <><span className={styles.keyDot} aria-hidden="true" />Key set</>
-                ) : (
-                  "Set API key"
-                )}
+                {hasKey && <span className={styles.keyDot} aria-hidden="true" />}
+                Settings
               </span>
             </button>
 
@@ -194,33 +167,22 @@ export function SignalNav() {
             >
               <div className={styles.mobileMenuTop}>
                 <span>NAVIGATION / VERVE</span>
-                <b>07 ROUTES</b>
+                <b>04 PLACES</b>
               </div>
               <div className={styles.mobileLinks}>
-                {NAV_LINKS.map((link) => link.href.startsWith("/") ? (
-                  <Link key={link.href} href={link.href} className={styles.mobileLink} onClick={() => closeMobileMenu()}>
+                {NAV_LINKS.map((link) => (
+                  <Link key={link.href} href={link.href} className={styles.mobileLink} aria-current={isCurrent(link.href) ? "page" : undefined} onClick={() => closeMobileMenu()}>
                     {link.label}
                   </Link>
-                ) : (
-                  <a key={link.href} href={link.href} className={styles.mobileLink} onClick={() => closeMobileMenu()}>
-                    {link.label}
-                  </a>
                 ))}
               </div>
               <div className={styles.mobileUtility}>
                 <button
                   type="button"
-                  onClick={() => { handleDownloadReadme(); closeMobileMenu(); }}
-                  className={styles.mobileUtilityBtn}
-                >
-                  Download README <span aria-hidden="true">↓</span>
-                </button>
-                <button
-                  type="button"
                   onClick={() => { setModalOpen(true); closeMobileMenu(); }}
                   className={styles.mobileUtilityBtn}
                 >
-                  {hasKey ? "Change API key" : "Set API key"} <span aria-hidden="true">⚿</span>
+                  Provider settings <span aria-hidden="true">⚿</span>
                 </button>
                 <a
                   href="https://github.com/Almotasembellahawwad/Verve"
@@ -232,7 +194,7 @@ export function SignalNav() {
                   GitHub <span aria-hidden="true">↗</span>
                 </a>
               </div>
-              <p className={styles.mobileMenuFoot}>LOCAL KEYS · OPEN SOURCE · V0.7.0</p>
+              <p className={styles.mobileMenuFoot}>LOCAL KEYS · OPEN SOURCE · V0.8</p>
             </div>
           </>
         )}
@@ -255,16 +217,6 @@ function KeyIcon() {
       <path d="M21 2L13 10" />
       <path d="M15 4L19 8" />
       <path d="M13 10L12 12" />
-    </svg>
-  );
-}
-
-function DownloadIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
     </svg>
   );
 }

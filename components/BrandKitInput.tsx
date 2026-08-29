@@ -57,7 +57,7 @@ export default function BrandKitInput({ profile, assets, disabled, onProfileChan
   };
 
   return (
-    <details className={styles.panel} open={assets.length > 0 || undefined} inert={hydrated ? undefined : true}>
+    <details className={styles.panel} inert={hydrated ? undefined : true}>
       <summary>
         <span>Brand kit + owned media</span>
         <small>{assets.length ? `${assets.length}/${MAX_OWNED_ASSETS} local assets` : "Optional · stays in this browser session"}</small>
