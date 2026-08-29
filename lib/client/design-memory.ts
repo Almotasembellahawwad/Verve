@@ -24,7 +24,11 @@ function isFingerprint(value: unknown): value is DesignDirectionFingerprint {
     "mediaStrategy",
     "interactionMetaphor",
     "signatureMechanism",
-  ].every((key) => typeof candidate[key] === "string" && candidate[key].length > 0 && candidate[key].length <= 700);
+  ].every((key) => typeof candidate[key] === "string" && candidate[key].length > 0 && candidate[key].length <= 700)
+    && (!candidate.structure || (
+      typeof candidate.structure === "object"
+      && Array.isArray((candidate.structure as Record<string, unknown>).traits)
+    ));
 }
 
 function isMemoryEntry(value: unknown): value is DesignMemoryEntry {

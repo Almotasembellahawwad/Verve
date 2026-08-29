@@ -7,6 +7,7 @@ import { classifyError, errorResponse } from "@/lib/middleware/error-handler";
 import { acquireConcurrentSlot, checkRateLimit, ROUTE_LIMITS } from "@/lib/middleware/rate-limit";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 export async function POST(request: NextRequest) {
   const rateLimited = await checkRateLimit(request, ROUTE_LIMITS.patch!);

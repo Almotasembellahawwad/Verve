@@ -96,6 +96,7 @@ ${plan.layoutConcept}
 15. Do not reference a named font unless AVAILABLE ASSETS includes a bundled/local font file. A remote font name without the font file is not available. Otherwise use the exact system stack supplied by the plan. Keep all readable text at 10px or larger.
 16. Preserve the plan's domain-native topology. Do not collapse every brief into an oversized 90vh hero plus stacked manifesto sections. The compound house style of huge sans type, one italic serif phrase, repeated viewport-height panels, and a bright accent is forbidden.
 17. FACTUAL SAFETY OVERRIDES THE DESIGN PLAN: if the plan contains a metric, clinical result, timeframe, participant count, ingredient, product, award, testimonial, or factual claim absent from the source brief below, do not render it. Replace it with an explicit "Verified value pending" label.
+18. STRUCTURAL NOVELTY: Never combine a split opening, vertical rail/datum, numbered ledger rows, a full-width image interruption, and a dark closing folio. That is Verve's retired editorial-register template even when the class names or domain labels differ. Use the enforced direction's actual interaction and information topology instead.
 
 DELIVERY MODE: ${mode === "fast" ? "FAST — concise implementation; preserve correctness before decorative depth." : "STUDIO — complete production-quality implementation with careful responsive details."}
 

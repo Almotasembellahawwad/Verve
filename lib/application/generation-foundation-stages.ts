@@ -3,6 +3,7 @@ import type { BriefAnalysis } from "../engine/brief-analyzer";
 import {
   assessDirectionPortfolio,
   createFallbackDirectionPortfolio,
+  enforceRecommendedDirection,
 } from "../engine/direction-portfolio";
 import type { DesignPlan } from "../engine/plan-generator";
 import { buildVerveProjectSpec } from "../engine/project-spec-builder";
@@ -25,7 +26,7 @@ type GenerationFoundationContext = {
 };
 
 const projectSpecStage: PipelineStage<GenerationFoundationContext> = {
-  id: "04.1",
+  id: "04.2",
   name: "Experience Contract",
   module: "VerveProjectSpec",
   async execute(context) {
@@ -43,18 +44,19 @@ const projectSpecStage: PipelineStage<GenerationFoundationContext> = {
 };
 
 const directionDiversityStage: PipelineStage<GenerationFoundationContext> = {
-  id: "04.2",
+  id: "04.1",
   name: "Direction Diversity",
   module: "QualityDiversity",
   async execute(context) {
     const directionPortfolio = context.designPlan.directionPortfolio
       ?? createFallbackDirectionPortfolio(context.designPlan, context.analysis);
+    const designPlan = { ...context.designPlan, directionPortfolio };
+    const initialAssessment = assessDirectionPortfolio(directionPortfolio, context.recentDirectionFingerprints);
+    const enforcedPlan = enforceRecommendedDirection(designPlan, initialAssessment);
+    const enforcedPortfolio = enforcedPlan.directionPortfolio ?? directionPortfolio;
     return {
-      designPlan: { ...context.designPlan, directionPortfolio },
-      directionDiversity: assessDirectionPortfolio(
-        directionPortfolio,
-        context.recentDirectionFingerprints
-      ),
+      designPlan: enforcedPlan,
+      directionDiversity: assessDirectionPortfolio(enforcedPortfolio, context.recentDirectionFingerprints),
     };
   },
 };
@@ -68,7 +70,7 @@ export async function runGenerationFoundationStages(
   directionDiversity: DirectionDiversityAssessment;
 }> {
   const context = await executePipelineStages<GenerationFoundationContext>(
-    [projectSpecStage, directionDiversityStage],
+    [directionDiversityStage, projectSpecStage],
     input,
     progress
   );

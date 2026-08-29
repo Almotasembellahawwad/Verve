@@ -25,6 +25,12 @@ const DirectionFingerprintSchema = z.object({
   mediaStrategy: z.string().min(1).max(700),
   interactionMetaphor: z.string().min(1).max(700),
   signatureMechanism: z.string().min(1).max(700),
+  structure: z.object({
+    topologyFamily: z.enum(["editorial-register", "workbench", "dashboard", "timeline", "comparison", "spatial-canvas", "catalog", "form-led", "narrative", "unknown"]),
+    openingMode: z.enum(["viewport-hero", "split-opening", "compact-task", "unknown"]),
+    sectionRhythm: z.enum(["viewport-stages", "numbered-rows", "panel-grid", "mixed", "unknown"]),
+    traits: z.array(z.string().min(1).max(80)).max(20),
+  }).optional(),
 });
 
 /** Shared by JSON and SSE so both delivery paths accept the exact same contract. */

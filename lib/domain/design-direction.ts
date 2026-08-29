@@ -8,6 +8,23 @@ export type DirectionDimensions = {
   signatureMechanism: string;
 };
 
+export type DesignStructureFingerprint = {
+  topologyFamily:
+    | "editorial-register"
+    | "workbench"
+    | "dashboard"
+    | "timeline"
+    | "comparison"
+    | "spatial-canvas"
+    | "catalog"
+    | "form-led"
+    | "narrative"
+    | "unknown";
+  openingMode: "viewport-hero" | "split-opening" | "compact-task" | "unknown";
+  sectionRhythm: "viewport-stages" | "numbered-rows" | "panel-grid" | "mixed" | "unknown";
+  traits: string[];
+};
+
 export type DesignDirectionCandidate = {
   id: string;
   concept: string;
@@ -28,6 +45,7 @@ export type DirectionPortfolio = {
 
 export type DesignDirectionFingerprint = DirectionDimensions & {
   directionId: string;
+  structure?: DesignStructureFingerprint;
 };
 
 export type DirectionDiversityAssessment = {

@@ -18,8 +18,24 @@ export function isSafeProjectPath(path: string): boolean {
 
 export const ProjectPatchChangeSchema = z.object({
   path: z.string().max(240).refine(isSafeProjectPath, "Unsafe project path"),
+  operation: z.enum(["replace_file", "replace_text"]).optional(),
   content: z.string().max(120_000),
+  search: z.string().max(120_000).optional(),
+  replacement: z.string().max(120_000).optional(),
   reason: z.string().min(3).max(300),
+}).superRefine((change, context) => {
+  if (change.operation === "replace_text" && !change.search) {
+    context.addIssue({ code: "custom", message: "replace_text requires an exact search value", path: ["search"] });
+  }
+  if (change.operation === "replace_text" && change.replacement === undefined) {
+    context.addIssue({ code: "custom", message: "replace_text requires a replacement value", path: ["replacement"] });
+  }
+  if (change.operation === "replace_text" && change.content.length > 0) {
+    context.addIssue({ code: "custom", message: "replace_text must leave content empty", path: ["content"] });
+  }
+  if (change.operation === "replace_file" && (change.search || change.replacement)) {
+    context.addIssue({ code: "custom", message: "replace_file must leave search and replacement empty", path: ["search"] });
+  }
 });
 
 export const ProjectPatchProposalSchema = z.object({
@@ -72,10 +88,13 @@ export const PROJECT_PATCH_JSON_SCHEMA: Record<string, unknown> = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["path", "content", "reason"],
+        required: ["path", "operation", "content", "search", "replacement", "reason"],
         properties: {
           path: { type: "string", minLength: 1, maxLength: 240 },
+          operation: { type: "string", enum: ["replace_file", "replace_text"] },
           content: { type: "string", maxLength: 120000 },
+          search: { type: "string", maxLength: 120000 },
+          replacement: { type: "string", maxLength: 120000 },
           reason: { type: "string", minLength: 3, maxLength: 300 },
         },
       },
@@ -163,10 +182,21 @@ export function applyProjectPatchProposal(project: GeneratedProject, proposal: P
     const previous = existing.get(change.path);
     if (previous?.encoding === "base64") throw new Error(`AI patches cannot overwrite binary asset ${change.path}.`);
     if (!previous && !SAFE_NEW_FILE.test(change.path)) throw new Error(`AI patch proposed an unsupported new file: ${change.path}.`);
-    const delta = lineDelta(previous?.content ?? "", change.content);
+    const operation = change.operation ?? "replace_file";
+    let nextContent = change.content;
+    if (operation === "replace_text") {
+      if (!previous) throw new Error(`AI patch proposed a text replacement in missing file ${change.path}.`);
+      if (!change.search) throw new Error(`AI patch proposed an empty text search in ${change.path}.`);
+      const occurrences = previous.content.split(change.search).length - 1;
+      if (occurrences !== 1) {
+        throw new Error(`AI patch text search must match exactly once in ${change.path}; matched ${occurrences} times.`);
+      }
+      nextContent = previous.content.replace(change.search, change.replacement ?? "");
+    }
+    const delta = lineDelta(previous?.content ?? "", nextContent);
     existing.set(change.path, previous
-      ? { ...previous, content: change.content }
-      : { path: change.path, content: change.content, language: languageForPath(change.path), role: roleForPath(change.path) });
+      ? { ...previous, content: nextContent }
+      : { path: change.path, content: nextContent, language: languageForPath(change.path), role: roleForPath(change.path) });
     return { path: change.path, reason: change.reason, ...delta, created: !previous };
   });
 

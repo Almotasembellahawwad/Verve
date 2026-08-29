@@ -232,7 +232,13 @@ type PipelineResult = {
 function rememberResultDirection(result: PipelineResult, outcome: "generated" | "accepted"): void {
   const portfolio = result.plan.directionPortfolio;
   const selected = portfolio?.candidates.find((candidate) => candidate.id === portfolio.selectedDirectionId);
-  if (selected) rememberLocalDesignDirection(fingerprintDirection(selected), outcome);
+  if (selected) {
+    const deliveredCode = result.project.files
+      .filter((file) => file.role === "source" && file.encoding !== "base64")
+      .map((file) => file.content)
+      .join("\n");
+    rememberLocalDesignDirection(fingerprintDirection(selected, deliveredCode), outcome);
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- used as type source below
