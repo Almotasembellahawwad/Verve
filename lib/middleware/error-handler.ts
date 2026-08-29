@@ -9,6 +9,7 @@
 
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
+import { ProviderResponseError } from "../errors/provider-response-error";
 
 export type ErrorCode =
   | "GENERATION_FAILED"
@@ -64,6 +65,10 @@ export function logSanitizedError(err: unknown, code: ErrorCode, requestId: stri
 export function classifyError(err: unknown): { code: ErrorCode; status: number } {
   if (!err) return { code: "INTERNAL_ERROR", status: 500 };
 
+  if (err instanceof ProviderResponseError || (err instanceof Error && err.name === "ZodError")) {
+    return { code: "PROVIDER_ERROR", status: 502 };
+  }
+
   const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
 
   if (msg.includes("api key") || msg.includes("unauthorized") || msg.includes("authentication")) {
@@ -75,7 +80,14 @@ export function classifyError(err: unknown): { code: ErrorCode; status: number }
   if (msg.includes("timeout") || msg.includes("abort") || msg.includes("timed out")) {
     return { code: "TIMEOUT", status: 504 };
   }
-  if (msg.includes("provider") || msg.includes("model") || msg.includes("empty response")) {
+  if (
+    msg.includes("provider")
+    || msg.includes("model")
+    || msg.includes("empty response")
+    || msg.includes("structured output")
+    || msg.includes("malformed or incomplete json")
+    || msg.includes("ai patch")
+  ) {
     return { code: "PROVIDER_ERROR", status: 502 };
   }
   if (msg.includes("generation") || msg.includes("pipeline") || msg.includes("critique")) {

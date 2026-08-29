@@ -71,9 +71,23 @@ import { runProjectPatchUseCase } from "../lib/application/run-project-patch-use
 import { applyProjectPatchProposal, projectPatchContext } from "../lib/project/ai-patch";
 import { buildVerveProjectSpec } from "../lib/engine/project-spec-builder";
 import { validateVerveProjectSpec } from "../lib/domain/project-spec";
-import { assessDirectionPortfolio, createFallbackDirectionPortfolio } from "../lib/engine/direction-portfolio";
+import {
+  assessDirectionPortfolio,
+  createFallbackDirectionPortfolio,
+  enforceRecommendedDirection,
+  fingerprintDirection,
+} from "../lib/engine/direction-portfolio";
 import { recentDesignFingerprints, rememberDesignDirection } from "../lib/domain/design-memory";
 import { runGenerationFoundationStages } from "../lib/application/generation-foundation-stages";
+import {
+  buildOpenAIChatResponseFormat,
+  buildOpenAIResponseParams,
+  completedOpenAIResponseText,
+} from "../lib/adapters/llm/openai";
+import { ProviderResponseError } from "../lib/errors/provider-response-error";
+import { classifyError } from "../lib/middleware/error-handler";
+import { inferDesignStructure } from "../lib/engine/structural-fingerprint";
+import type { DirectionPortfolio } from "../lib/domain/design-direction";
 
 async function runPipeline(
   input: PipelineInput & {
@@ -120,6 +134,12 @@ test("blocklist scans the delivered code content", () => {
 
 test("JSON extraction skips an earlier malformed brace pair", () => {
   assert.deepEqual(extractJSON<{ ok: boolean }>('noise {not-json} then {"ok":true}'), { ok: true });
+});
+
+test("JSON extraction preserves authored code comments inside string values", () => {
+  const content = "const endpoint = 'https://example.com'; // keep this\n/* keep CSS/JS comments too */";
+  const fenced = `\`\`\`json\n${JSON.stringify({ content })}\n\`\`\``;
+  assert.equal(extractJSON<{ content: string }>(fenced).content, content);
 });
 
 test("palette correction applies one stable text token across dark surfaces", () => {
@@ -179,6 +199,85 @@ test("Direction Portfolio balances quality and structural diversity without extr
   const collapsed = assessDirectionPortfolio(repeated);
   assert.equal(collapsed.passed, false);
   assert.ok(collapsed.warnings.some((warning) => /styling rather than experience structure/i.test(warning)));
+});
+
+test("quality-diversity selection overrides a renamed editorial-register house direction", () => {
+  const dimensions = (topology: string, interaction: string, signature: string) => ({
+    topology,
+    hierarchy: `${topology} hierarchy`,
+    spatialRhythm: `${topology} rhythm`,
+    typographyRole: `${topology} typography`,
+    mediaStrategy: `${topology} media`,
+    interactionMetaphor: interaction,
+    signatureMechanism: signature,
+  });
+  const portfolio: DirectionPortfolio = {
+    source: "provider",
+    selectedDirectionId: "case-file",
+    selectionRationale: "Provider choice",
+    candidates: [
+      {
+        id: "case-file",
+        concept: "A confidential case path",
+        justification: "Fits the legal brief.",
+        distinction: "A case margin labels the path.",
+        briefFit: 90,
+        feasibility: 90,
+        estimatedLikelihood: 0.4,
+        dimensions: dimensions(
+          "Split opening with a vertical case margin, numbered evidence register, and dark closing folio",
+          "inspect a numbered dossier",
+          "vertical datum beside a twelve-column opening"
+        ),
+      },
+      {
+        id: "guided-intake",
+        concept: "A calm guided intake",
+        justification: "Lets an individual disclose only what is necessary.",
+        distinction: "Progressive questions replace the document-like page.",
+        briefFit: 88,
+        feasibility: 88,
+        estimatedLikelihood: 0.35,
+        dimensions: dimensions(
+          "Compact task-led consultation flow with progressive disclosure",
+          "answer and reveal",
+          "one privacy control that changes the visible guidance"
+        ),
+      },
+      {
+        id: "plain-language-map",
+        concept: "A plain-language issue map",
+        justification: "Supports orientation before contact.",
+        distinction: "A comparison surface replaces a linear path.",
+        briefFit: 80,
+        feasibility: 86,
+        estimatedLikelihood: 0.25,
+        dimensions: dimensions(
+          "Comparison field connecting situations to possible next steps",
+          "compare and choose",
+          "one responsive issue map"
+        ),
+      },
+    ],
+  };
+  const assessment = assessDirectionPortfolio(portfolio);
+  assert.notEqual(assessment.recommendedDirectionId, "case-file");
+
+  const basePlan = generateDesignPlanLocally(analyzeBriefLocally("An employment law firm for individuals seeking a confidential consultation."));
+  const enforced = enforceRecommendedDirection({ ...basePlan, directionPortfolio: portfolio }, assessment);
+  assert.equal(enforced.directionPortfolio?.selectedDirectionId, assessment.recommendedDirectionId);
+  assert.match(enforced.layoutConcept, /ENFORCED DIRECTION/);
+});
+
+test("delivered design fingerprints capture structure without retaining project copy", () => {
+  const analysis = analyzeBriefLocally("A product workspace for a daily operational decision.");
+  const portfolio = createFallbackDirectionPortfolio(generateDesignPlanLocally(analysis), analysis);
+  const selected = portfolio.candidates[0];
+  const code = `.hero-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr))}.case-margin{writing-mode:vertical-rl}.path-row{border-top:1px solid} .private-folio{background:#101010}<span>01</span><span>02</span>`;
+  const fingerprint = fingerprintDirection(selected, code);
+  assert.equal(fingerprint.structure?.topologyFamily, "editorial-register");
+  assert.ok(fingerprint.structure?.traits.includes("vertical-rail"));
+  assert.doesNotMatch(JSON.stringify(fingerprint.structure), /daily operational decision/i);
 });
 
 test("local design memory stores fingerprints without private briefs and penalizes recent repetition", () => {
@@ -581,6 +680,76 @@ test("OpenRouter sends modern completion, fallback, reasoning, and structured-ou
   }
 });
 
+test("OpenAI Responses requests activate strict structured outputs", () => {
+  const params = buildOpenAIResponseParams("gpt-5.6-terra", [{ role: "user", content: "Return JSON" }], {
+    maxTokens: 14_000,
+    reasoningEffort: "low",
+    responseFormat: {
+      name: "fixture",
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        properties: { ok: { type: "boolean" } },
+        required: ["ok"],
+      },
+    },
+  });
+
+  assert.equal(params.max_output_tokens, 21_000);
+  assert.deepEqual(params.reasoning, { effort: "low" });
+  assert.deepEqual(params.text, {
+    verbosity: "low",
+    format: {
+      type: "json_schema",
+      name: "fixture",
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        properties: { ok: { type: "boolean" } },
+        required: ["ok"],
+      },
+      strict: true,
+    },
+  });
+});
+
+test("OpenAI Responses never accepts partial output as a completed artifact", () => {
+  assert.throws(() => completedOpenAIResponseText({
+    status: "incomplete",
+    incomplete_details: { reason: "max_output_tokens" },
+    error: null,
+    output: [],
+    output_text: '{"partial":',
+  }, "gpt-5.6-terra"), /incomplete response/i);
+
+  const classified = classifyError(new ProviderResponseError("partial", "incomplete"));
+  assert.deepEqual(classified, { code: "PROVIDER_ERROR", status: 502 });
+});
+
+test("OpenAI Chat Completions requests use the same strict JSON contract", () => {
+  assert.deepEqual(buildOpenAIChatResponseFormat({
+    name: "fixture",
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      properties: { ok: { type: "boolean" } },
+      required: ["ok"],
+    },
+  }), {
+    type: "json_schema",
+    json_schema: {
+      name: "fixture",
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        properties: { ok: { type: "boolean" } },
+        required: ["ok"],
+      },
+      strict: true,
+    },
+  });
+});
+
 test("Fast local analysis preserves an Arabic Cairo restaurant brief", () => {
   const analysis = analyzeBriefLocally("اريد موقع لمطعم في القاهرة");
   assert.equal(analysis.industry, "Food & Hospitality");
@@ -644,6 +813,54 @@ test("Template Diversity Gate rejects Verve's repeated editorial house recipe", 
 
   const ledger = inspectDesignDiversity(`<main class="ledger"><table><tbody><tr><td>Source</td></tr></tbody></table></main>`);
   assert.equal(ledger.passed, true);
+
+  const renamedRegister = `<style>
+    .hero-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr))}
+    .hero h1{font-size:clamp(3rem,6vw,5rem)}
+    .case-margin{writing-mode:vertical-rl}
+    .path-row{border-top:1px solid #777}
+    .process-image{width:100vw}
+    .private-folio{background:#101214}
+  </style><main><section class="hero"><div class="hero-grid"><h1>Clear next step</h1><aside class="case-margin">Case path</aside></div></section><ol><li class="path-row"><span>01</span></li><li class="path-row"><span>02</span></li></ol><figure class="process-image"></figure><section class="private-folio">Close</section></main>`;
+  const structure = inferDesignStructure(renamedRegister);
+  assert.equal(structure.topologyFamily, "editorial-register");
+  const detectedRegister = inspectDesignDiversity(renamedRegister);
+  assert.equal(detectedRegister.passed, false);
+  assert.equal(detectedRegister.scoreCap, 78);
+  assert.ok(detectedRegister.fingerprints.some((item) => /editorial register/i.test(item)));
+});
+
+test("Studio quality repair can replace a repeated structural recipe", async () => {
+  let repairPrompt = "";
+  const fakeAdapter: LLMAdapter = {
+    async complete(messages) {
+      repairPrompt = messages[0]?.content ?? "";
+      return `<!doctype html><html><head><meta charset="utf-8"><style>
+        body{margin:0;font:16px Arial,sans-serif;color:#171717;background:#f4f1e9}
+        main{max-width:72rem;margin:auto;padding:3rem}.catalog{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2rem}
+        @media(max-width:700px){.catalog{grid-template-columns:1fr}}
+        @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+      </style></head><body><main><h1>Employment guidance</h1><div class="catalog"><article><h2>Understand the issue</h2></article><article><h2>Choose a next step</h2></article></div></main></body></html>`;
+    },
+  };
+  const repeated = `<!doctype html><html><head><style>
+    .hero-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr))}
+    .hero h1{font-size:clamp(3rem,6vw,5rem)}.case-margin{writing-mode:vertical-rl}
+    .path-row{border-top:1px solid #777}.process-image{width:100vw}.private-folio{background:#101214}
+  </style></head><body><main><section class="hero"><div class="hero-grid"><h1>Clear next step</h1><aside class="case-margin">Case path</aside></div></section><ol><li class="path-row"><span>01</span></li><li class="path-row"><span>02</span></li></ol><figure class="process-image"></figure><section class="private-folio">Close</section></main></body></html>`;
+
+  const quality = await runCodeQualityLoop(fakeAdapter, repeated, "", "html", true);
+  assert.equal(quality.wasRepaired, true);
+  assert.match(repairPrompt, /Template Diversity Gate/i);
+  assert.match(quality.code, /class="catalog"/);
+});
+
+test("Fast archetype scoring treats an individual employment law firm as authority with care", () => {
+  const analysis = analyzeBriefLocally("Employment law firm for individual clients facing discrimination or unfair dismissal. Must feel trustworthy, confidential, and on their side.");
+  const archetype = resolveArchetypeLocally(analysis);
+  assert.equal(archetype.primaryArchetype, "ruler");
+  assert.equal(archetype.secondaryArchetype, "caregiver");
+  assert.match(archetype.designConstraints, /SECONDARY TENSION: (?:The )?Caregiver/);
 });
 
 test("OpenRouter Fast mode survives a failed plan call and still assembles the project", async () => {
@@ -1317,6 +1534,69 @@ test("AI Studio stages a multi-file proposal without mutating the accepted proje
     accepted.files.filter((file) => file.role === "asset")
   );
   assert.equal(accepted.files.find((file) => file.path === "index.html")!.content, originalHtml);
+});
+
+test("AI Studio applies a bounded exact replacement without returning a whole file", () => {
+  const accepted = PUBLIC_DEMOS[0].result.project;
+  const originalHtml = accepted.files.find((file) => file.path === "index.html")!.content;
+  const staged = applyProjectPatchProposal(accepted, {
+    summary: "Clarify the opening position",
+    rationale: "A bounded replacement is sufficient for this copy edit.",
+    changes: [{
+      path: "index.html",
+      operation: "replace_text",
+      content: "",
+      search: "The building",
+      replacement: "This building",
+      reason: "Makes the opening point to the building in view.",
+    }],
+  });
+
+  assert.match(staged.project.files.find((file) => file.path === "index.html")!.content, /This building/);
+  assert.ok(staged.files[0].addedLines <= 1);
+  assert.equal(accepted.files.find((file) => file.path === "index.html")!.content, originalHtml);
+  assert.throws(() => applyProjectPatchProposal(accepted, {
+    summary: "Ambiguous replacement",
+    rationale: "The engine must reject non-unique search values.",
+    changes: [{
+      path: "index.html",
+      operation: "replace_text",
+      content: "",
+      search: "section",
+      replacement: "article",
+      reason: "This search is intentionally ambiguous.",
+    }],
+  }), /match exactly once/i);
+});
+
+test("AI Studio retries one malformed provider artifact and reports the real call count", async () => {
+  const accepted = PUBLIC_DEMOS[0].result.project;
+  const originalHtml = accepted.files.find((file) => file.path === "index.html")!.content;
+  let calls = 0;
+  const fakeAdapter: LLMAdapter = {
+    async complete() {
+      calls++;
+      if (calls === 1) return '{"summary":"truncated"';
+      return JSON.stringify({
+        summary: "Repair the document entry",
+        rationale: "The retry returns a complete, bounded proposal.",
+        changes: [{
+          path: "index.html",
+          content: originalHtml.replace("The building", "This building"),
+          reason: "Makes the opening immediate.",
+        }],
+      });
+    },
+  };
+
+  const result = await runProjectPatchUseCase(fakeAdapter, {
+    project: projectPatchContext(accepted),
+    instruction: "Make the opening more immediate.",
+    mode: "fast",
+  });
+  assert.equal(calls, 2);
+  assert.equal(result.callCount, 2);
+  assert.equal(result.proposal.changes[0].path, "index.html");
 });
 
 test("AI Studio rejects unsafe patch paths before a proposal can be previewed", () => {

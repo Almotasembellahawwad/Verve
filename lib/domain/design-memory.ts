@@ -7,6 +7,12 @@ export type DesignMemoryFingerprint = {
   mediaStrategy: string;
   interactionMetaphor: string;
   signatureMechanism: string;
+  structure?: {
+    topologyFamily: "editorial-register" | "workbench" | "dashboard" | "timeline" | "comparison" | "spatial-canvas" | "catalog" | "form-led" | "narrative" | "unknown";
+    openingMode: "viewport-hero" | "split-opening" | "compact-task" | "unknown";
+    sectionRhythm: "viewport-stages" | "numbered-rows" | "panel-grid" | "mixed" | "unknown";
+    traits: string[];
+  };
 };
 
 export type DesignMemoryOutcome = "generated" | "accepted" | "rejected";
@@ -36,6 +42,9 @@ export function designFingerprintKey(fingerprint: DesignMemoryFingerprint): stri
     fingerprint.mediaStrategy,
     fingerprint.interactionMetaphor,
     fingerprint.signatureMechanism,
+    fingerprint.structure
+      ? JSON.stringify(fingerprint.structure)
+      : "structure-unavailable",
   ].map(normalize).join("|");
 
   let hash = 2166136261;

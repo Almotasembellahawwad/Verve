@@ -514,12 +514,15 @@ export async function runGenerationUseCase(
 
   emit("stage_start", { id: "07", name: "Project Assembly", module: "ProjectEngine" }, "07-start");
   const assetUsage = inspectAssetUsage(assetBundle, finalCode.code);
+  const diversityWarnings = diversityResult.warnings.map((warning) =>
+    strategy.mode === "studio" ? `BLOCKING: ${warning}` : warning
+  );
   const project = buildGeneratedProject(
     finalCode,
     briefAnalysis,
     designPlan,
     codeQualityResult.wasRepaired ? [] : codeQualityResult.issues,
-    [...assetBundle.readinessWarnings, ...assetUsage.warnings, ...directionDiversity.warnings, ...diversityResult.warnings]
+    [...assetBundle.readinessWarnings, ...assetUsage.warnings, ...directionDiversity.warnings, ...diversityWarnings]
   );
   emit("stage_done", {
     id: "07",

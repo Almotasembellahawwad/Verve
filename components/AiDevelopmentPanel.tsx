@@ -52,6 +52,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   CONCURRENT_LIMIT: "Another edit is still running. Wait for it to finish.",
   TIMEOUT: "The model did not finish in time. Try Fast mode or a smaller request.",
   PROVIDER_ERROR: "The selected model could not produce a usable patch.",
+  INTERNAL_ERROR: "AI Studio encountered an unexpected server error. Your project is unchanged.",
 };
 
 function safeKey(provider: Provider): string {
@@ -122,7 +123,9 @@ export default function AiDevelopmentPanel({ project, iterations = [], onPreview
       const data = await response.json().catch(() => ({})) as Record<string, unknown>;
       if (!response.ok || typeof data.error === "string") {
         const code = typeof data.error === "string" ? data.error : "PROVIDER_ERROR";
-        throw new Error(ERROR_MESSAGES[code] ?? `AI Studio could not stage this edit (${code}).`);
+        const requestId = typeof data.requestId === "string" ? data.requestId : null;
+        const message = ERROR_MESSAGES[code] ?? `AI Studio could not stage this edit (${code}).`;
+        throw new Error(`${message}${requestId ? ` Reference: ${requestId}` : ""}`);
       }
       const parsed = ProjectPatchProposalSchema.parse(data.proposal);
       const applied = applyProjectPatchProposal(sourceProject, parsed);

@@ -8,25 +8,35 @@ import type { CritiqueResult } from "./critique-loop";
 import type { DesignPlan } from "./plan-generator";
 import { createFallbackDirectionPortfolio } from "./direction-portfolio";
 
-const KEYWORD_ARCHETYPES: Array<[ArchetypeId, RegExp]> = [
-  ["caregiver", /health|care|clinic|medical|wellness|charity|nonprofit/i],
-  ["sage", /education|research|data|analytics|science|knowledge|university|legal/i],
-  ["ruler", /luxury|finance|bank|law firm|enterprise|executive|premium/i],
-  ["explorer", /travel|outdoor|adventure|tourism|mobility/i],
-  ["hero", /sport|fitness|performance|achievement|training/i],
-  ["rebel", /disrupt|radical|counterculture|independent|challenger/i],
-  ["jester", /entertainment|game|comedy|fun|festival/i],
-  ["innocent", /organic|natural|sustainable|clean|children|family/i],
-  ["everyman", /community|accessible|local|everyday|marketplace/i],
-  ["lover", /beauty|fashion|hospitality|wedding|skincare|restaurant/i],
-  ["magician", /transformation|future|immersive|ai |automation|innovation/i],
-  ["creator", /design|architecture|studio|portfolio|creative|craft/i],
+const KEYWORD_ARCHETYPE_SIGNALS: Array<[ArchetypeId, RegExp, number]> = [
+  ["caregiver", /health|care|clinic|medical|wellness|charity|nonprofit/i, 4],
+  ["caregiver", /on their side|individual clients?|personal support|confidential support/i, 3],
+  ["ruler", /law firm|legal practice|attorney|counsel|solicitor/i, 6],
+  ["ruler", /luxury|finance|bank|enterprise|executive|premium/i, 4],
+  ["sage", /education|research|data|analytics|science|knowledge|university/i, 4],
+  ["sage", /legal guidance|legal information|explain the law/i, 2],
+  ["explorer", /travel|outdoor|adventure|tourism|mobility/i, 4],
+  ["hero", /sport|fitness|performance|achievement|training/i, 4],
+  ["rebel", /disrupt|radical|counterculture|independent|challenger/i, 4],
+  ["jester", /entertainment|game|comedy|fun|festival/i, 4],
+  ["innocent", /organic|natural|sustainable|clean|children|family/i, 4],
+  ["everyman", /community|accessible|local|everyday|marketplace|for individuals/i, 3],
+  ["lover", /beauty|fashion|hospitality|wedding|skincare|restaurant/i, 4],
+  ["magician", /transformation|future|immersive|ai |automation|innovation/i, 4],
+  ["creator", /design|architecture|studio|portfolio|creative|craft/i, 4],
 ];
 
 export function resolveArchetypeLocally(analysis: BriefAnalysis): ArchetypeResolution {
-  const haystack = `${analysis.subject} ${analysis.industry} ${analysis.tone} ${analysis.primaryJob}`;
-  const primaryArchetype = KEYWORD_ARCHETYPES.find(([, expression]) => expression.test(haystack))?.[0] ?? "creator";
+  const haystack = `${analysis.subject} ${analysis.industry} ${analysis.tone} ${analysis.primaryJob} ${analysis.rawBrief}`;
+  const scores = new Map<ArchetypeId, number>();
+  for (const [archetype, expression, weight] of KEYWORD_ARCHETYPE_SIGNALS) {
+    if (expression.test(haystack)) scores.set(archetype, (scores.get(archetype) ?? 0) + weight);
+  }
+  const ranked = [...scores.entries()].sort((left, right) => right[1] - left[1]);
+  const primaryArchetype = ranked[0]?.[0] ?? "creator";
+  const secondaryArchetype = ranked.find(([archetype]) => archetype !== primaryArchetype)?.[0] ?? null;
   const primaryProfile = ARCHETYPES[primaryArchetype];
+  const secondaryProfile = secondaryArchetype ? ARCHETYPES[secondaryArchetype] : null;
   const design = primaryProfile.design;
   const designConstraints = [
     `FAST MODE ARCHETYPE: ${primaryProfile.name}`,
@@ -34,17 +44,18 @@ export function resolveArchetypeLocally(analysis: BriefAnalysis): ArchetypeResol
     `Typography: ${design.typographyPersonality}`,
     `Layout: ${design.layoutPersonality}`,
     `Voice: ${design.toneOfVoice}`,
+    ...(secondaryProfile ? [`SECONDARY TENSION: ${secondaryProfile.name} — borrow empathy or energy without replacing the primary structure.`] : []),
   ].join("\n");
 
   return {
     primaryArchetype,
-    secondaryArchetype: null,
+    secondaryArchetype,
     confidence: 0.68,
     reasoning: "Resolved locally from the brief vocabulary to keep Fast mode predictable and reduce provider calls.",
     archetypeConflict: primaryProfile.fear,
     emotionalJob: `Help ${analysis.audience} feel confident that ${analysis.primaryJob.toLowerCase()} is achievable.`,
     primaryProfile,
-    secondaryProfile: null,
+    secondaryProfile,
     designConstraints,
     animationConstraints: [
       primaryProfile.animation.easingCharacter,

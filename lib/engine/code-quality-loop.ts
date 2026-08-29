@@ -12,6 +12,7 @@
 
 import type { LLMAdapter } from "./llm-utils";
 import { findUnsupportedQuantifiedClaims } from "./content-safety";
+import { inspectDesignDiversity } from "./design-diversity";
 import ts from "typescript";
 
 export interface CodeQualityResult {
@@ -22,7 +23,7 @@ export interface CodeQualityResult {
 }
 
 const REPAIR_SYSTEM = `You are a code repair specialist. Fix ONLY the specific issues listed.
-Do not rewrite or restructure the design. Return ONLY the corrected code with no markdown, no explanation.`;
+Preserve the supplied content, factual safety, behavior, and framework contract. If a Template Diversity Gate issue is listed, change the information composition itself while preserving the intended job; changing colors or class names is not a repair. Otherwise avoid unrelated redesign. Return ONLY the corrected code with no markdown, no explanation.`;
 
 // ── Structural checks ─────────────────────────────────────────────────────────
 
@@ -111,6 +112,8 @@ function checkDeliveryPolicies(code: string, rawBrief = ""): string[] {
   for (const claim of findUnsupportedQuantifiedClaims(code, rawBrief)) {
     issues.push(`Unsupported quantified claim "${claim}" is absent from the source brief; replace it with a clearly labeled pending value`);
   }
+  const diversity = inspectDesignDiversity(code);
+  issues.push(...diversity.warnings);
   return issues;
 }
 

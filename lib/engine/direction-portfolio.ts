@@ -7,6 +7,11 @@ import type {
 } from "../domain/design-direction";
 import type { BriefAnalysis } from "./brief-analyzer";
 import type { DesignPlan } from "./plan-generator";
+import {
+  designStructureDistance,
+  inferDesignStructure,
+  mergeDesignStructures,
+} from "./structural-fingerprint";
 
 const DIMENSION_KEYS: (keyof DirectionDimensions)[] = [
   "topology",
@@ -31,8 +36,51 @@ function textDistance(left: string, right: string): number {
   return union === 0 ? 0 : 1 - intersection / union;
 }
 
-export function fingerprintDirection(candidate: DesignDirectionCandidate): DesignDirectionFingerprint {
-  return { directionId: candidate.id, ...candidate.dimensions };
+const HOUSE_STYLE_FINGERPRINTS: DesignDirectionFingerprint[] = [{
+  directionId: "verve-house-editorial-register",
+  topology: "editorial evidence register with a vertical rail, numbered records, and a dark closing folio",
+  hierarchy: "large opening thesis, indexed evidence rows, terminal action panel",
+  spatialRhythm: "split opening followed by ruled numbered rows and one full-width interruption",
+  typographyRole: "oversized sans thesis with compact uppercase metadata",
+  mediaStrategy: "one full-width evidence image between document-like sections",
+  interactionMetaphor: "inspect a numbered dossier",
+  signatureMechanism: "vertical datum or case margin beside a twelve-column opening",
+  structure: {
+    topologyFamily: "editorial-register",
+    openingMode: "split-opening",
+    sectionRhythm: "numbered-rows",
+    traits: [
+      "dark-closing-panel",
+      "editorial-rules",
+      "full-width-interrupt",
+      "numbered-index",
+      "oversized-heading",
+      "twelve-column-grid",
+      "vertical-rail",
+    ],
+  },
+}];
+
+function dimensionsText(value: Pick<DesignDirectionFingerprint, keyof DirectionDimensions>): string {
+  return DIMENSION_KEYS.map((key) => value[key]).join("\n");
+}
+
+function structureOf(value: DesignDirectionFingerprint | DesignDirectionCandidate["dimensions"]) {
+  return "structure" in value && value.structure
+    ? value.structure
+    : inferDesignStructure(dimensionsText(value));
+}
+
+export function fingerprintDirection(
+  candidate: DesignDirectionCandidate,
+  deliveredCode?: string
+): DesignDirectionFingerprint {
+  const described = inferDesignStructure(dimensionsText(candidate.dimensions));
+  const structure = mergeDesignStructures(
+    described,
+    deliveredCode ? inferDesignStructure(deliveredCode) : undefined
+  );
+  return { directionId: candidate.id, ...candidate.dimensions, structure };
 }
 
 export function directionDistance(
@@ -40,7 +88,9 @@ export function directionDistance(
   right: Pick<DesignDirectionFingerprint, keyof DirectionDimensions>
 ): number {
   const total = DIMENSION_KEYS.reduce((sum, key) => sum + textDistance(left[key], right[key]), 0);
-  return Number((total / DIMENSION_KEYS.length).toFixed(3));
+  const semanticDistance = total / DIMENSION_KEYS.length;
+  const structuralDistance = designStructureDistance(structureOf(left), structureOf(right));
+  return Number((semanticDistance * 0.45 + structuralDistance * 0.55).toFixed(3));
 }
 
 function normalizePortfolio(portfolio: DirectionPortfolio): DirectionPortfolio {
@@ -81,16 +131,18 @@ export function assessDirectionPortfolio(
 
   const scored = portfolio.candidates.map((candidate) => {
     const fingerprint = fingerprintDirection(candidate);
-    const historyNovelty = recentFingerprints.length
+    const localNovelty = recentFingerprints.length
       ? Math.min(...recentFingerprints.map((previous) => directionDistance(fingerprint, previous)))
       : portfolio.candidates.length > 1
         ? Math.min(...portfolio.candidates.filter((other) => other.id !== candidate.id).map((other) => directionDistance(candidate.dimensions, other.dimensions)))
         : 0;
+    const houseStyleNovelty = Math.min(...HOUSE_STYLE_FINGERPRINTS.map((previous) => directionDistance(fingerprint, previous)));
     const utility = candidate.briefFit * 0.45
       + candidate.feasibility * 0.2
       + candidate.estimatedLikelihood * 100 * 0.15
-      + historyNovelty * 100 * 0.2;
-    return { candidate, utility };
+      + localNovelty * 100 * 0.1
+      + houseStyleNovelty * 100 * 0.1;
+    return { candidate, utility, houseStyleNovelty };
   }).sort((left, right) => right.utility - left.utility);
 
   const selected = portfolio.candidates.find((candidate) => candidate.id === portfolio.selectedDirectionId);
@@ -104,6 +156,10 @@ export function assessDirectionPortfolio(
   if (historicalNoveltyScore !== null && historicalNoveltyScore < 42) {
     warnings.push("The selected direction is structurally close to a recent local result; choose a more novel topology.");
   }
+  const selectedScore = scored.find((item) => item.candidate.id === portfolio.selectedDirectionId);
+  if (selectedScore && selectedScore.houseStyleNovelty < 0.34) {
+    warnings.push("The selected direction is structurally close to Verve's editorial-register house style.");
+  }
   if (scored[0] && scored[0].candidate.id !== portfolio.selectedDirectionId) {
     warnings.push(`The selected direction is not the strongest quality-diversity candidate; ${scored[0].candidate.id} scored higher.`);
   }
@@ -114,6 +170,39 @@ export function assessDirectionPortfolio(
     historicalNoveltyScore,
     recommendedDirectionId: scored[0]?.candidate.id ?? portfolio.selectedDirectionId,
     warnings,
+  };
+}
+
+export function enforceRecommendedDirection(
+  plan: DesignPlan,
+  assessment: DirectionDiversityAssessment
+): DesignPlan {
+  const portfolio = plan.directionPortfolio;
+  if (!portfolio || assessment.recommendedDirectionId === portfolio.selectedDirectionId) return plan;
+  const recommended = portfolio.candidates.find((candidate) => candidate.id === assessment.recommendedDirectionId);
+  if (!recommended) return plan;
+
+  return {
+    ...plan,
+    directionPortfolio: {
+      ...portfolio,
+      selectedDirectionId: recommended.id,
+      selectionRationale: `Verve quality-diversity selector overrode the provider choice: ${recommended.justification}`,
+    },
+    layoutConcept: [
+      `ENFORCED DIRECTION: ${recommended.concept}`,
+      `Topology: ${recommended.dimensions.topology}`,
+      `Hierarchy: ${recommended.dimensions.hierarchy}`,
+      `Rhythm: ${recommended.dimensions.spatialRhythm}`,
+      `Media: ${recommended.dimensions.mediaStrategy}`,
+      `Interaction: ${recommended.dimensions.interactionMetaphor}`,
+    ].join("\n"),
+    signatureElement: {
+      name: recommended.concept.slice(0, 80),
+      description: recommended.distinction,
+      implementation: recommended.dimensions.signatureMechanism,
+      justification: recommended.justification,
+    },
   };
 }
 
