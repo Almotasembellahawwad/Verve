@@ -13,6 +13,13 @@ updates:
       development-minor:
         dependency-type: development
         update-types: [minor, patch]
+    ignore:
+      # Runtime and its type surface move together through an explicit platform upgrade.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # eslint-config-next does not yet support ESLint 10's rule-context API.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
