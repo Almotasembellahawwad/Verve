@@ -20,6 +20,8 @@
 .controlDeck button:hover, .controlDeck a:hover, .sessionActions button:hover { border-color: #ff6a46; color: #fff; }
 .notice { display: flex; justify-content: space-between; gap: 20px; padding: 13px max(4vw, 28px); border-bottom: 1px solid #5c472b; color: #e4c58f; background: #211b14; font-size: 12px; }
 .notice button { border: 0; background: transparent; color: inherit; cursor: pointer; text-decoration: underline; }
+.proposalBanner { display: flex; align-items: center; gap: 18px; margin: 20px max(3vw, 24px) -12px; padding: 14px 18px; border: 1px solid #664d2e; background: #211b14; color: #d9bc85; font-size: 11px; line-height: 1.5; }
+.proposalBanner b { flex: 0 0 auto; color: #e5b45d; font: 800 9px var(--font-plex-mono), monospace; letter-spacing: .12em; }
 .editorStage { display: grid; grid-template-columns: 270px minmax(0, 1fr); align-items: start; padding: 32px max(3vw, 24px) 90px; }
 .sessionRail { position: sticky; top: 150px; min-height: 620px; padding: 22px 22px 30px 0; border-right: 1px solid #303238; }
 .sessionRail label { display: grid; gap: 8px; margin-top: 28px; }

@@ -26,6 +26,7 @@ type BottomPanel = "problems" | "console";
 type ProjectWorkbenchProps = {
   project: GeneratedProject;
   onProjectChange?: (project: GeneratedProject) => void;
+  readOnly?: boolean;
 };
 
 const VIEWPORT_LABELS: Array<{ id: Viewport; label: string; width: string }> = [
@@ -50,7 +51,7 @@ async function downloadProjectFiles(project: GeneratedProject): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
-function NextProjectInspector({ project, onProjectChange }: ProjectWorkbenchProps) {
+function NextProjectInspector({ project, onProjectChange, readOnly = false }: ProjectWorkbenchProps) {
   const [files, setFiles] = useState(project.files);
   const [selectedPath, setSelectedPath] = useState(project.entryFile);
   const [downloading, setDownloading] = useState(false);
@@ -82,7 +83,7 @@ function NextProjectInspector({ project, onProjectChange }: ProjectWorkbenchProp
           <p>{files.length} files · Next.js · entry: {project.entryFile} · readiness: {validation.score}/100{edited ? " · edited" : ""}</p>
         </div>
         <div className={styles.actions}>
-          {edited && <button type="button" className={styles.reset} onClick={() => setFiles(project.files)}>Reset edits</button>}
+          {edited && !readOnly && <button type="button" className={styles.reset} onClick={() => setFiles(project.files)}>Reset edits</button>}
           <button type="button" className={styles.download} onClick={downloadProject} disabled={downloading}>
             {downloading ? "Packing…" : "Download ZIP"}
           </button>
@@ -133,6 +134,7 @@ function NextProjectInspector({ project, onProjectChange }: ProjectWorkbenchProp
               className={styles.nextEditor}
               value={selectedFile.content}
               onChange={(event) => setFiles((current) => current.map((item) => item.path === selectedFile.path ? { ...item, content: event.target.value } : item))}
+              readOnly={readOnly}
               spellCheck={false}
               aria-label={`Edit ${selectedFile.path}`}
             />
@@ -161,7 +163,7 @@ function NextProjectInspector({ project, onProjectChange }: ProjectWorkbenchProp
   );
 }
 
-function ProjectWorkspaceBody({ project, probeId, onProjectChange }: ProjectWorkbenchProps & { probeId: string }) {
+function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = false }: ProjectWorkbenchProps & { probeId: string }) {
   const { sandpack } = useSandpack();
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [bottomPanel, setBottomPanel] = useState<BottomPanel>("problems");
@@ -240,7 +242,7 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange }: ProjectWork
               </button>
             ))}
           </div>
-          {sandpack.editorState === "dirty" && (
+          {sandpack.editorState === "dirty" && !readOnly && (
             <button type="button" className={styles.reset} onClick={sandpack.resetAllFiles}>Reset edits</button>
           )}
           <button type="button" className={styles.download} onClick={downloadProject} disabled={downloading}>
@@ -258,7 +260,7 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange }: ProjectWork
 
       <SandpackLayout className={styles.sandpackLayout}>
         <SandpackFileExplorer className={styles.explorer} />
-        <SandpackCodeEditor className={styles.editor} showTabs showLineNumbers wrapContent />
+        <SandpackCodeEditor className={styles.editor} showTabs showLineNumbers wrapContent readOnly={readOnly} />
         <div className={styles.previewRail}>
           <div className={styles.previewMeta}>
             <span>LIVE SANDBOX · {sandpack.status.toUpperCase()} / RENDER GATE · {renderGateStatus}</span>
@@ -318,7 +320,7 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange }: ProjectWork
   );
 }
 
-export default function ProjectWorkbench({ project, onProjectChange }: ProjectWorkbenchProps) {
+export default function ProjectWorkbench({ project, onProjectChange, readOnly = false }: ProjectWorkbenchProps) {
   const probeId = useId();
   const files = useMemo(
     () => instrumentSandboxFiles(project, probeId),
@@ -326,11 +328,11 @@ export default function ProjectWorkbench({ project, onProjectChange }: ProjectWo
   );
 
   if (!supportsLiveSandbox(project.framework)) {
-    return <NextProjectInspector project={project} onProjectChange={onProjectChange} />;
+    return <NextProjectInspector project={project} onProjectChange={onProjectChange} readOnly={readOnly} />;
   }
 
   if (project.framework === "html") {
-    return <NativeHtmlWorkbench key={`${project.name}-${project.files.length}`} project={project} onProjectChange={onProjectChange} />;
+    return <NativeHtmlWorkbench key={`${project.name}-${project.files.length}`} project={project} onProjectChange={onProjectChange} readOnly={readOnly} />;
   }
 
   return (
@@ -367,7 +369,7 @@ export default function ProjectWorkbench({ project, onProjectChange }: ProjectWo
       }}
       options={{ activeFile: `/${project.entryFile}`, visibleFiles: project.files.map((item) => `/${item.path}`) }}
     >
-      <ProjectWorkspaceBody project={project} probeId={probeId} onProjectChange={onProjectChange} />
+      <ProjectWorkspaceBody project={project} probeId={probeId} onProjectChange={onProjectChange} readOnly={readOnly} />
     </SandpackProvider>
   );
 }

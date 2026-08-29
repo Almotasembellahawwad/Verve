@@ -9,6 +9,18 @@ export type EditorSnapshot = {
   project: GeneratedProject;
 };
 
+export type EditorIteration = {
+  id: string;
+  createdAt: number;
+  instruction: string;
+  summary: string;
+  provider: "anthropic" | "openai" | "gemini" | "openrouter";
+  model: string;
+  mode: "fast" | "studio";
+  status: "accepted" | "rejected";
+  files: string[];
+};
+
 export type EditorProjectRecord = {
   schemaVersion: 1;
   id: string;
@@ -18,6 +30,7 @@ export type EditorProjectRecord = {
   updatedAt: number;
   project: GeneratedProject;
   snapshots: EditorSnapshot[];
+  iterations?: EditorIteration[];
 };
 
 export interface EditorProjectRepositoryPort {

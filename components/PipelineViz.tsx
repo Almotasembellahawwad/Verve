@@ -1,135 +1,35 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import styles from "./PipelineViz.module.css";
 
-const STEPS = [
-  {
-    id: "01",
-    name: "Brief Analyzer",
-    description: "Extracts subject, audience, primary job, tone, and industry. Forces specificity before anything visual is considered.",
-    module: "brief-analyzer.ts",
-  },
-  {
-    id: "02",
-    name: "Context Field",
-    description: "Sources assets, scans 21 cliché families, and maps the competitive field in parallel before choosing a visual direction.",
-    module: "Assets + Blocklist + Field",
-  },
-  {
-    id: "02.5",
-    name: "Brand Archetype",
-    description: "Resolves the emotional job and archetype constraints locally in Fast mode or through a dedicated Studio review.",
-    module: "brand-archetype-resolver.ts",
-  },
-  {
-    id: "02.6",
-    name: "Motion Language",
-    description: "Derives easing, duration, and reduced-motion behavior from the archetype instead of adding generic float-and-fade animation.",
-    module: "animation-language.ts",
-  },
-  {
-    id: "03",
-    name: "Plan + Adversarial Review",
-    description: "Builds the token system and one signature element. Fast runs a local preflight; Studio asks whether a generic prompt could have produced the plan and loops failed plans back.",
-    module: "PlanGenerator + Critique",
-  },
-  {
-    id: "04",
-    name: "Contrast Enforcement",
-    description: "Tests every intended text/background pairing and makes one stable palette correction where WCAG AA would otherwise fail.",
-    module: "contrast-fixer.ts",
-  },
-  {
-    id: "05",
-    name: "Code Generation",
-    description: "Implements the approved thesis as responsive Next.js, React, or HTML using only verified assets and explicit interaction rules.",
-    module: "code-generator.ts",
-  },
-  {
-    id: "05.5",
-    name: "Syntax + Repair",
-    description: "Parses the final TSX with TypeScript and checks the entry contract. Studio can spend one bounded repair call; Fast reports unresolved risks without hiding them.",
-    module: "code-quality-loop.ts",
-  },
-  {
-    id: "06",
-    name: "Dual Score",
-    description: "Scores the delivered code—not the brief—across Norman’s three design levels and a separate engineering quality axis.",
-    module: "Scorer + Engineering",
-  },
-  {
-    id: "07",
-    name: "Project Assembly",
-    description: "Builds the complete stack scaffold, resolves imports, computes readiness, prepares HTML/React live preview, and packages every framework as a ZIP.",
-    module: "project-builder.ts",
-  },
-];
+const JOURNEY = [
+  { id: "01", actor: "YOU", title: "Give it intent", short: "Brief", question: "What should this project make someone understand, feel, and do?", decision: "Speak or write the brief in Arabic or English. Correct the transcript and attach the brand material you actually own.", artifact: "EDITABLE BRIEF", signal: "Your words remain the source of truth." },
+  { id: "02", actor: "VERVE", title: "Find the position", short: "Thesis", question: "What visual direction belongs to this subject—and what would make it generic?", decision: "Verve maps the audience job, category gravity, archetype, forbidden conventions, and one signature element before asking a model to code.", artifact: "DESIGN THESIS", signal: "A reason to look this way, not a style preset." },
+  { id: "03", actor: "AI + VERVE", title: "Build the system", short: "Generate", question: "How should the thesis become a runnable project?", decision: "Fast uses two core model calls for velocity. Studio adds bounded critique and repair when the project deserves deeper scrutiny.", artifact: "MULTI-FILE PROJECT", signal: "Next.js, React, or native HTML—not a stranded code block." },
+  { id: "04", actor: "VERVE", title: "Run the evidence", short: "Verify", question: "Does the delivered result actually work?", decision: "The project is rendered where safe, checked for broken imports, interaction contracts, responsive overflow, accessibility, content risk, and export readiness.", artifact: "LIVE RECEIPT", signal: "Visible failures stay visible. Recovery stays possible." },
+  { id: "05", actor: "YOU + AI", title: "Develop until it is yours", short: "Iterate", question: "What still does not feel right to you?", decision: "Ask for a change. The model stages a multi-file proposal. See it live, inspect the difference, accept or reject, then ask again.", artifact: "HUMAN-GATED PATCH", signal: "The AI never overwrites the accepted project on its own." },
+  { id: "06", actor: "YOU", title: "Accept and ship", short: "Deliver", question: "Is this the version you are willing to own?", decision: "Restore earlier decisions, export the complete ZIP, or continue the loop. Shipping is a human decision—not a model stopping condition.", artifact: "PROJECT + HISTORY", signal: "Source, configuration, revisions, and evidence leave together." },
+] as const;
 
 export function PipelineViz() {
-  const [activeStep, setActiveStep] = useState(-1);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Scroll-triggered sequential activation of pipeline steps
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && activeStep < 0) {
-          // Start cascading activation when pipeline enters view
-          let step = 0;
-          const interval = setInterval(() => {
-            setActiveStep(step);
-            step++;
-            if (step >= STEPS.length) clearInterval(interval);
-          }, 180);
-        }
-      },
-      { threshold: 0.15 }
-    );
-    if (containerRef.current) observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, [activeStep]);
-
+  const [active, setActive] = useState(0);
+  const stage = JOURNEY[active];
   return (
-    <div className={styles.pipeline} ref={containerRef}>
-      {STEPS.map((step, i) => (
-        <div
-          key={step.id}
-          className={`${styles.step} ${i <= activeStep ? styles.stepActive : ""}`}
-          style={{ transitionDelay: `${i * 60}ms` }}
-          onMouseEnter={() => setActiveStep(Math.max(activeStep, i))}
-        >
-          <div className={styles.stepLeft}>
-            <div className={`${styles.stepId} ${i <= activeStep ? styles.stepIdActive : ""}`}>
-              {i <= activeStep ? (
-                <span className={styles.stepIdNum}>{step.id}</span>
-              ) : (
-                <span className={styles.stepIdNum}>{step.id}</span>
-              )}
-            </div>
-            {i < STEPS.length - 1 && (
-              <div className={styles.connector} aria-hidden="true">
-                {/* Glowing progress fill — amber travels down as steps activate */}
-                <div className={styles.connectorLine}>
-                  <div
-                    className={`${styles.connectorFill} ${i < activeStep ? styles.connectorFillActive : ""}`}
-                  />
-                </div>
-                <div className={`${styles.connectorArrow} ${i < activeStep ? styles.connectorArrowActive : ""}`}>↓</div>
-              </div>
-            )}
-          </div>
-          <div className={styles.stepContent}>
-            <div className={styles.stepHeader}>
-              <h3 className={styles.stepName}>{step.name}</h3>
-              <code className={`${styles.stepModule} ${i <= activeStep ? styles.stepModuleActive : ""}`}>
-                {step.module}
-              </code>
-            </div>
-            <p className={styles.stepDesc}>{step.description}</p>
-          </div>
-        </div>
-      ))}
+    <div className={styles.journey}>
+      <nav className={styles.steps} aria-label="Verve project journey">
+        {JOURNEY.map((item, index) => <button type="button" key={item.id} aria-current={active === index ? "step" : undefined} onClick={() => setActive(index)}>
+          <span>{item.id}</span><div><b>{item.short}</b><small>{item.actor}</small></div><i aria-hidden="true">{active === index ? "●" : "○"}</i>
+        </button>)}
+      </nav>
+      <section className={styles.stage} key={stage.id} aria-live="polite">
+        <div className={styles.stageMeta}><span>STAGE {stage.id} / 06</span><b>{stage.actor}</b></div>
+        <h3>{stage.title}</h3>
+        <blockquote>{stage.question}</blockquote>
+        <p>{stage.decision}</p>
+        <div className={styles.artifact}><span>{stage.artifact}</span><strong>{stage.signal}</strong><i aria-hidden="true">V/{stage.id}</i></div>
+      </section>
+      <div className={styles.flow} aria-label="Journey summary">{JOURNEY.map((item, index) => <button type="button" onClick={() => setActive(index)} data-active={active === index || undefined} key={item.id}><span>{item.id}</span><b>{item.short}</b></button>)}</div>
     </div>
   );
 }

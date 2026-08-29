@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import AiDevelopmentPanel, { type AiStudioProposal } from "@/components/AiDevelopmentPanel";
 import ProjectWorkbench from "@/components/ProjectWorkbench";
 import { SignalNav } from "@/components/SignalNav";
 import { PUBLIC_DEMOS } from "@/lib/demo/public-demo-gallery";
@@ -15,6 +16,7 @@ import {
   getActiveEditorProjectId,
   getEditorProject,
   listEditorProjects,
+  recordEditorAiDecision,
   saveEditorProject,
   setActiveEditorProjectId,
 } from "@/lib/client/editor-workspace";
@@ -100,6 +102,7 @@ export default function EditorClient({ initialProjectId }: { initialProjectId: s
   const [saveState, setSaveState] = useState<SaveState>("loading");
   const [workspaceVersion, setWorkspaceVersion] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
+  const [aiProposal, setAiProposal] = useState<AiStudioProposal | null>(null);
 
   const refreshRecords = useCallback(async () => {
     const next = await listEditorProjects();
@@ -113,6 +116,7 @@ export default function EditorClient({ initialProjectId }: { initialProjectId: s
     latestProjectRef.current = record.project;
     setWorkingProject(record.project);
     setSaveState("saved");
+    setAiProposal(null);
     setWorkspaceVersion((version) => version + 1);
     window.history.replaceState({}, "", `/editor?project=${encodeURIComponent(record.id)}`);
   }, []);
@@ -162,11 +166,54 @@ export default function EditorClient({ initialProjectId }: { initialProjectId: s
   }, [activeRecord, saveState, workingProject]);
 
   const handleProjectChange = useCallback((project: GeneratedProject) => {
+    if (aiProposal) return;
     if (sameProjectContent(latestProjectRef.current, project)) return;
     latestProjectRef.current = project;
     setWorkingProject(project);
     setSaveState((current) => current === "loading" ? current : "unsaved");
-  }, []);
+  }, [aiProposal]);
+
+  const acceptAiProposal = async (proposal: AiStudioProposal) => {
+    if (!activeRecord || !workingProject) return;
+    const saved = await recordEditorAiDecision(activeRecord, workingProject, proposal.project, {
+      id: proposal.id,
+      createdAt: proposal.createdAt,
+      instruction: proposal.instruction,
+      summary: proposal.proposal.summary,
+      provider: proposal.provider,
+      model: proposal.model,
+      mode: proposal.mode,
+      status: "accepted",
+      files: proposal.files.map((file) => file.path),
+    });
+    setActiveRecord(saved);
+    latestProjectRef.current = saved.project;
+    setWorkingProject(saved.project);
+    setAiProposal(null);
+    setWorkspaceVersion((version) => version + 1);
+    setRecords((current) => [saved, ...current.filter((record) => record.id !== saved.id)]);
+    setSaveState("saved");
+    setNotice(`AI proposal accepted · ${proposal.files.length} file${proposal.files.length === 1 ? "" : "s"} changed.`);
+  };
+
+  const rejectAiProposal = async (proposal: AiStudioProposal) => {
+    if (!activeRecord || !workingProject) return;
+    const saved = await recordEditorAiDecision(activeRecord, workingProject, workingProject, {
+      id: proposal.id,
+      createdAt: proposal.createdAt,
+      instruction: proposal.instruction,
+      summary: proposal.proposal.summary,
+      provider: proposal.provider,
+      model: proposal.model,
+      mode: proposal.mode,
+      status: "rejected",
+      files: proposal.files.map((file) => file.path),
+    });
+    setActiveRecord(saved);
+    setRecords((current) => [saved, ...current.filter((record) => record.id !== saved.id)]);
+    setAiProposal(null);
+    setNotice("AI proposal rejected. The accepted project was not changed.");
+  };
 
   const createDemoWorkspace = async () => {
     const demo = PUBLIC_DEMOS[(records.length + 1) % PUBLIC_DEMOS.length];
@@ -253,13 +300,13 @@ export default function EditorClient({ initialProjectId }: { initialProjectId: s
       <header className={styles.hero}>
         <div className={styles.heroRail} aria-hidden="true"><span>V/</span><i /><span>EDITOR</span></div>
         <div className={styles.heroCopy}>
-          <span>PROJECT DEVELOPMENT ROOM / LOCAL-FIRST</span>
-          <h1>Change the source.<br /><em>Watch the system respond.</em></h1>
-          <p>Files, live preview, render diagnostics, autosave, revisions, and export stay together in one browser workspace.</p>
+          <span>AI DEVELOPMENT STUDIO / HUMAN-CONTROLLED</span>
+          <h1>Keep asking.<br /><em>Stop when it is yours.</em></h1>
+          <p>Direct an AI model, inspect its multi-file proposal in the live result, accept or reject it, and keep developing until the project reaches your standard.</p>
         </div>
         <div className={styles.heroStatus}>
           <span data-state={saveState}>{saveState.toUpperCase()}</span>
-          <small>No account · IndexedDB workspace · browser-local</small>
+          <small>No account · staged AI patches · browser-local history</small>
         </div>
       </header>
 
@@ -279,7 +326,17 @@ export default function EditorClient({ initialProjectId }: { initialProjectId: s
       {notice && <div className={styles.notice} role="status"><span>{notice}</span><button type="button" onClick={() => setNotice(null)}>Dismiss</button></div>}
 
       {activeRecord && workingProject ? (
-        <section className={styles.editorStage}>
+        <>
+          <AiDevelopmentPanel
+            key={activeRecord.id}
+            project={workingProject}
+            iterations={activeRecord.iterations ?? []}
+            onPreview={setAiProposal}
+            onAccept={acceptAiProposal}
+            onReject={rejectAiProposal}
+          />
+          {aiProposal && <div className={styles.proposalBanner} role="status"><b>STAGED PROPOSAL</b><span>The workbench is previewing unaccepted AI changes. Review the result and deterministic diagnostics, then accept or reject above.</span></div>}
+          <section className={styles.editorStage}>
           <aside className={styles.sessionRail}>
             <span className={styles.sectionIndex}>01 / SESSION</span>
             <label>
@@ -309,10 +366,16 @@ export default function EditorClient({ initialProjectId }: { initialProjectId: s
             </div>
           </aside>
           <div className={styles.workbenchWrap}>
-            <div className={styles.workbenchMeta}><span>02 / SOURCE + PREVIEW</span><span>{saveState === "saved" ? "ALL CHANGES SAVED LOCALLY" : "WORKSPACE CHANGING"}</span></div>
-            <ProjectWorkbench key={`${activeRecord.id}-${workspaceVersion}`} project={workingProject} onProjectChange={handleProjectChange} />
+            <div className={styles.workbenchMeta}><span>03 / SOURCE + LIVE RESULT</span><span>{aiProposal ? "READ-ONLY PROPOSAL PREVIEW" : saveState === "saved" ? "ACCEPTED PROJECT · SAVED LOCALLY" : "WORKSPACE CHANGING"}</span></div>
+            <ProjectWorkbench
+              key={`${activeRecord.id}-${workspaceVersion}-${aiProposal?.id ?? "accepted"}`}
+              project={aiProposal?.project ?? workingProject}
+              onProjectChange={aiProposal ? undefined : handleProjectChange}
+              readOnly={Boolean(aiProposal)}
+            />
           </div>
-        </section>
+          </section>
+        </>
       ) : (
         <section className={styles.loading} aria-live="polite">Opening the local project workspace…</section>
       )}

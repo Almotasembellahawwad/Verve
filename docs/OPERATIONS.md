@@ -15,7 +15,7 @@ Required for every managed deployment:
 
 `.env*` is ignored except `.env.example`. Never commit a token. Rotate a suspected token by creating a replacement in the provider console, updating the scoped Vercel variable, redeploying, verifying `/api/health`, and only then revoking the old token. Preview rotation and Production rotation are separate changes.
 
-The admission adapter uses the [Upstash Redis REST API](https://upstash.com/docs/redis/features/restapi). Keep the database REST URL and token from the same environment. Without both values, Verve uses a process-local memory store and reports `degraded` health so a fresh deployment remains usable. This fallback is not globally coordinated across serverless instances. After Upstash is configured, set `RATE_LIMIT_FAIL_CLOSED=true` to reject generation if the distributed configuration is later removed. An unavailable configured Upstash store always fails closed.
+The admission adapter uses the [Upstash Redis REST API](https://upstash.com/docs/redis/features/restapi). Keep the database REST URL and token from the same environment. Without both values, Verve uses a process-local memory store and reports `degraded` health so generation and AI development remain usable. This fallback is not globally coordinated across serverless instances. An unavailable configured Upstash store always fails closed.
 
 ## Health and observability
 

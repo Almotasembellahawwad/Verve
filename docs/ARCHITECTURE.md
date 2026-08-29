@@ -109,7 +109,7 @@ HTML and lightweight React run in isolated previews. Next.js output is inspected
 
 ## Admission control
 
-Managed deployments should configure `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. Rate windows and concurrent leases are atomic Redis Lua operations over the Upstash REST API (`lib/adapters/rate-limit/upstash-rate-limit-store.ts:37`). IP values are SHA-256 digests before becoming Redis keys. A deployment missing Redis configuration uses a process-local memory fallback and reports degraded health; setting `RATE_LIMIT_FAIL_CLOSED=true` disables that bootstrap fallback. A configured but unavailable Upstash store always fails closed with HTTP 503.
+Managed deployments should configure `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. Rate windows and concurrent leases are atomic Redis Lua operations over the Upstash REST API (`lib/adapters/rate-limit/upstash-rate-limit-store.ts:37`). IP values are SHA-256 digests before becoming Redis keys. A deployment missing Redis configuration remains usable through a process-local memory fallback and reports degraded health. A configured but unavailable Upstash store still fails closed with HTTP 503.
 
 The public middleware interface remains `checkRateLimit()` and `acquireConcurrentSlot()` (`lib/middleware/rate-limit.ts:45`, `lib/middleware/rate-limit.ts:60`). Leases have TTLs so an interrupted serverless invocation cannot permanently consume capacity.
 

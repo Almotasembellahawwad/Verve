@@ -28,24 +28,24 @@ export default function Home() {
           <div className={styles.heroCopy}>
             <div className={styles.heroLabel}>
               <span className={styles.statusDot} aria-hidden="true" />
-              <span>Project intelligence engine / build 02.0</span>
+              <span>Project intelligence engine / build 02.1</span>
             </div>
 
             <h1 className={styles.heroHeading}>
-              <span className={styles.heroSans}>A site is not</span>
-              <span className={styles.heroSerif}>a block of code.</span>
-              <span className={styles.heroSerifItalic}>Ship the system.</span>
+              <span className={styles.heroSans}>Do not stop at</span>
+              <span className={styles.heroSerif}>the first answer.</span>
+              <span className={styles.heroSerifItalic}>Develop the system.</span>
             </h1>
 
             <p className={styles.heroBody}>
-              Speak or write a brief. Verve turns it into a runnable, multi-file project,
-              previews HTML and React live, inspects complete Next.js output safely, and
-              preserves a recovery draft when a provider stops halfway.
+              Begin with a brief, receive a runnable multi-file project, then keep directing
+              the AI. Every change is staged, rendered, checked, and left for you to accept or
+              reject until the result reaches your standard.
             </p>
 
             <div className={styles.heroCta}>
               <a href="#workspace" className={styles.ctaPrimary} id="cta-try">
-                Open the workbench <span aria-hidden="true">↘</span>
+                Start with a brief <span aria-hidden="true">↘</span>
               </a>
               <a
                 href="https://github.com/Almotasembellahawwad/Verve"
@@ -62,30 +62,30 @@ export default function Home() {
             <div className={styles.proofStrip} aria-label="Verve facts">
               <span><b>03</b> stack profiles</span>
               <span><b>02</b> generation modes</span>
-              <span><b>LIVE</b> sandbox preview</span>
-              <span><b>LOCAL</b> key storage</span>
+              <span><b>LIVE</b> proposal preview</span>
+              <span><b>HUMAN</b> acceptance gate</span>
             </div>
           </div>
 
           <aside className={styles.tasteCard} aria-label="Live taste diagnostic example">
             <div className={styles.tasteCardTop}>
-              <span>VERVE / PROJECT RECEIPT</span>
+              <span>VERVE / ITERATION RECEIPT</span>
               <span className={styles.liveTag}><i /> LIVE</span>
             </div>
             <div className={styles.tasteScoreRow}>
-              <span className={styles.tasteScore}>09</span>
+              <span className={styles.tasteScore}>05</span>
               <div>
-                <span className={styles.scoreLabel}>PROJECT FILES</span>
-                <strong>Runnable system delivered</strong>
+                <span className={styles.scoreLabel}>ACCEPTED REVISION</span>
+                <strong>The user chose this state</strong>
               </div>
             </div>
             <div className={styles.traceRows}>
-              <div><span>Single code blob</span><del>accepted</del><b>rejected</b></div>
-              <div><span>Build configuration</span><em>included</em></div>
-              <div><span>Runtime preview</span><em>sandboxed</em></div>
-              <div><span>Provider recovery</span><em>armed</em></div>
+              <div><span>AI overwrite</span><del>allowed</del><b>blocked</b></div>
+              <div><span>Changed files</span><em>3 inspected</em></div>
+              <div><span>Live proposal</span><em>verified</em></div>
+              <div><span>Rollback point</span><em>captured</em></div>
             </div>
-            <p className={styles.redNote}>“If it cannot run, it is not finished.”</p>
+            <p className={styles.redNote}>“The model proposes. The user decides.”</p>
             <span className={styles.cardIndex} aria-hidden="true">V/01</span>
           </aside>
         </div>
@@ -93,7 +93,7 @@ export default function Home() {
         <div className={styles.thesisBand} aria-label="The Verve method">
           <div className={styles.thesisIntro}>
             <span className={styles.thesisEyebrow}>THE VERVE METHOD</span>
-            <p>From an unfinished thought to a project you can inspect, run, download, and continue.</p>
+            <p>From an unfinished thought to a project you can direct, inspect, revise, accept, and ship.</p>
           </div>
           <ol className={styles.thesisSteps}>
             <li>
@@ -106,7 +106,11 @@ export default function Home() {
             </li>
             <li>
               <span>03</span>
-              <div><strong>Run the evidence</strong><small>Inspect files, preview breakpoints, review risks, and export the ZIP.</small></div>
+              <div><strong>Run the evidence</strong><small>Preview the result, inspect files, and expose risks before they hide in export.</small></div>
+            </li>
+            <li>
+              <span>04</span>
+              <div><strong>Develop with AI</strong><small>Stage, compare, accept or reject, and repeat until the project is yours.</small></div>
             </li>
           </ol>
         </div>
@@ -119,8 +123,8 @@ export default function Home() {
             <span className="muted-text">{"// how it works"}</span>
           </div>
           <h2 className={styles.sectionHeading}>
-            Two execution paths. One contract: a project that is{" "}
-            <span className="amber-text">visible, recoverable, and yours</span>.
+            Generation is the beginning. The journey ends only when{" "}
+            <span className="amber-text">you accept the result</span>.
           </h2>
           <PipelineViz />
         </div>
@@ -132,16 +136,32 @@ export default function Home() {
           <div className={styles.demoPortalGrid}>
             <span className={styles.demoPortalIndex} aria-hidden="true">03/03</span>
             <div className={styles.demoPortalCopy}>
-              <span>LIVE RESULTS · THEIR OWN EVIDENCE ROOM</span>
-              <h2 id="public-demo-title">The homepage makes the promise.<br /><em>The gallery proves it.</em></h2>
-              <p>Open three complete projects, switch industries, inspect every file, run the preview, and export the ZIP—away from the generation workspace.</p>
+              <span>THREE COMPLETE PROJECT STORIES</span>
+              <h2 id="public-demo-title">Do not browse thumbnails.<br /><em>Enter the design decision.</em></h2>
+              <p>Follow each brief through category gravity, refusal, visual thesis, signature moment, live project, engineering receipt, and its next AI iteration.</p>
             </div>
             <Link href="/demos" className={styles.demoPortalLink} id="open-demo-gallery">
-              <span>Enter the live gallery</span>
-              <small>03 PROJECTS · 12 FILES · NO API KEY</small>
+              <span>Enter the case stories</span>
+              <small>03 WORLDS · LIVE PROJECTS · NO API KEY</small>
               <b aria-hidden="true">↗</b>
             </Link>
           </div>
+        </div>
+      </section>
+
+      <section className={styles.editorPortal} aria-labelledby="editor-portal-title">
+        <div className={styles.editorPortalRail}><span>AI STUDIO</span><i /><b>∞</b></div>
+        <div className={styles.editorPortalCopy}>
+          <span>THE ACCEPTANCE LOOP</span>
+          <h2 id="editor-portal-title">The first generation<br />is only <em>revision zero.</em></h2>
+          <p>Ask an AI model to change the hierarchy, rewrite a section, repair mobile behavior, or push the visual thesis further. Verve stages the changed files and renders the proposal before the accepted project moves.</p>
+          <Link href="/editor">Open AI Development Studio <b>↗</b></Link>
+        </div>
+        <div className={styles.editorLoop} aria-label="AI development loop">
+          <div><span>01</span><strong>ASK</strong><small>Describe the change in your words.</small></div>
+          <div><span>02</span><strong>PREVIEW</strong><small>Run the proposed project live.</small></div>
+          <div><span>03</span><strong>DECIDE</strong><small>Accept, reject, or revise again.</small></div>
+          <i aria-hidden="true">↺</i>
         </div>
       </section>
 
@@ -210,11 +230,14 @@ export default function Home() {
             from producing.
           </h2>
           <p className={styles.sectionBody}>
-            This list drives steps 2 and 4 of the pipeline. It&apos;s open-source,
-            versioned by date, and accepts community PRs. The blocklist is the engine
-            — not a style guide.
+            This public, versioned list helps Verve recognize category gravity before a model
+            turns it into another familiar interface. It is one transparent constraint—not a
+            hidden style preset.
           </p>
-          <ClicheList />
+          <details className={styles.blocklistDetails}>
+            <summary><span>Open the public blocklist</span><b>21 families · 67 signals · versioned</b><i>+</i></summary>
+            <ClicheList />
+          </details>
         </div>
       </section>
 

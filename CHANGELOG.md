@@ -2,6 +2,23 @@
 
 All notable changes to Verve are documented here.
 
+## [Unreleased] — AI Development Loop
+
+### Added
+
+- Added a human-gated AI Development Studio to `/editor`: Fast stages one targeted model call, while Studio uses a bounded plan and implementation pass.
+- Added multi-file proposal preview, deterministic validation receipts, accept/reject decisions, automatic pre-AI rollback snapshots, and a browser-local iteration trail.
+- Rebuilt Demos as three complete case stories and Showcase as an evidence-led category/transformation/result narrative with runnable projects.
+
+### Changed
+
+- Reframed the homepage and How it works around an iterative path from brief to accepted system, with the editor as the continuation after generation.
+- Missing Upstash configuration now uses an observable in-process rate limiter so BYOK generation remains available; configured distributed-store failures still fail closed.
+
+### Removed
+
+- Removed the obsolete strict-bootstrap rate-limit flag. Provisioning Upstash now activates distributed admission control automatically.
+
 ## [0.7.0] — 2026-08-29 Live Project Studio
 
 ### Added

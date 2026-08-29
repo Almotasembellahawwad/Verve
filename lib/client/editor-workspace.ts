@@ -1,4 +1,5 @@
 import type {
+  EditorIteration,
   EditorProjectOrigin,
   EditorProjectRecord,
   EditorSnapshot,
@@ -10,6 +11,7 @@ import { IndexedDbEditorProjectRepository } from "../adapters/storage/indexeddb-
 
 const ACTIVE_PROJECT_KEY = "verve_editor_active_project";
 const MAX_SNAPSHOTS = 8;
+const MAX_ITERATIONS = 20;
 const editorRepository = new IndexedDbEditorProjectRepository();
 
 function repository(): IndexedDbEditorProjectRepository {
@@ -40,6 +42,7 @@ export function createEditorProjectRecord(
     updatedAt: now,
     project: canonicalProject(project),
     snapshots: [],
+    iterations: [],
   };
 }
 
@@ -93,6 +96,34 @@ export async function createEditorSnapshot(
     updatedAt: snapshot.createdAt,
     project: snapshot.project,
     snapshots: [snapshot, ...record.snapshots].slice(0, MAX_SNAPSHOTS),
+  };
+  await repository().put(updated);
+  return updated;
+}
+
+export async function recordEditorAiDecision(
+  record: EditorProjectRecord,
+  currentProject: GeneratedProject,
+  nextProject: GeneratedProject,
+  iteration: EditorIteration
+): Promise<EditorProjectRecord> {
+  const now = Date.now();
+  const accepted = iteration.status === "accepted";
+  const rollbackSnapshot: EditorSnapshot | null = accepted ? {
+    id: crypto.randomUUID(),
+    label: `Before AI · ${iteration.summary}`.slice(0, 80),
+    createdAt: now,
+    project: canonicalProject(currentProject),
+  } : null;
+  const project = accepted ? canonicalProject(nextProject) : canonicalProject(currentProject);
+  const updated: EditorProjectRecord = {
+    ...record,
+    updatedAt: now,
+    project,
+    snapshots: rollbackSnapshot
+      ? [rollbackSnapshot, ...record.snapshots].slice(0, MAX_SNAPSHOTS)
+      : record.snapshots,
+    iterations: [{ ...iteration, createdAt: now }, ...(record.iterations ?? [])].slice(0, MAX_ITERATIONS),
   };
   await repository().put(updated);
   return updated;

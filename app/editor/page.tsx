@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import EditorClient from "./EditorClient";
 
 export const metadata: Metadata = {
-  title: "Live project editor — Verve",
-  description: "Edit Verve projects with live preview, deterministic diagnostics, autosave, snapshots, and export.",
+  title: "AI Development Studio — Verve",
+  description: "Develop Verve projects through staged AI edits, live preview, deterministic diagnostics, human acceptance, local history, and export.",
 };
 
 export default async function EditorPage({

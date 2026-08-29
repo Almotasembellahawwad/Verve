@@ -61,6 +61,8 @@ import { checkRateLimit } from "../lib/middleware/rate-limit";
 import { createEditorProjectRecord } from "../lib/client/editor-workspace";
 import { DEFAULT_GENERATION_MODE } from "../lib/domain/generation-mode";
 import { GenerationRequestSchema } from "../lib/api/generation-request";
+import { runProjectPatchUseCase } from "../lib/application/run-project-patch-use-case";
+import { applyProjectPatchProposal, projectPatchContext } from "../lib/project/ai-patch";
 
 async function runPipeline(
   input: PipelineInput & {
@@ -335,7 +337,7 @@ test("managed deployment remains available in explicit memory fallback mode", ()
   assert.equal(health.checks.distributedRateLimit, "memory-fallback");
 });
 
-test("managed route admission uses memory fallback unless strict mode is enabled", async () => {
+test("managed route admission remains usable with memory fallback", async () => {
   const previous = {
     vercelEnvironment: process.env.VERCEL_ENV,
     upstashUrl: process.env.UPSTASH_REDIS_REST_URL,
@@ -355,9 +357,7 @@ test("managed route admission uses memory fallback unless strict mode is enabled
     assert.equal(await checkRateLimit(request, config), null);
 
     process.env.RATE_LIMIT_FAIL_CLOSED = "true";
-    const strictResponse = await checkRateLimit(request, config);
-    assert.equal(strictResponse?.status, 503);
-    assert.equal((await strictResponse?.json())?.error, "RATE_LIMIT_UNAVAILABLE");
+    assert.equal(await checkRateLimit(request, config), null);
   } finally {
     for (const [name, value] of Object.entries({
       VERCEL_ENV: previous.vercelEnvironment,
@@ -1114,6 +1114,48 @@ test("editor records preserve the runnable project contract without account stat
   assert.equal(record.project.files.length, project.files.length);
   assert.equal(record.project.validation.status, validateGeneratedProject(project).status);
   assert.deepEqual(record.snapshots, []);
+  assert.deepEqual(record.iterations, []);
+});
+
+test("AI Studio stages a multi-file proposal without mutating the accepted project", async () => {
+  const accepted = PUBLIC_DEMOS[0].result.project;
+  const originalHtml = accepted.files.find((file) => file.path === "index.html")!.content;
+  const fakeAdapter: LLMAdapter = {
+    async complete() {
+      return JSON.stringify({
+        summary: "Clarify the opening position",
+        rationale: "The requested copy change is isolated to the document entry.",
+        changes: [{
+          path: "index.html",
+          content: originalHtml.replace("The building", "This building"),
+          reason: "Makes the thesis point to the building already in view.",
+        }],
+      });
+    },
+  };
+  const result = await runProjectPatchUseCase(fakeAdapter, {
+    project: projectPatchContext(accepted),
+    instruction: "Make the opening more immediate.",
+    mode: "fast",
+  });
+  assert.equal(result.callCount, 1);
+  assert.equal(result.proposal.changes.length, 1);
+  const staged = applyProjectPatchProposal(accepted, result.proposal);
+  assert.match(staged.project.files.find((file) => file.path === "index.html")!.content, /This building/);
+  assert.deepEqual(
+    staged.project.files.filter((file) => file.role === "asset"),
+    accepted.files.filter((file) => file.role === "asset")
+  );
+  assert.equal(accepted.files.find((file) => file.path === "index.html")!.content, originalHtml);
+});
+
+test("AI Studio rejects unsafe patch paths before a proposal can be previewed", () => {
+  const project = PUBLIC_DEMOS[0].result.project;
+  assert.throws(() => applyProjectPatchProposal(project, {
+    summary: "Unsafe file",
+    rationale: "This must never leave the project boundary.",
+    changes: [{ path: "../outside.ts", content: "export {};", reason: "Invalid path" }],
+  }), /unsupported new file|unsafe/i);
 });
 
 test("optional provider intelligence falls back instead of stopping delivery", async () => {

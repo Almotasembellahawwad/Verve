@@ -7,15 +7,17 @@ test("the public workbench promise renders without browser errors", async ({ pag
     if (message.type() === "error") runtimeErrors.push(message.text());
   });
   await page.addInitScript(() => {
-    window.localStorage.setItem("verve_anthropic_api_key", "sk-ant-hydration-test");
-    window.localStorage.setItem("verve_onboarding_seen_v2", "1");
+    if (window === window.top) {
+      window.localStorage.setItem("verve_anthropic_api_key", "sk-ant-hydration-test");
+      window.localStorage.setItem("verve_onboarding_seen_v2", "1");
+    }
   });
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveTitle(/Verve/i);
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("A site is not");
-  await expect(page.getByRole("link", { name: /Open the workbench/i })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Enter the live gallery/i })).toHaveAttribute("href", "/demos");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Do not stop at");
+  await expect(page.getByRole("link", { name: /Start with a brief/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Enter the case stories/i })).toHaveAttribute("href", "/demos");
   if ((page.viewportSize()?.width ?? 1280) <= 768) {
     await page.getByRole("button", { name: "Open menu" }).click();
     await expect(page.getByRole("button", { name: /Change API key/ })).toBeVisible();
@@ -88,7 +90,7 @@ test("Fast is the explicit default and Studio remains one decision away", async 
 
 test("the dedicated editor live-previews and restores an autosaved local project", async ({ page }) => {
   await page.goto("/editor", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: /Change the source/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Keep asking/i })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Active project" }).locator("option")).toHaveCount(1);
   const editor = page.getByLabel("Edit index.html");
   await expect(editor).toBeVisible();
@@ -170,19 +172,51 @@ test("the separate demo gallery opens three editable native HTML projects", asyn
   await expect(page.getByRole("button", { name: /Maeda Cairo/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Ledgerline/ })).toBeVisible();
 
-  await expect(page.getByRole("heading", { name: "reframe-london-adaptive-reuse" })).toBeVisible();
-  await expect(page.getByText("Native HTML preview · zero package downloads")).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Edit index.html" })).toBeEditable();
-
-  const preview = page.frameLocator('iframe[title="reframe-london-adaptive-reuse live preview"]');
+  await expect(page.getByRole("heading", { name: "Reframe", exact: true })).toBeVisible();
+  await expect(page.getByText("05 / EXPERIENCE THE RESULT")).toBeVisible();
+  const preview = page.frameLocator('iframe[title="reframe-london-adaptive-reuse story preview"]');
   await expect(preview.getByRole("heading", { name: /The building already knows/ })).toBeVisible();
-  await expect(page.getByText("Static validation and the rendered result both passed.")).toBeVisible();
 
   await page.locator("#select-demo-cairo").click();
-  await expect(page.getByRole("heading", { name: "maeda-cairo-public-demo" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Maeda Cairo", exact: true })).toBeVisible();
 
   await page.locator("#select-demo-carbon").click();
+  await expect(page.getByRole("heading", { name: "Ledgerline", exact: true })).toBeVisible();
+
+  await page.getByText("Open every file, diagnostic, and export control").click();
   await expect(page.getByRole("heading", { name: "ledgerline-carbon-operations" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Edit index.html" })).toBeEditable();
+});
+
+test("AI Studio stages a live multi-file proposal before human acceptance", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (window === window.top) window.localStorage.setItem("verve_openai_api_key", "sk-test-editor-key");
+  });
+  await page.route("**/api/editor/patch", async (route) => {
+    const request = route.request().postDataJSON() as { project: { files: Array<{ path: string; content: string }> } };
+    const html = request.project.files.find((file) => file.path === "index.html")!;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        proposal: {
+          summary: "Make the opening explicitly iterative",
+          rationale: "The requested proof belongs in the existing hero heading.",
+          changes: [{ path: "index.html", content: html.content.replace("The building", "The AI proposal"), reason: "Stages a visible hero change." }],
+        },
+        callCount: 1,
+      }),
+    });
+  });
+
+  await page.goto("/editor", { waitUntil: "domcontentloaded" });
+  await page.getByLabel("What should change?").fill("Make the opening explicitly iterative");
+  await page.getByRole("button", { name: "Stage AI proposal" }).click();
+  await expect(page.getByText("STAGED / NOT APPLIED")).toBeVisible();
+  await expect(page.frameLocator('iframe[title$="live preview"]').getByRole("heading", { name: /The AI proposal already knows/ })).toBeVisible();
+  await page.getByRole("button", { name: "Accept proposal" }).click();
+  await expect(page.getByText(/AI proposal accepted/)).toBeVisible();
+  await expect(page.getByText("ACCEPTED", { exact: true })).toBeVisible();
 });
 
 test("the mobile hamburger is a keyboard-safe navigation drawer", async ({ page }) => {

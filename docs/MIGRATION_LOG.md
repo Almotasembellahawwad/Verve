@@ -122,7 +122,7 @@ npx playwright test PASS — tests 20, pass 20, fail 0 (desktop + mobile Chrome)
 
 ## Production incident hardening — admission bootstrap
 
-- The live production incident after the Fast-first deployment exposed a bootstrap hazard: fail-closed admission made the whole product unavailable before Upstash was provisioned. Missing configuration now enters an observable `degraded` memory-fallback mode, while configured-store failures still fail closed. `RATE_LIMIT_FAIL_CLOSED=true` restores strict readiness once production Redis is installed.
+- The live production incident after the Fast-first deployment exposed a bootstrap hazard: fail-closed admission made the whole product unavailable before Upstash was provisioned. Missing configuration now enters an observable `degraded` memory-fallback mode, while configured-store failures still fail closed. Provisioning Upstash automatically activates distributed admission control without an additional feature flag.
 
 Pattern/principle: **Observable Degradation** — a missing optional bootstrap dependency reduces protection without taking the product offline, while health output keeps the compromise explicit.
 
@@ -147,6 +147,25 @@ npm test             PASS — tests 60, pass 60, fail 0
 npx playwright test  PASS — tests 22, pass 22, fail 0 (desktop + mobile Chrome)
 npm audit --omit=dev PASS — found 0 vulnerabilities
 npm run test:load    PASS — 80/80 HTTP 200, concurrency 16, p95 241 ms
+```
+
+## Release increment — AI Development Loop
+
+- Added a human-gated AI editing loop to `/editor`: Fast uses one targeted provider call; Studio uses one bounded plan plus one bounded implementation call.
+- AI output is always staged. Verve applies path and payload limits, validates the candidate project, previews it read-only, and records the user's accept/reject decision locally.
+- Reworked the homepage, How it works, Demos, and Showcase around a complete narrative from brief and design thesis through verification, iteration, and delivery.
+- Removed the bootstrap flag that caused `RATE_LIMIT_UNAVAILABLE` when Upstash was not yet configured. Missing configuration now remains observable while falling back to process-local admission control.
+
+Pattern/principle: **Human-Gated Iteration** — model output is a proposal, never an implicit write; the accepted project changes only after preview, deterministic checks, and an explicit user decision.
+
+Verification gate:
+
+```text
+npm run build        PASS — Next.js 16.3.1 compiled and listed 24 routes
+npm run lint         PASS — no diagnostics
+npm run typecheck    PASS — tsc --noEmit
+npm test             PASS — tests 62, pass 62, fail 0
+npx playwright test  PASS — all 24 cases completed without failures (desktop + mobile Chrome)
 ```
 
 ## What a senior engineer would still flag

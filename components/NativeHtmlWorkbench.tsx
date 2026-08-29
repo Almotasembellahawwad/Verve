@@ -36,9 +36,10 @@ async function downloadFiles(projectName: string, files: ProjectFile[]): Promise
 type Props = {
   project: GeneratedProject;
   onProjectChange?: (project: GeneratedProject) => void;
+  readOnly?: boolean;
 };
 
-export default function NativeHtmlWorkbench({ project, onProjectChange }: Props) {
+export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly = false }: Props) {
   const baseProbeId = useId();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [files, setFiles] = useState(project.files);
@@ -135,7 +136,7 @@ export default function NativeHtmlWorkbench({ project, onProjectChange }: Props)
               </button>
             ))}
           </div>
-          {edited && <button type="button" className={styles.reset} onClick={resetFiles}>Reset edits</button>}
+          {edited && !readOnly && <button type="button" className={styles.reset} onClick={resetFiles}>Reset edits</button>}
           <button type="button" className={styles.download} onClick={downloadProject} disabled={downloading}>
             {downloading ? "Packing…" : `Download ${edited ? "edited " : ""}ZIP`}
           </button>
@@ -181,6 +182,7 @@ export default function NativeHtmlWorkbench({ project, onProjectChange }: Props)
               className={styles.nativeEditor}
               value={selectedFile.content}
               onChange={(event) => updateSelectedFile(event.target.value)}
+              readOnly={readOnly}
               spellCheck={false}
               aria-label={`Edit ${selectedFile.path}`}
             />
