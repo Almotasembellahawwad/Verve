@@ -167,6 +167,15 @@ function checkSignatureElement(code: string, signatureElement: string): boolean 
   return found.length >= Math.ceil(keywords.length / 2);
 }
 
+export function inspectSupportingSource(code: string, path: string, framework: string, rawBrief = ""): string[] {
+  const stripped = stripFences(code);
+  const syntax = /\.(?:tsx?|jsx?|mjs)$/i.test(path) ? checkSyntax(stripped, framework === "html" ? "react" : framework) : [];
+  const markup = /\.(?:tsx?|jsx?|html)$/i.test(path) ? checkUnclosedTags(stripped) : [];
+  const doctype = path.endsWith(".html") ? checkDoctype(stripped, "html") : [];
+  return [...syntax, ...markup, ...doctype, ...checkInlineStyles(stripped), ...checkDeliveryPolicies(stripped, rawBrief)]
+    .map((issue) => `${path}: ${issue}`);
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export async function runCodeQualityLoop(
@@ -203,7 +212,7 @@ export async function runCodeQualityLoop(
   }
 
   // Fast mode deliberately stops at deterministic validation to preserve its
-  // three-call budget. Studio mode may spend one additional call on repair.
+  // bounded budget. Creative mode may spend one additional call on repair.
   if (!allowRepair) {
     return { code: stripped, wasRepaired: false, issues, signatureFound };
   }

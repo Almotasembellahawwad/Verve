@@ -17,8 +17,8 @@
 import type { BriefAnalysis }                                        from "../engine/brief-analyzer";
 import { evaluateBlocklist, type BlocklistResult }                     from "../domain/blocklist";
 import { generateDesignPlan, type DesignPlan }                        from "../engine/plan-generator";
-import { runSelfCritique, formatCritiqueForRegeneration, type CritiqueResult } from "../engine/critique-loop";
-import { generateCode, type GeneratedCode }                            from "../engine/code-generator";
+import { formatCritiqueForRegeneration, type CritiqueResult } from "../engine/critique-loop";
+import { generateCode, generatedSourceText, type GeneratedCode }       from "../engine/code-generator";
 import { generateDistinctivenessReport, type DistinctivenessReport }   from "../engine/scorer";
 import type { AssetBundle }                                            from "../engine/asset-sourcer";
 import { formatArchetypeForPlanGenerator, type ArchetypeResolution } from "../engine/brand-archetype-resolver";
@@ -26,7 +26,7 @@ import { buildAnimationLanguage, formatAnimationForCodeGen, type AnimationLangua
 import { analyzeCompetitiveField, type CompetitiveAnalysis }           from "../engine/competitive-field";
 import { runRestraintCheck, type RestraintResult }                     from "../engine/restraint-check";
 import { scoreEngineering, type EngineeringResult }                   from "../engine/engineering-score";
-import { runCodeQualityLoop, type CodeQualityResult }             from "../engine/code-quality-loop";
+import { inspectSupportingSource, runCodeQualityLoop, type CodeQualityResult } from "../engine/code-quality-loop";
 import { fixPaletteContrast, type ContrastFixReport }             from "../engine/contrast-fixer";
 import type { BrandProfile, OwnedAssetManifest } from "../project/brand-kit";
 import { inspectDesignDiversity, type DesignDiversityResult } from "../engine/design-diversity";
@@ -55,6 +55,8 @@ import { NullProgressPublisher, type ProgressPublisherPort } from "../ports/prog
 import type { VerveProjectSpec } from "../domain/project-spec";
 import type { DesignDirectionFingerprint, DirectionDiversityAssessment } from "../domain/design-direction";
 import { runGenerationFoundationStages } from "./generation-foundation-stages";
+import type { DirectionBoard, DirectionCheckpoint } from "../domain/design-direction";
+import { buildPlanFromDirectionBoard, createDirectionCheckpoint, directionCheckpointMatches, generateDirectionBoard } from "../engine/direction-board";
 
 
 // ── Result type ───────────────────────────────────────────────────────────────
@@ -70,6 +72,7 @@ export type PipelineResult = {
   designPlan:             DesignPlan;
   projectSpec:            VerveProjectSpec;
   directionDiversity:     DirectionDiversityAssessment;
+  directionBoard?:        DirectionBoard;
   finalCritique:          CritiqueResult;
   generatedCode:          GeneratedCode;
   distinctivenessReport:  DistinctivenessReport;  // Module J (3-level Norman)
@@ -88,7 +91,7 @@ export type PipelineResult = {
 export type { GenerationMode } from "./generation-strategy";
 
 export type PipelineEvent = {
-  event: "stage_start" | "stage_done" | "stage_flag" | "stage_retry" | "stage_degraded" | "checkpoint";
+  event: "stage_start" | "stage_done" | "stage_flag" | "stage_retry" | "stage_degraded" | "checkpoint" | "diversity:check" | "diversity:retry";
   data: Record<string, unknown>;
   stageId?: string;
 };
@@ -106,6 +109,8 @@ export type PipelineInput = {
   signal?: AbortSignal;
   mode?: GenerationMode;
   checkpoint?: PipelineCheckpoint;
+  directionCheckpoint?: DirectionCheckpoint;
+  selectedDirectionId?: string;
   recentDirectionFingerprints?: DesignDirectionFingerprint[];
 };
 
@@ -119,7 +124,7 @@ export type GenerationDependencies = {
   resolvedModel?: () => string;
 };
 
-// The UI promises one Studio repair pass. More cycles add latency and cost
+// The UI promises one Creative repair pass. More cycles add latency and cost
 // without giving code generation enough time inside the route budget.
 const MAX_REVISION_CYCLES = 1;
 
@@ -141,6 +146,8 @@ export async function runGenerationUseCase(
     signal,
     mode          = DEFAULT_GENERATION_MODE,
     checkpoint,
+    directionCheckpoint,
+    selectedDirectionId,
     recentDirectionFingerprints = [],
   } = input;
   const revisionLimit = Math.min(MAX_REVISION_CYCLES, Math.max(0, maxRevisions));
@@ -148,10 +155,18 @@ export async function runGenerationUseCase(
   const llm = dependencies.llm;
   const progress = dependencies.progress ?? new NullProgressPublisher();
   const brandContext = JSON.stringify({ brandProfile, ownedAssets });
+  const directionBrandContext = brandProfile ? JSON.stringify(brandProfile) : undefined;
   const checkpointInput = { brief, existingCode, framework, mode, brandContext };
   const resumeCheckpoint = checkpointMatchesInput(checkpoint, checkpointInput)
     ? checkpoint
     : undefined;
+  const validDirectionCheckpoint = directionCheckpointMatches(directionCheckpoint, {
+    brief,
+    framework,
+    mode,
+    brandContext: directionBrandContext,
+  }) ? directionCheckpoint : undefined;
+  let activeDirectionCheckpoint = validDirectionCheckpoint;
 
   let activeStageId = "boot";
   const degradations: PipelineDegradation[] = [];
@@ -198,6 +213,30 @@ export async function runGenerationUseCase(
     emit("checkpoint", {
       checkpoint: createPipelineCheckpoint({ ...checkpointInput, mode: "fast" }, "01", briefAnalysis),
     }, "checkpoint-01");
+  }
+
+  // Compatibility path for clients that call generation directly. The board
+  // becomes Fast's first model call; its selected plan is then compiled locally.
+  // A stage-04 resume already owns a valid plan and skips this exploration.
+  if (!activeDirectionCheckpoint && !resumeCheckpoint) {
+    emit("stage_start", { id: "01.5", name: "Direction Board", module: "CreativeEngineV3" }, "015-start");
+    elapsed = timer();
+    const board = await generateDirectionBoard({
+      llm,
+      analysis: briefAnalysis,
+      mode,
+      framework,
+      referenceRepository: dependencies.referenceLibraryRepository,
+      recentDirectionFingerprints,
+      brandContext: directionBrandContext,
+    });
+    activeDirectionCheckpoint = createDirectionCheckpoint(board);
+    emit("stage_done", {
+      id: "01.5",
+      name: "Direction Board",
+      durationMs: elapsed(),
+      extra: { candidates: board.portfolio.candidates.length, selectedDirectionId: board.portfolio.selectedDirectionId },
+    }, "015-done");
   }
 
   // ── [02] Asset Sourcing + Blocklist + Competitive Field — parallel ─────────
@@ -254,8 +293,13 @@ export async function runGenerationUseCase(
   const resumedPlan = resumeCheckpoint?.completedStage === "04"
     ? resumeCheckpoint.designPlan
     : undefined;
+  const boardPlan = activeDirectionCheckpoint
+    ? buildPlanFromDirectionBoard(briefAnalysis, activeDirectionCheckpoint.board, selectedDirectionId)
+    : undefined;
   const planStep = resumedPlan
     ? { value: resumedPlan, degraded: false, reason: undefined }
+    : boardPlan && strategy.mode === "fast"
+      ? { value: boardPlan, degraded: false, reason: undefined }
     : await runOptionalProviderStep(
       () => generateDesignPlan(
         llm,
@@ -266,11 +310,14 @@ export async function runGenerationUseCase(
         animationContext,
         {
           ...strategy.planOptions(),
+          allowSchemaRetry: !activeDirectionCheckpoint,
           referenceRepository: dependencies.referenceLibraryRepository,
           recentDirectionFingerprints,
+          directionBoard: activeDirectionCheckpoint?.board,
+          selectedDirectionId,
         }
       ),
-      () => generateDesignPlanLocally(briefAnalysis),
+      () => boardPlan ?? generateDesignPlanLocally(briefAnalysis),
       signal
     );
   designPlan = planStep.value;
@@ -327,6 +374,8 @@ export async function runGenerationUseCase(
           allowSchemaRetry: false,
           referenceRepository: dependencies.referenceLibraryRepository,
           recentDirectionFingerprints,
+          directionBoard: activeDirectionCheckpoint?.board,
+          selectedDirectionId,
         }
       ),
       () => designPlan,
@@ -349,26 +398,16 @@ export async function runGenerationUseCase(
     }
 
     designPlan = revision.value;
-    const revisedReview = await runOptionalProviderStep(
-      () => runSelfCritique(llm, designPlan, briefAnalysis, 25_000),
-      () => critiquePlanLocally(designPlan),
-      signal
-    );
-    finalCritique = revisedReview.value;
-    studioReviewDegraded ||= revisedReview.degraded;
-    critiqueSource = revisedReview.degraded ? "local-fallback" : "provider";
-    if (revisedReview.degraded) {
-      emit("stage_degraded", {
-        id: `03.r${revisionCount}`,
-        reason: revisedReview.reason,
-        message: "Remote re-review exceeded its budget; deterministic review accepted the valid revision.",
-      }, `03.r${revisionCount}-review-degraded`);
-    }
+    // One provider critique plus one optional provider revision is the complete
+    // Creative review budget. The revised artifact is rechecked locally so the
+    // pipeline cannot silently grow beyond its documented seven-call ceiling.
+    finalCritique = critiquePlanLocally(designPlan);
+    critiqueSource = "local-preflight";
     emit("stage_done", {
       id: `03.r${revisionCount}`,
       name: `Plan Revision ${revisionCount}`,
       durationMs: elapsed(),
-      extra: { review: revisedReview.degraded ? "local fallback" : "adversarial" },
+      extra: { review: "local verification after provider revision" },
     });
   }
 
@@ -394,10 +433,12 @@ export async function runGenerationUseCase(
     analysis: briefAnalysis,
     designPlan,
     framework,
+    mode,
     assetBundle,
     brandProfile,
     ownedAssets,
     recentDirectionFingerprints,
+    selectedDirectionLocked: Boolean(activeDirectionCheckpoint),
   }, progress);
   designPlan = foundation.designPlan;
   const projectSpec = foundation.projectSpec;
@@ -413,7 +454,7 @@ export async function runGenerationUseCase(
 
   emit("stage_start", { id: "05", name: "Code Generation", module: "CodeGenerator" }, "05-start");
   elapsed = timer();
-  const generatedCode = await generateCode(
+  let generatedCode = await generateCode(
     llm,
     briefAnalysis,
     designPlan,
@@ -435,7 +476,7 @@ export async function runGenerationUseCase(
     : "";
   emit("stage_start", { id: "05.5", name: "Code Validation & Repair", module: "CodeQualityLoop" }, "055-start");
   elapsed = timer();
-  const codeQualityResult = await runCodeQualityLoop(
+  let codeQualityResult = await runCodeQualityLoop(
     llm,
     generatedCode.code,
     signatureStr,
@@ -451,17 +492,86 @@ export async function runGenerationUseCase(
   }, "055-done");
 
   // Use quality-checked code from this point forward
-  const finalCode: typeof generatedCode = {
+  let finalCode: typeof generatedCode = {
     ...generatedCode,
     code: codeQualityResult.code,
+    files: generatedCode.files?.map((file) => file.path === generatedCode.entryPath
+      ? { ...file, content: codeQualityResult.code }
+      : file),
   };
+  let diversityResult = inspectDesignDiversity(generatedSourceText(finalCode));
+  emit("diversity:check", {
+    attempt: 1,
+    passed: diversityResult.passed,
+    fingerprints: diversityResult.fingerprints,
+  }, "diversity-check-1");
+
+  if (strategy.mode === "creative" && !codeQualityResult.wasRepaired && !diversityResult.passed) {
+    emit("diversity:retry", {
+      attempt: 2,
+      reason: diversityResult.recommendation,
+      fingerprints: diversityResult.fingerprints,
+    }, "diversity-retry");
+    const retryStep = await runOptionalProviderStep(
+      () => generateCode(
+        llm,
+        briefAnalysis,
+        designPlan,
+        `${fullCodeContext}\n\nDIVERSITY RETRY: ${diversityResult.recommendation ?? "Change the opening, content rhythm, interaction model, and ending."} Retain the chosen direction and facts, but do not reproduce: ${diversityResult.fingerprints.join("; ")}.`,
+        framework,
+        mode,
+        projectSpec
+      ),
+      () => generatedCode,
+      signal
+    );
+    if (!retryStep.degraded) {
+      const retryGenerated = retryStep.value;
+      const retryQuality = await runCodeQualityLoop(
+        llm,
+        retryGenerated.code,
+        signatureStr,
+        framework,
+        false,
+        briefAnalysis.rawBrief
+      );
+      generatedCode = retryGenerated;
+      codeQualityResult = retryQuality;
+      finalCode = {
+        ...retryGenerated,
+        code: retryQuality.code,
+        files: retryGenerated.files?.map((file) => file.path === retryGenerated.entryPath
+          ? { ...file, content: retryQuality.code }
+          : file),
+      };
+      diversityResult = inspectDesignDiversity(generatedSourceText(finalCode));
+    } else {
+      emit("stage_degraded", {
+        id: "05.diversity",
+        reason: retryStep.reason,
+        message: "The optional Creative diversity retry was unavailable; the first preview remains visible but cannot be marked Ready.",
+      }, "diversity-retry-degraded");
+    }
+    emit("diversity:check", {
+      attempt: 2,
+      passed: diversityResult.passed,
+      fingerprints: diversityResult.fingerprints,
+    }, "diversity-check-2");
+  }
+  const supportingIssues = (finalCode.files ?? [])
+    .filter((file) => file.path !== finalCode.entryPath)
+    .flatMap((file) => inspectSupportingSource(file.content, file.path, framework, briefAnalysis.rawBrief));
+  if (supportingIssues.length > 0) {
+    codeQualityResult = { ...codeQualityResult, issues: [...codeQualityResult.issues, ...supportingIssues] };
+  }
   // Score the delivered code, not the user's brief/input. The input scan is
   // retained only as generation guidance and prompt-injection context.
-  const blocklistResult = evaluateBlocklist(dependencies.blocklistRepository.get(), finalCode.code);
+  const deliveredSource = generatedSourceText(finalCode);
+  const blocklistResult = evaluateBlocklist(dependencies.blocklistRepository.get(), deliveredSource);
   if (strategy.mode === "fast" && blocklistResult.matches.length > 0) {
     finalCritique = {
       ...finalCritique,
-      overallVerdict: `Fast structural preflight passed, but the delivered code contains ${blocklistResult.matches.length} blocked visual pattern${blocklistResult.matches.length === 1 ? "" : "s"}. Resolve them or run Studio for adversarial review.`,
+      overallVerdict: `Fast structural preflight passed, but the delivered code contains ${blocklistResult.matches.length} blocked visual pattern${blocklistResult.matches.length === 1 ? "" : "s"}. Resolve them or run Creative for adversarial review.`,
     };
   }
 
@@ -476,10 +586,9 @@ export async function runGenerationUseCase(
 
   // -- [ENG] Engineering Score -- deterministic, no LLM call ----------------
   const engineeringResult = scoreEngineering(
-    finalCode.code,
+    deliveredSource,
     (framework as Parameters<typeof scoreEngineering>[1])
   );
-  const diversityResult = inspectDesignDiversity(finalCode.code);
 
   // ── [06] Distinctiveness Report (Module J — 3-level Norman) ─────────────
   emit("stage_start", { id: "06", name: "Distinctiveness Report (Norman 3-Level)", module: "Module J" }, "06-start");
@@ -501,8 +610,8 @@ export async function runGenerationUseCase(
     distinctivenessReport.grade = "A";
     distinctivenessReport.recommendations.unshift(
       critiqueSource === "local-preflight"
-        ? "Fast mode provides structural evidence only. Run Studio for an adversarial distinctiveness score."
-        : "Studio critique used a local fallback, so the score is capped until adversarial review completes."
+        ? "Fast mode provides structural evidence only. Run Creative for an adversarial distinctiveness score."
+        : "Creative critique used a local fallback, so the score is capped until adversarial review completes."
     );
   }
   emit("stage_done", {
@@ -513,9 +622,9 @@ export async function runGenerationUseCase(
   }, "06-done");
 
   emit("stage_start", { id: "07", name: "Project Assembly", module: "ProjectEngine" }, "07-start");
-  const assetUsage = inspectAssetUsage(assetBundle, finalCode.code);
+  const assetUsage = inspectAssetUsage(assetBundle, deliveredSource);
   const diversityWarnings = diversityResult.warnings.map((warning) =>
-    strategy.mode === "studio" ? `BLOCKING: ${warning}` : warning
+    strategy.mode === "creative" ? `BLOCKING: ${warning}` : warning
   );
   const project = buildGeneratedProject(
     finalCode,
@@ -542,6 +651,7 @@ export async function runGenerationUseCase(
 
   return {
     mode,
+    directionBoard: activeDirectionCheckpoint?.board,
     briefAnalysis,
     inputBlocklistResult,
     blocklistResult,

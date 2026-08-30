@@ -4,4 +4,10 @@
 .controls { display: flex; }.controls button { min-height: 32px; border: 1px solid #363834; border-right: 0; background: transparent; color: #7e807a; padding: 0 10px; cursor: pointer; font: 700 8px var(--font-plex-mono), monospace; }.controls button:last-child { border-right: 1px solid #363834; }.controls button[data-active] { background: #ece8de; color: #11130f; }
 .stage { min-height: 760px; display: grid; place-items: start center; padding: 18px; overflow: auto; background: #171815; transition: background .2s; }.stage iframe { display: block; width: 100%; height: 760px; border: 0; background: white; transition: width .25s ease; }.stage[data-viewport="mobile"] { background: #0b0c0a; }.stage[data-viewport="mobile"] iframe { width: 390px; max-width: 100%; }
 .canvas footer { min-height: 38px; border-top: 1px solid #31332f; border-bottom: 0; color: #777a72; }.canvas footer span:first-child { color: #79d5b1; }
+.canvas[data-immersive] { border: 0; }
+.canvas[data-immersive] header { min-height: 46px; background: #ece9e1; color: #171713; border-color: rgb(23 23 19 / .22); }
+.canvas[data-immersive] header b { color: #67665f; }
+.canvas[data-immersive] .stage { min-height: calc(100vh - 186px); padding: 0; background: #c9c6bd; }
+.canvas[data-immersive] .stage iframe { height: calc(100vh - 186px); min-height: 620px; }
+.canvas[data-immersive] footer { display: none; }
 @media (max-width: 640px) { .canvas header { align-items: flex-start; flex-direction: column; padding-block: 14px; }.controls { width: 100%; }.controls button { flex: 1; }.stage { min-height: 610px; padding: 8px; }.stage iframe { height: 610px; }.canvas footer span:last-child { display: none; } }

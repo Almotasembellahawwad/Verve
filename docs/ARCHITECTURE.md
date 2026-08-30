@@ -4,7 +4,7 @@
 
 Verve is a Next.js 16 App Router application that turns a written or spoken brief into a validated multi-file web project. The browser owns BYOK credentials, optional owned-media bytes, preview state, editing, history, and ZIP download. The server owns bounded generation orchestration, deterministic quality rules, external provider calls, asset discovery, admission control, and response/SSE transport.
 
-Fast and Studio converge on one `PipelineResult` and `GeneratedProject` contract. Project readiness, distinctiveness, execution provenance, and actual asset use remain separate evidence axes.
+Fast and Creative converge on one `PipelineResult` and `GeneratedProject` contract. `studio` is a request alias for Creative. Project readiness, diversity evidence, descriptive experience review, execution provenance, and actual asset use remain separate evidence axes.
 
 ## Enforced dependency direction
 
@@ -49,6 +49,10 @@ request
   -> schema validation
   -> distributed concurrent lease
   -> request-scoped composition root
+  -> direction exploration (`/api/directions/stream`)
+       Fast: one six-candidate call
+       Creative: two independent three-candidate calls
+       quality floor -> archive novelty -> brief fit -> signed checkpoint
   -> generation use case
        [01] brief analysis
        [02] blocklist + asset sourcing + competitive field (parallel)
@@ -73,7 +77,7 @@ The blocklist rule itself is dependency-free (`lib/domain/blocklist.ts:29`). Sto
 |---|---|---|
 | Adapter + Port | `lib/ports/llm.ts`, `lib/adapters/llm/*` | Provider SDKs vary while generation needs one stable completion contract. |
 | Factory | `lib/adapters/llm/factory.ts` | Model validation and concrete construction must have one audited path. |
-| Strategy | `lib/application/generation-strategy.ts` | Fast and Studio vary policy, call budgets, critique, checkpoints, and repair without changing delivery contracts. |
+| Strategy | `lib/application/generation-strategy.ts` | Fast and Creative vary policy, call budgets, critique, checkpoints, and repair without changing delivery contracts. |
 | Pipeline / Chain of Responsibility | `lib/application/pipeline-stage.ts` | Stages need immutable input snapshots, isolated tests, and reorderability. The main orchestrator is being extracted into this contract incrementally. |
 | Circuit Breaker + Decorator | `lib/application/circuit-breaker.ts`, `lib/adapters/llm/circuit-breaking-llm.ts` | Repeated calls to a failing provider should stop spending latency and quota, without provider branches in consumers. |
 | Repository | `lib/ports/repositories.ts`, `lib/adapters/storage/*` | Static JSON, browser storage, filesystem content, and future DB/KV stores must be replaceable without changing business rules. |
@@ -83,9 +87,9 @@ The blocklist rule itself is dependency-free (`lib/domain/blocklist.ts:29`). Sto
 
 ## LLM and resilience boundary
 
-`LLMPort.complete()` contains only provider-neutral messages and options. Provider SDK request/response types do not cross `lib/adapters/llm`. `createAdapter()` wraps each request-scoped provider with a failure-window circuit breaker. Fast/Studio policy never branches on concrete provider except one explicit cost/reliability capability: Studio repair is disabled for OpenRouter's free routed capacity.
+`LLMPort.complete()` contains only provider-neutral messages and options. Provider SDK request/response types do not cross `lib/adapters/llm`. `createAdapter()` wraps each request-scoped provider with a failure-window circuit breaker. Fast/Creative policy never branches on concrete provider except one explicit cost/reliability capability: Creative repair is disabled for OpenRouter's free routed capacity.
 
-Fast is the shared default, defined once as a dependency-free domain value and consumed by the request schema, application use case, and client workbench (`lib/domain/generation-mode.ts:1-6`, `lib/api/generation-request.ts:30`, `lib/application/run-generation-use-case.ts:136`, `components/GeneratePanel.tsx:263`). Studio remains an explicit opt-in and both modes return the same project/evidence contract.
+Fast is the shared default, defined once as a dependency-free domain value and consumed by the request schema, application use case, and client workbench. Creative is explicit opt-in, while `studio` normalizes to Creative for older clients; both modes return the same project/evidence contract.
 
 Optional analysis, planning, and critique fail open to deterministic fallbacks. Required code generation fails to a visible recovery project. The stream has a 240-second application deadline, ten-second heartbeats, client cancellation, stage errors, and checkpoint recovery.
 

@@ -1,0 +1,3 @@
+.viewport { position: relative; height: 310px; overflow: hidden; background: #d8d5cc; pointer-events: none; }
+.viewport iframe { width: 1440px; height: 900px; border: 0; background: white; transform: scale(.42); transform-origin: 0 0; }
+@media (max-width: 720px) { .viewport { height: 230px; }.viewport iframe { transform: scale(.3); } }

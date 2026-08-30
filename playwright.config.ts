@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const port = 4321;
+const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
+const baseURL = externalBaseUrl ?? `http://127.0.0.1:${port}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -10,7 +12,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : 2,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: `http://127.0.0.1:${port}`,
+    baseURL,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "off",
@@ -25,7 +27,7 @@ export default defineConfig({
       use: { ...devices["Pixel 7"], channel: "chrome" },
     },
   ],
-  webServer: {
+  webServer: externalBaseUrl ? undefined : {
     command: `npm run dev -- --hostname 127.0.0.1 --port ${port}`,
     url: `http://127.0.0.1:${port}`,
     reuseExistingServer: !process.env.CI,

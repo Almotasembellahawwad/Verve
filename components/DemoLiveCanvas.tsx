@@ -7,13 +7,13 @@ import styles from "./DemoLiveCanvas.module.css";
 
 type Viewport = "mobile" | "desktop";
 
-export default function DemoLiveCanvas({ project }: { project: GeneratedProject }) {
+export default function DemoLiveCanvas({ project, immersive = false }: { project: GeneratedProject; immersive?: boolean }) {
   const probeId = useId();
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const document = useMemo(() => buildHtmlPreviewDocument(project, `story-${probeId}`), [probeId, project]);
 
   return (
-    <section className={styles.canvas} aria-label={`${project.name} live experience`}>
+    <section className={styles.canvas} data-immersive={immersive || undefined} aria-label={`${project.name} live experience`}>
       <header>
         <div><span>LIVE EXPERIENCE</span><b>{project.name}</b></div>
         <div className={styles.controls} role="group" aria-label="Preview size">

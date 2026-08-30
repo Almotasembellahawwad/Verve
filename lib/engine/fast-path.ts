@@ -194,8 +194,8 @@ export function critiquePlanLocally(plan: DesignPlan): CritiqueResult {
       : "Fast preflight found a blocking design-plan issue.",
     endingCheck: {
       quality: "intentional",
-      description: "Closing quality is verified during the rendered Studio audit.",
-      recommendation: "Run Studio mode before production deployment.",
+      description: "Closing quality is verified during the rendered Creative audit.",
+      recommendation: "Run Creative mode before production deployment.",
     },
     usabilityFloor: {
       passed,

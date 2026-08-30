@@ -1,18 +1,3 @@
-// lib/engine/restraint-check.ts
-// Module N -- Restraint Check
-//
-// Dieter Rams principle: "Less, but better."
-// After the design plan is generated, this module asks one focused question:
-//
-//   "If we removed the single boldest element from this plan,
-//    would the design become stronger or weaker?"
-//
-// If the answer is "stronger" -- the element is decorative noise, not signal.
-// Real boldness is knowing when to stop.
-//
-// This is a deterministic analysis (no LLM call) based on the plan structure.
-// A future enhancement could use an LLM call for richer reasoning.
-
 export type RestraintVerdict = "disciplined" | "restrained-further" | "over-designed";
 
 export type RestraintResult = {
@@ -20,7 +5,9 @@ export type RestraintResult = {
   boldestElement: string;
   reasoning: string;
   suggestion: string | null;
-  restraintScore: number; // 0-100, higher = more disciplined restraint
+  restraintScore: number;
+  richnessScore: number;
+  meaningfulLayers: string[];
 };
 
 type DesignPlanInput = {
@@ -31,115 +18,61 @@ type DesignPlanInput = {
   referencesSampled: string[];
 };
 
-// Signals that suggest over-design (accumulated boldness without purpose)
-const OVER_DESIGN_SIGNALS = [
-  { pattern: /gradient/i,        penalty: 15, label: "gradient (adds visual noise without semantic meaning)" },
-  { pattern: /parallax/i,        penalty: 12, label: "parallax (motion for motion's sake)" },
-  { pattern: /neon/i,            penalty: 10, label: "neon colors (high contrast without hierarchy)" },
-  { pattern: /glassmorphism/i,   penalty: 18, label: "glassmorphism (currently overused, will date quickly)" },
-  { pattern: /blob|organic shape/i, penalty: 10, label: "blob/organic shapes (decorative, no structural role)" },
-  { pattern: /3d|three.?dimensional/i, penalty: 8, label: "3D elements (high implementation cost, often gimmicky)" },
-  { pattern: /animated.*background|background.*anim/i, penalty: 20, label: "animated background (distracts from content)" },
-  { pattern: /multiple.*animation|animation.*multiple/i, penalty: 15, label: "multiple competing animations" },
-  { pattern: /confetti|particle/i, penalty: 25, label: "particles/confetti (almost never purposeful)" },
-];
+const LAYER_SIGNALS = [
+  { id: "media", pattern: /photo|image|video|media|photograph|صورة|صور|فيديو/i },
+  { id: "data", pattern: /data|chart|metric|evidence|comparison|map|بيانات|مقارنة|خريطة/i },
+  { id: "interaction", pattern: /interact|control|filter|drag|select|step|canvas|تفاعل|تحكم|تصفية|خطوة/i },
+  { id: "shape", pattern: /shape|geometry|spatial|diagram|illustration|شكل|هندس|مخطط|رسم/i },
+  { id: "surface", pattern: /surface|layer|depth|texture|material|سطح|طبقة|عمق|ملمس|مادة/i },
+  { id: "motion", pattern: /motion|transition|animate|movement|حركة|انتقال/i },
+] as const;
 
-// Signals that indicate true discipline -- bold but purposeful
-const DISCIPLINE_SIGNALS = [
-  { pattern: /editorial/i,      bonus: 10 },
-  { pattern: /white.?space|negative.?space/i, bonus: 12 },
-  { pattern: /monochrom/i,      bonus: 8  },
-  { pattern: /typograph/i,      bonus: 6  },
-  { pattern: /grid/i,           bonus: 5  },
-  { pattern: /restraint|minimal/i, bonus: 10 },
-  { pattern: /single.*color|one.*color|limited.*palette/i, bonus: 8 },
-];
+const TECHNIQUE_SIGNALS = ["gradient", "parallax", "neon", "glass", "3d", "particle", "texture", "animation", "blur", "shadow"];
+
+function purposeful(text: string): boolean {
+  return /because|so that|supports?|reveals?|clarifies?|lets? the|helps?|therefore|لأن|كي|حتى|يساعد|يكشف|يوضح|يدعم/i.test(text);
+}
 
 export function runRestraintCheck(plan: DesignPlanInput): RestraintResult {
-  const planText = [
-    plan.layoutConcept,
-    plan.signatureElement.description,
-    plan.signatureElement.justification,
-    plan.typePairing.rationale,
-    ...plan.colorPalette.map((c) => `${c.name} ${c.role}`),
-  ].join(" ").toLowerCase();
-
-  let penaltyTotal = 0;
-  let bonusTotal = 0;
-  const flaggedSignals: string[] = [];
-
-  // Check over-design signals
-  for (const signal of OVER_DESIGN_SIGNALS) {
-    if (signal.pattern.test(planText)) {
-      penaltyTotal += signal.penalty;
-      flaggedSignals.push(signal.label);
-    }
-  }
-
-  // Check discipline signals
-  for (const signal of DISCIPLINE_SIGNALS) {
-    if (signal.pattern.test(planText)) {
-      bonusTotal += signal.bonus;
-    }
-  }
-
-  // Check palette complexity
-  const paletteCount = plan.colorPalette.length;
-  if (paletteCount > 5) penaltyTotal += (paletteCount - 5) * 8;
-  if (paletteCount <= 3) bonusTotal += 10;
-
-  // Raw restraint score
-  const raw = Math.max(0, Math.min(100, 80 - penaltyTotal + bonusTotal));
-
-  // Identify the "boldest element" (what would be removed first)
-  const boldestElement = identifyBoldestElement(plan, flaggedSignals);
-  const boldestSubject = /^the\b/i.test(boldestElement) ? boldestElement : `the ${boldestElement}`;
-
-  // Verdict
-  let verdict: RestraintVerdict;
-  let reasoning: string;
+  const planText = [plan.layoutConcept, plan.signatureElement.description, plan.signatureElement.justification, plan.typePairing.rationale, ...plan.colorPalette.map((color) => `${color.name} ${color.role}`)].join(" ");
+  const meaningfulLayers = LAYER_SIGNALS.filter((signal) => signal.pattern.test(planText)).map((signal) => signal.id);
+  const mentionedTechniques = TECHNIQUE_SIGNALS.filter((technique) => new RegExp(technique, "i").test(planText));
+  const signaturePurposeful = purposeful(`${plan.signatureElement.description} ${plan.signatureElement.justification}`)
+    && plan.signatureElement.justification.trim().split(/\s+/).length >= 12;
+  const layoutPurposeful = purposeful(plan.layoutConcept) || /task|job|evidence|decision|audience|مهمة|دليل|قرار|جمهور/i.test(plan.layoutConcept);
+  const competingTechniques = Math.max(0, mentionedTechniques.length - (signaturePurposeful ? 2 : 1));
+  const excessivePalette = Math.max(0, plan.colorPalette.length - 8);
+  const richnessScore = Math.max(0, Math.min(100, 30 + meaningfulLayers.length * 14 + (layoutPurposeful ? 14 : 0)));
+  const restraintScore = Math.max(0, Math.min(100,
+    62
+    + (signaturePurposeful ? 18 : -12)
+    + (layoutPurposeful ? 12 : -10)
+    - competingTechniques * 10
+    - excessivePalette * 5
+  ));
+  const boldestElement = plan.signatureElement.name || mentionedTechniques[0] || "signature element";
+  let verdict: RestraintVerdict = restraintScore >= 70 ? "disciplined" : restraintScore >= 45 ? "restrained-further" : "over-designed";
   let suggestion: string | null = null;
-
-  if (raw >= 70) {
-    verdict = "disciplined";
-    reasoning = `The plan demonstrates genuine restraint. ${boldestSubject} is purposeful and has a clear structural role, not purely decorative. Removing it would weaken the design, not strengthen it. This is the Rams test passed.`;
-  } else if (raw >= 45) {
+  if (richnessScore < 58 && verdict === "disciplined") {
     verdict = "restrained-further";
-    const primary = flaggedSignals[0];
-    reasoning = `The plan is close to disciplined but carries some decorative weight. ${primary ? `The '${primary}' element in particular` : "The signature element"} could be questioned: does it serve the communication goal, or is it boldness for its own sake?`;
-    suggestion = primary
-      ? `Consider removing or reducing '${primary}'. Ask: if this element didn't exist, would the brief's job still be accomplished? If yes, remove it.`
-      : `The signature element is strong but the overall plan has accumulated complexity. Simplify one non-essential decision.`;
-  } else {
-    verdict = "over-designed";
-    reasoning = `The plan has accumulated multiple bold elements that compete for attention. ${flaggedSignals.slice(0, 2).join(", ")} are present simultaneously. True boldness is a single clear decision — everything else is noise.`;
-    suggestion = `Remove ${flaggedSignals[0] ?? "the most decorative element"} entirely. Rams rule: "when in doubt, leave it out." A design with one bold decision is stronger than one with five.`;
+    suggestion = "The composition is coherent but under-developed. Add a meaningful media, data, interaction, shape, or surface layer derived from the brief rather than another typographic section.";
+  } else if (!signaturePurposeful) {
+    suggestion = "Tie the signature mechanism to a specific audience decision or remove it; visual novelty alone is not a structural role.";
+  } else if (competingTechniques > 0) {
+    suggestion = `Keep ${boldestElement} as the focal mechanism and reduce techniques that do not change understanding or action.`;
   }
-
-  return {
-    verdict,
-    boldestElement,
-    reasoning,
-    suggestion,
-    restraintScore: raw,
-  };
+  const reasoning = richnessScore < 58
+    ? `The plan is restrained but has only ${meaningfulLayers.length} meaningful non-typographic layer${meaningfulLayers.length === 1 ? "" : "s"}. Restraint must not collapse the brief into a sparse editorial page.`
+    : signaturePurposeful
+      ? `${boldestElement} has a stated functional role. Techniques such as gradients, 3D, texture, or motion are evaluated by necessity and competition, never penalized by style name alone.`
+      : `${boldestElement} is visually described but its contribution to the audience's job is not yet explicit.`;
+  return { verdict, boldestElement, reasoning, suggestion, restraintScore, richnessScore, meaningfulLayers };
 }
 
-function identifyBoldestElement(plan: DesignPlanInput, flaggedSignals: string[]): string {
-  // If we flagged something specific, that's the boldest element
-  if (flaggedSignals.length > 0) {
-    return flaggedSignals[0].split("(")[0].trim();
-  }
-
-  // Otherwise the signature element is by definition the boldest
-  return plan.signatureElement.name || "signature element";
-}
-
-// Restraint grade
 export function restraintGrade(score: number): string {
-  if (score >= 85) return "S"; // Exemplary restraint
-  if (score >= 70) return "A"; // Disciplined
-  if (score >= 55) return "B"; // Mostly disciplined
-  if (score >= 40) return "C"; // Could be simplified
-  return "D";                  // Over-designed
+  if (score >= 85) return "S";
+  if (score >= 70) return "A";
+  if (score >= 55) return "B";
+  if (score >= 40) return "C";
+  return "D";
 }

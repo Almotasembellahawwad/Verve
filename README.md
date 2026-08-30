@@ -6,20 +6,27 @@ Verve is an open-source project intelligence engine for generating distinctive w
 
 [Development preview](https://verve-dev.vercel.app/) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [MIT License](LICENSE)
 
-## Verve Engine v2 foundation
+## Verve Creative Engine v3 (beta)
 
-- **Executable project specification** — every run now produces a bounded `VerveProjectSpec` between planning and code generation, covering intent, facts, sections, components, interactions, responsive behavior, visual rules, media policy, invariants, and novelty levers.
-- **Quality-diversity portfolio** — the planning call explores exactly three structurally different directions, estimates their likelihood, and selects one by brief fit, feasibility, and novelty instead of sampling one answer blindly.
-- **Private local design memory** — the browser keeps at most 20 bounded direction fingerprints, never briefs or API keys. Recent fingerprints are sent only with the generation request that uses them to discourage repeated topology and signature combinations.
+- **Six-direction board** — every new run explores two combinational, two exploratory, and two transformational directions before code. Auto-selection applies a quality floor, then maximizes distance from recent Verve structures, then brief fit; statistical likelihood is never a reward.
+- **Executable ProjectSpec v2** — the chosen direction compiles into bounded routes, nested regions, interaction states, responsive compositions, visual depth, media policy, invariants, and file budgets before code generation.
+- **Fixation-resistant references** — `data/reference-library.json` defines a 12-domain × 6-experience matrix (72 abstract patterns). Retrieval supplies one near principle, two remote analogies, and one anti-reference without passing source palettes or brand identities to the model.
+- **Private local design memory** — the browser keeps only bounded structural and numeric DOM fingerprints, including a 12×12 occupancy grid, type distribution, color histogram, media/interaction density, section rhythm, and route count. Briefs, code, images, and API keys are never stored in this memory.
 - **Inspectable Stage Graph** — deterministic post-plan work now runs as immutable, independently testable experience-contract and direction-diversity stages.
-- **Three-viewport render evidence** — HTML and React readiness cannot pass from one convenient preview. Render Gate retains separate evidence at 360, 768, and 1440 pixels and resets it when source changes.
-- **Fast stays fast** — the richer search and validation remain inside the existing plan and code calls, so Fast still spends two core model calls.
+- **Three-viewport render evidence** — HTML and React readiness cannot pass from one convenient preview. Render Gate retains separate evidence at 360, 768, and 1440 pixels and triggers one bounded Creative retry when the delivered structure repeats Verve's house composition.
+- **Fast stays fast** — one board call plus one code call. Creative normally spends five calls and is bounded at seven when a plan revision, code repair, or one diversity retry is needed.
+
+### Research rationale
+
+Creative Engine v3 adapts established ideas rather than treating one numeric score as proof of creativity. The separate board and expansion phases are informed by the generative/exploratory distinction in [Creative Cognition](https://mitpress.mit.edu/9780262560962/creative-cognition/). Reference retrieval deliberately mixes near and remote principles because early examples can stimulate ideation but can also create design fixation, as reported by [Jansson and Smith](https://doi.org/10.1016/0142-694X(91)90003-F) and [Perttula and Sipilä](https://doi.org/10.1080/09544820600679679). Direction operators are structured variation prompts informed by the empirical [77 Design Heuristics](https://doi.org/10.1016/j.destud.2016.05.001).
+
+The selector is a small product-specific adaptation of [MAP-Elites](https://arxiv.org/abs/1504.04909) and [quality-diversity search](https://doi.org/10.3389/frobt.2016.00040): it keeps quality as a gate while comparing candidates across explicit behavioral descriptors. It is not a full evolutionary optimizer. Archive distance borrows the anti-convergence motivation of [novelty search](https://doi.org/10.1162/EVCO_a_00025). Norman's visceral, behavioral, and reflective levels from [Emotional Design](https://www.hachettebookgroup.com/titles/don-norman/emotional-design/9780465004171/) remain a descriptive review lens, never a creativity score.
 
 ## What changed in 0.8 Simplified Product Flow
 
 - **Four clear destinations** — the global navigation is now Create, Examples, Editor, and Docs; provider keys and GitHub remain utilities rather than competing product steps.
-- **Focused creation** — `/create` opens directly on the brief. Fast remains the default, while provider, framework, Studio, brand, and media controls use progressive disclosure.
-- **One examples system** — `/examples` replaces the duplicated Demos and Showcase experiences. Each story leads with a runnable result, then reveals the brief, category default, decision, and optional evidence.
+- **Focused creation** — `/create` opens directly on the brief. Fast remains the default, while provider, framework, Creative, brand, and media controls use progressive disclosure.
+- **One examples system** — `/examples` contains six runnable, structurally separated results. Each result owns the first viewport; brief, decisions, diversity evidence, references, assets, and tests live in a neutral receipt drawer.
 - **Editor as the continuation** — `/editor` starts with an intentional empty state and separates Preview, Code, AI, Checks, and Project actions. AI changes remain staged until explicit acceptance.
 - **Backward-compatible routes** — `/demos` and `/showcase` redirect to `/examples`; existing bookmarks continue to work without preserving duplicated interfaces.
 - **No forced onboarding** — the blocking first-visit modal was removed so the product teaches itself through labels, defaults, and contextual controls.
@@ -63,7 +70,7 @@ Verve is an open-source project intelligence engine for generating distinctive w
 
 - **Project Engine** — assembles complete Next.js 16, React 19 + Vite, or standalone HTML projects.
 - **Framework-safe preview** — HTML and lightweight React run in the live sandbox; Next.js projects use a file inspector and ZIP export instead of an incompatible browser shell.
-- **Fast and Studio modes** — a two-model-call draft path with local brief extraction and a deeper adversarial production path.
+- **Fast and Creative modes** — a two-model-call draft path with local brief extraction and a deeper adversarial production path (`studio` remains a request alias).
 - **Voice briefs** — dictate in Arabic or English, review the transcript, then generate.
 - **OpenRouter recovery** — gateway-managed model fallback, structured JSON output, local brief/plan resilience, ten-second SSE heartbeats, truncation detection, failed-stage reporting, and a downloadable recovery draft.
 - **Resumable Fast checkpoints** — after contrast enforcement, a failed code call can resume from stage 05 without paying for another brief or plan call.
@@ -95,10 +102,12 @@ Distinctiveness is not allowed to hide broken behavior. A high visual score and 
 
 | Mode | Model calls | Best for | Behavior |
 |---|---:|---|---|
-| **Fast (default)** | 2 core calls, plus gateway/schema fallback | OpenRouter free models, exploration, rapid drafts | Local brief analysis, local archetype/preflight, provider design plan and code, deterministic validation |
-| **Studio** | Variable, bounded | Production candidates and complex briefs | LLM archetype, adversarial critique, one optional plan revision, code generation, optional targeted repair |
+| **Fast (default)** | 2 core calls, plus gateway/schema fallback | OpenRouter free models, exploration, rapid drafts | Provider Direction Board, local selected-plan compilation, provider code, deterministic validation |
+| **Creative** | 5 normally, 7 maximum | Direction choice, production candidates, and complex briefs | Two independent direction batches, selected-plan expansion, adversarial critique, code generation, and at most one repair or diversity retry |
 
-Both modes return the same `GeneratedProject` schema, so the workbench, history, preview, API, and ZIP exporter do not need mode-specific output handling. Omitting `mode` selects Fast; choose Studio explicitly when the extra provider scrutiny and repair budget are worth the latency and cost.
+Both modes return the same `GeneratedProject` schema, so the workbench, history, preview, API, and ZIP exporter do not need mode-specific output handling. Omitting `mode` selects Fast. `studio` remains a backwards-compatible request alias for Creative; new clients send `creative`.
+
+Creative is an active beta in the UI. Set `NEXT_PUBLIC_CREATIVE_ENGINE_V3=false` for a Fast-only deployment while keeping the backwards-compatible API contract available.
 
 ## Supported project stacks
 
@@ -147,11 +156,11 @@ Spoken or written brief + optional owned brand kit
         ↓
 [02] Media requirement + owned/stock assets + cliché blocklist + competitive field
         ↓
-[02.5] Archetype ───────── local in Fast / LLM in Studio
+[02.5] Archetype ───────── local in both modes
         ↓
 [02.6] Motion language
         ↓
-[03] Design plan ───────── local preflight in Fast / critique loop in Studio
+[03] Selected design plan ─ local compilation in Fast / provider expansion + critique in Creative
         ↓
 [04] Deterministic contrast correction
         |
@@ -161,7 +170,7 @@ Spoken or written brief + optional owned brand kit
         ↓
 [05] Production-minded entry code
         ↓
-[05.5] Syntax validation ─ deterministic in Fast / bounded repair in Studio
+[05.5] Syntax validation ─ deterministic in Fast / bounded repair in Creative
         ↓
 [06] Distinctiveness + template diversity + engineering evidence
         ↓
@@ -196,7 +205,7 @@ The OpenRouter path now provides:
 - a `recovery` event containing a safe, downloadable fallback project;
 - client detection when a stream closes without `result` or `recovery`.
 
-For free OpenRouter models, start with **Fast mode**. Studio remains available, but provider availability—not Verve—still controls free-model capacity.
+For free OpenRouter models, start with **Fast mode**. Creative remains available, but provider availability—not Verve—still controls free-model capacity.
 
 ## Local development
 
@@ -281,7 +290,7 @@ connected
 stage_start
 heartbeat       # every 10 seconds during a silent provider call
 stage_retry     # when OpenRouter retries or switches model
-stage_degraded  # optional Studio intelligence moved to local fallback
+stage_degraded  # optional Creative intelligence moved to local fallback
 checkpoint      # safe Fast-mode stage state; never contains an API key
 stage_done
 result          # successful terminal event
@@ -322,7 +331,7 @@ components/
 lib/
 ├── application/
 │   ├── run-generation-use-case.ts # request-independent orchestration
-│   ├── generation-strategy.ts     # Fast/Studio policy
+│   ├── generation-strategy.ts     # Fast/Creative policy
 │   └── circuit-breaker.ts         # external-failure policy
 ├── domain/                         # dependency-free business rules
 ├── ports/                          # LLM, asset, repository, progress contracts
@@ -350,7 +359,7 @@ tests/
 - A feature must not pretend to work.
 - A recovery result is better than a silent spinner.
 - Distinctive does not mean decorated.
-- Fast and Studio may spend different compute, but must honor the same delivery contract.
+- Fast and Creative may spend different compute, but must honor the same delivery contract.
 - Generated facts must come from the brief or be labeled as placeholders.
 
 ## Contributing

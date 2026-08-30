@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function openArchitectureInEditor(page: Page) {
   await page.goto("/examples/architecture", { waitUntil: "domcontentloaded" });
-  await page.getByRole("link", { name: /Edit this project/i }).click();
+  await page.getByRole("link", { name: /Edit this project/i }).first().click();
   await expect(page).toHaveURL(/\/editor\?(project|demo)=/, { timeout: 15_000 });
   await expect(page.getByRole("combobox", { name: "Project" })).toContainText("reframe-london-adaptive-reuse");
 }
@@ -58,10 +58,10 @@ test("Create reveals advanced choices only when requested", async ({ page }) => 
 
   await page.getByText("Project options", { exact: true }).click();
   const fast = page.getByRole("radio", { name: /Fast/ });
-  const studio = page.getByRole("radio", { name: /Studio/ });
+  const creative = page.getByRole("radio", { name: /Creative/ });
   await expect(fast).toBeChecked();
-  await studio.check();
-  await expect(page.getByRole("button", { name: "Run Studio pipeline" })).toBeVisible();
+  await creative.check();
+  await expect(page.getByRole("button", { name: "Explore 6 directions" })).toBeVisible();
 
   await page.getByText("Provider settings", { exact: true }).click();
   await expect(page.getByText("AI provider", { exact: true })).toBeVisible();
@@ -86,15 +86,18 @@ test("the brand kit accepts owned media without uploading it during setup", asyn
 
 test("examples replace the duplicate demo and evidence galleries", async ({ page, request }) => {
   await page.goto("/examples", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: /Three briefs/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Six briefs/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Reframe/ })).toHaveAttribute("href", "/examples/architecture");
   await expect(page.getByRole("link", { name: /Maeda Cairo/ })).toHaveAttribute("href", "/examples/cairo");
   await expect(page.getByRole("link", { name: /Ledgerline/ })).toHaveAttribute("href", "/examples/carbon");
+  await expect(page.getByRole("link", { name: /Orbit Lab/ })).toHaveAttribute("href", "/examples/learning");
+  await expect(page.getByRole("link", { name: /Fold No. 7/ })).toHaveAttribute("href", "/examples/fashion");
+  await expect(page.getByRole("link", { name: /Clearpath/ })).toHaveAttribute("href", "/examples/civic");
 
   await page.goto("/examples/architecture", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "Reframe", exact: true })).toBeVisible();
   await expect(page.frameLocator('iframe[title="reframe-london-adaptive-reuse story preview"]').getByRole("heading", { name: /The building already knows/ })).toBeVisible();
-  await expect(page.getByText("Open design and engineering checks")).toBeVisible();
+  await expect(page.getByText("Inspect the generation receipt")).toBeVisible();
 
   expect((await request.get("/demos")).url()).toMatch(/\/examples$/);
   expect((await request.get("/showcase")).url()).toMatch(/\/examples$/);
@@ -211,5 +214,5 @@ test("the mobile navigation is keyboard-safe and uses plain labels", async ({ pa
   await hamburger.click();
   await drawer.getByRole("link", { name: "Examples", exact: true }).click();
   await expect(page).toHaveURL(/\/examples$/);
-  await expect(page.getByRole("heading", { name: /Three briefs/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Six briefs/ })).toBeVisible();
 });

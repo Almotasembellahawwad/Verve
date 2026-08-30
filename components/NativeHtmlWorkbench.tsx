@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useEffectEvent, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import JSZip from "jszip";
-import type { GeneratedProject, ProjectFile } from "@/lib/project/types";
+import type { GeneratedProject } from "@/lib/project/types";
+import { downloadProjectArchive } from "@/lib/client/project-archive";
 import { validateGeneratedProject } from "@/lib/project/project-validator";
 import { buildHtmlPreviewDocument } from "@/lib/project/html-preview";
 import {
@@ -10,11 +10,13 @@ import {
   isRenderGateReport,
   recordRenderEvidence,
   RENDER_EVIDENCE_WIDTHS,
+  visualFingerprintDistance,
   type RenderEvidenceWidth,
 } from "@/lib/project/render-gate";
 import styles from "./ProjectWorkbench.module.css";
 import { projectFileDataUrl } from "@/lib/project/brand-kit";
 import type { WorkbenchFocusMode } from "./ProjectWorkbench";
+import { getRecentVisualFingerprints, rememberVisualFingerprint } from "@/lib/client/design-memory";
 
 type Viewport = "mobile" | "tablet" | "desktop";
 
@@ -28,27 +30,17 @@ const subscribeToHydration = () => () => undefined;
 const clientHydrationSnapshot = () => true;
 const serverHydrationSnapshot = () => false;
 
-async function downloadFiles(projectName: string, files: ProjectFile[]): Promise<void> {
-  const zip = new JSZip();
-  for (const item of files) zip.file(item.path, item.content, item.encoding === "base64" ? { base64: true } : undefined);
-  const blob = await zip.generateAsync({ type: "blob" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `${projectName}.zip`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
 type Props = {
   project: GeneratedProject;
   onProjectChange?: (project: GeneratedProject) => void;
   readOnly?: boolean;
   focusMode?: WorkbenchFocusMode;
   showDiagnostics?: boolean;
+  visualDiversityThreshold?: number;
+  onVisualDiversity?: (distance: number | null) => void;
 };
 
-export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true }: Props) {
+export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, onVisualDiversity }: Props) {
   const baseProbeId = useId();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [files, setFiles] = useState(project.files);
@@ -57,6 +49,8 @@ export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly
   const [renderEvidence, setRenderEvidence] = useState(createRenderEvidenceMatrix);
   const [previewRevision, setPreviewRevision] = useState(0);
   const [downloading, setDownloading] = useState(false);
+  const [visualArchiveDistance, setVisualArchiveDistance] = useState<number | null>(null);
+  const visualMeasuredProbeRef = useRef<string | null>(null);
   const activeProbeId = `${baseProbeId}-${previewRevision}`;
   const previewReady = useSyncExternalStore(subscribeToHydration, clientHydrationSnapshot, serverHydrationSnapshot);
 
@@ -76,13 +70,14 @@ export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly
   const totalProblems = staticProblems.length + renderProblems.length;
   const riskScore = Math.max(0, 100 - project.warnings.length * 18);
   const riskBlocked = project.readiness.status === "blocked" || project.warnings.some((warning) => warning.startsWith("BLOCKING:"));
+  const visualReviewRequired = visualArchiveDistance !== null && visualArchiveDistance < visualDiversityThreshold;
   const renderScore = renderEvidence.covered > 0 ? renderEvidence.score : 85;
   const readinessScore = Math.min(validation.score, riskScore, renderScore);
   const readinessStatus = validation.status === "blocked" || renderFailures > 0 || riskBlocked
     ? "blocked"
     : !renderEvidence.complete
       ? "verifying"
-      : validation.status === "review-required" || project.warnings.length > 0 || renderWarnings > 0
+      : validation.status === "review-required" || project.warnings.length > 0 || renderWarnings > 0 || visualReviewRequired
         ? "review-required"
         : "ready";
   const renderGateStatus = `${renderEvidence.status.toUpperCase()} ${renderEvidence.covered}/3`;
@@ -91,6 +86,14 @@ export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly
     if (message.source !== iframeRef.current?.contentWindow) return;
     if (isRenderGateReport(message.data, activeProbeId)) {
       const report = message.data;
+      if (!readOnly && Math.abs(report.viewport.width - 1440) <= 2 && visualMeasuredProbeRef.current !== activeProbeId) {
+        visualMeasuredProbeRef.current = activeProbeId;
+        const archive = getRecentVisualFingerprints();
+        const distance = archive.length ? Math.min(...archive.map((fingerprint) => visualFingerprintDistance(report.fingerprint, fingerprint))) : null;
+        setVisualArchiveDistance(distance);
+        onVisualDiversity?.(distance);
+        rememberVisualFingerprint(report.fingerprint);
+      }
       setRenderEvidence((current) => recordRenderEvidence(current, report));
     }
   });
@@ -120,7 +123,7 @@ export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly
   const downloadProject = async () => {
     setDownloading(true);
     try {
-      await downloadFiles(project.name, files);
+      await downloadProjectArchive(editedProject);
     } finally {
       setDownloading(false);
     }
@@ -165,6 +168,12 @@ export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly
         <div className={styles.warning} role="status">
           <strong>Generation warnings</strong>
           <ul>{project.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+        </div>
+      )}
+      {visualReviewRequired && (
+        <div className={styles.warning} role="status">
+          <strong>Visual diversity review</strong>
+          <p>This render is close to a recent local result ({visualArchiveDistance.toFixed(2)} distance). Fast results should be reviewed; Creative results should be regenerated from another direction.</p>
         </div>
       )}
 
