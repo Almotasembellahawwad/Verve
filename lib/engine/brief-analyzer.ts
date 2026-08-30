@@ -40,6 +40,13 @@ type LocalDirection = {
 
 const LOCAL_DIRECTIONS: LocalDirection[] = [
   {
+    pattern: /print studio|printmaking|letterpress|riso(?:graph)?|stationery|notebook|bookbind|paper goods|wholesale bookshop/i,
+    industry: "Print / Stationery",
+    audience: "Wholesale stockists and material-literate individual buyers",
+    primaryJob: "Let buyers compare verified product specifications and choose the appropriate ordering path",
+    tone: "Precise, material-literate, contemporary, operational",
+  },
+  {
     pattern: /مطعم|restaurant|مطاعم|cafe|café|مقهى|food|dining/i,
     industry: "Food & Hospitality",
     audience: "Local diners and visitors",

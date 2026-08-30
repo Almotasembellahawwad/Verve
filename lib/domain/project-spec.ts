@@ -80,6 +80,20 @@ export type ResponsiveViewportContract = {
   composition: string;
 };
 
+export type FirstViewportSignal = "primary-object" | "decision-evidence" | "primary-action";
+
+/** A functional opening contract that deliberately makes no claim about visual scale. */
+export type FirstViewportContract = {
+  policyVersion: 1;
+  policy: "task-bearing-opening";
+  presentation: "any-scale";
+  requiredSignals: FirstViewportSignal[];
+  minimumTaskSignals: number;
+  primaryAction: string;
+  maximumActionDistanceViewports: number;
+  rationale: string;
+};
+
 export type VerveProjectSpec = {
   schemaVersion: typeof VERVE_PROJECT_SPEC_VERSION;
   framework: VerveProjectFramework;
@@ -97,6 +111,7 @@ export type VerveProjectSpec = {
   experience: {
     model: ExperienceModel;
     route: string;
+    firstViewport: FirstViewportContract;
     sections: ExperienceRegion[];
     routes: ExperienceRoute[];
     regions: ExperienceRegion[];
@@ -148,6 +163,10 @@ export function validateVerveProjectSpec(spec: VerveProjectSpec): ProjectSpecVal
   if (componentIds.size !== spec.components.length) issues.push("Component IDs must be unique.");
   if (spec.visualSystem.colors.length < 3) issues.push("The visual system requires at least three color tokens.");
   if (spec.visualSystem.depth.surfaceLayers < 1) issues.push("The visual depth contract requires at least one surface layer.");
+  if (spec.experience.firstViewport.policy !== "task-bearing-opening") issues.push("The first viewport must use the task-bearing opening policy.");
+  if (spec.experience.firstViewport.presentation !== "any-scale") issues.push("The first viewport must not prohibit a composition solely because of its scale.");
+  if (spec.experience.firstViewport.minimumTaskSignals < 2) issues.push("The first viewport requires at least two task signals.");
+  if (!spec.experience.firstViewport.requiredSignals.includes("primary-action")) issues.push("The first viewport must declare a primary action signal.");
 
   for (const route of spec.experience.routes) {
     if (!route.path.startsWith("/")) issues.push(`${route.id} must use an absolute route path.`);

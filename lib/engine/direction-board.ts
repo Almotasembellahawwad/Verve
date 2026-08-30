@@ -171,7 +171,7 @@ async function requestCandidates(
     systemPrompt: [
       "You are the divergent ideation stage of Verve Creative Engine v3.",
       "Return structural alternatives, not six skins of a landing page. Every direction must use its required experience/opening/navigation cell.",
-      "Never reward statistical likelihood. Do not use an oversized hero plus stacked manifesto sections, an editorial register, or one accent line as a default.",
+      "Never reward statistical likelihood. Do not treat opening size as a quality proxy: a large visual opening is valid when it carries task information and an immediate action. Avoid the generic pattern of an atmospheric slogan that postpones the job into stacked manifesto sections, as well as the retired editorial register or one-accent-line default.",
       "Use system-safe typeface stacks unless assets are explicitly supplied. Do not invent claims, people, metrics, addresses, testimonials, products, or awards.",
       "Each signature mechanism must change how the audience understands or acts; it cannot be a decorative line, glow, grain, or cursor alone.",
     ].join("\n"),

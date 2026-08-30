@@ -13,6 +13,7 @@ export type QualityReport = {
   content: QualityAxis;
   functionality: QualityAxis;
   responsive: QualityAxis;
+  firstViewport: QualityAxis;
   accessibility: QualityAxis;
   assets: QualityAxis;
 };
@@ -36,14 +37,15 @@ export function buildQualityReport(project: GeneratedProject, assetUsage: AssetU
     content.evidence.push(critique.overallVerdict);
   }
   const functionality = axis(project.validation.checks, ["form", "link", "import", "runtime", "interaction"]);
-  const responsive = axis(project.validation.checks, ["overflow", "responsive", "viewport"]);
+  const responsive = axis(project.validation.checks, ["overflow", "responsive", "mobile-clipping"]);
+  const firstViewport = axis(project.validation.checks, ["first-viewport"]);
   const accessibility = axis(project.validation.checks, ["access", "motion", "font", "label", "alt", "contrast"]);
   const assets: QualityAxis = {
     status: assetUsage.warnings.length ? "review" : "pass",
     score: Math.max(0, 100 - assetUsage.warnings.length * 15),
     evidence: assetUsage.warnings.length ? [...assetUsage.warnings] : [`${assetUsage.used} approved asset(s) used.`],
   };
-  const axes = [content, functionality, responsive, accessibility, assets];
+  const axes = [content, functionality, responsive, firstViewport, accessibility, assets];
   const status = axes.some((item) => item.status === "fail") ? "blocked" : axes.some((item) => item.status === "review") ? "review-required" : "ready";
-  return { status, content, functionality, responsive, accessibility, assets };
+  return { status, content, functionality, responsive, firstViewport, accessibility, assets };
 }

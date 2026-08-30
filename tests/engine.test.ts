@@ -95,6 +95,7 @@ import type { DirectionPortfolio } from "../lib/domain/design-direction";
 import { StaticReferenceLibraryRepository } from "../lib/adapters/storage/static-content-repositories";
 import { classifyReferenceDomain, selectReferencePatterns } from "../lib/engine/reference-retrieval";
 import { createDirectionCheckpoint, directionCheckpointMatches, generateDirectionBoard } from "../lib/engine/direction-board";
+import { calculateFirstViewportEffectiveness, firstViewportNeedsReview } from "../lib/domain/first-viewport";
 
 async function runPipeline(
   input: PipelineInput & {
@@ -183,9 +184,58 @@ test("VerveProjectSpec creates a bounded, executable experience contract before 
 
   assert.equal(validateVerveProjectSpec(spec).valid, true);
   assert.deepEqual(spec.responsive.viewports.map((viewport) => viewport.width), [360, 768, 1440]);
+  assert.equal(spec.experience.firstViewport.policy, "task-bearing-opening");
+  assert.equal(spec.experience.firstViewport.presentation, "any-scale");
+  assert.deepEqual(spec.experience.firstViewport.requiredSignals, ["primary-object", "decision-evidence", "primary-action"]);
   assert.ok(spec.experience.sections.length >= 3);
   assert.ok(spec.interactions.some((interaction) => interaction.requiresExternalAdapter));
   assert.doesNotMatch(JSON.stringify(spec), /rawBrief|apiKey/);
+});
+
+test("First Viewport Effectiveness rewards task utility without using hero scale", () => {
+  const functionalOpening = {
+    taskSignalCount: 2,
+    taskCoverage: 1,
+    informationSalience: 0.8,
+    primaryActionVisible: true,
+    actionClarity: 1,
+    scrollCost: 0,
+  };
+  const emptyAtmosphere = {
+    taskSignalCount: 0,
+    taskCoverage: 0,
+    informationSalience: 0.15,
+    primaryActionVisible: false,
+    actionClarity: 0,
+    scrollCost: 1,
+  };
+
+  const functionalScore = calculateFirstViewportEffectiveness(functionalOpening);
+  const atmosphericScore = calculateFirstViewportEffectiveness(emptyAtmosphere);
+  assert.equal(functionalScore, 0.95);
+  assert.equal(firstViewportNeedsReview({ ...functionalOpening, score: functionalScore }), false);
+  assert.equal(firstViewportNeedsReview({ ...emptyAtmosphere, score: atmosphericScore }), true);
+  assert.ok(functionalScore > atmosphericScore);
+});
+
+test("material-commerce brief receives a task-bearing opening without banning a cinematic hero", () => {
+  const analysis = analyzeBriefLocally("A Cairo print studio has five notebook lines. Wholesale bookshops must compare paper weight, binding, batch size, and price before ordering. Avoid gift-shop language and beige craft styling.");
+  const plan = generateDesignPlanLocally(analysis);
+  const spec = buildVerveProjectSpec({
+    analysis,
+    plan,
+    framework: "html",
+    assetBundle: {
+      photos: [], icons: [], extractedPalette: [], warnings: [], readinessWarnings: [],
+      font: { family: "Arial", weights: [400, 700], cssImport: "none", isGoogleFont: false, source: "fallback" },
+      mediaRequirement: { level: "recommended", minimumAssets: 0, reason: "Material evidence is useful when supplied.", suggestedSubjects: ["paper grain", "binding edge"] },
+      assetSummary: "No approved media.",
+    },
+  });
+
+  assert.match(spec.experience.firstViewport.primaryAction, /compare/i);
+  assert.match(spec.experience.firstViewport.rationale, /scale is unrestricted/i);
+  assert.equal(validateVerveProjectSpec(spec).valid, true);
 });
 
 test("Direction Portfolio balances quality and structural diversity without extra project generations", () => {
@@ -770,6 +820,7 @@ test("every public demo is a complete, runnable native project", () => {
     structuralCells.add(`${demo.receipt.direction.topology}/${demo.receipt.direction.opening}/${demo.receipt.direction.navigation}`);
     const validation = validateGeneratedProject(demo.result.project);
     assert.equal(validation.failed, 0, `${demo.id}: ${JSON.stringify(validation.checks)}`);
+    assert.equal(validation.checks.find((item) => item.id === "first-viewport-contract")?.status, "pass", demo.id);
     assert.match(buildHtmlPreviewDocument(demo.result.project, `${demo.id}-probe`), new RegExp(`${demo.id}-probe`));
   }
   assert.equal(structuralCells.size, 6);
@@ -1334,6 +1385,8 @@ test("Render Gate instrumentation stays ephemeral and supports HTML and React pr
   const htmlFiles = instrumentSandboxFiles(htmlProject, "probe-html");
   assert.match(htmlFiles["/index.html"].code, /__verve_render_probe\.js/);
   assert.match(htmlFiles["/__verve_render_probe.js"].code, /parent\.postMessage/);
+  assert.match(htmlFiles["/__verve_render_probe.js"].code, /data-verve-primary-action/);
+  assert.match(htmlFiles["/__verve_render_probe.js"].code, /Opening size is not scored/);
   assert.equal(htmlProject.files[0].content, originalHtml);
 
   const reactProject = {
@@ -1363,6 +1416,9 @@ test("Render Gate accepts only reports for the active probe", () => {
   assert.equal(isRenderGateReport(report, "active"), true);
   assert.equal(isRenderGateReport(report, "other"), false);
   assert.equal(isRenderGateReport({ ...report, checks: [{ ...report.checks[0], status: "unknown" }] }, "active"), false);
+  const withFirstViewport = { ...report, firstViewport: { taskSignalCount: 2, taskCoverage: 1, informationSalience: 0.8, primaryActionVisible: true, actionClarity: 1, scrollCost: 0, score: 0.95 } };
+  assert.equal(isRenderGateReport(withFirstViewport, "active"), true);
+  assert.equal(isRenderGateReport({ ...withFirstViewport, firstViewport: { ...withFirstViewport.firstViewport, score: 4 } }, "active"), false);
 });
 
 test("Render Gate requires evidence at 360, 768, and 1440 before passing", () => {
@@ -1374,6 +1430,7 @@ test("Render Gate requires evidence at 360, 768, and 1440 before passing", () =>
     viewport: { width, height: 900, documentWidth: width },
     checks: [{ id: "horizontal-overflow", title: "Responsive width", status, message: "Measured" }],
     fingerprint,
+    firstViewport: { taskSignalCount: 2, taskCoverage: 1, informationSalience: 0.8, primaryActionVisible: true, actionClarity: 1, scrollCost: 0, score: width === 360 ? 0.72 : 0.95 },
   });
   let matrix = createRenderEvidenceMatrix();
   matrix = recordRenderEvidence(matrix, report(360));
@@ -1383,6 +1440,7 @@ test("Render Gate requires evidence at 360, 768, and 1440 before passing", () =>
   matrix = recordRenderEvidence(matrix, report(1440));
   assert.equal(matrix.complete, true);
   assert.equal(matrix.status, "pass");
+  assert.equal(matrix.firstViewportScore, 0.72);
   matrix = recordRenderEvidence(matrix, report(768, "fail"));
   assert.equal(matrix.status, "fail");
   assert.equal(matrix.failures, 1);
@@ -1462,6 +1520,29 @@ test("project validation detects clipping, weak React keys, tiny text and missin
   for (const id of ["mobile-clipping", "react-keys", "tiny-text", "font-assets"]) {
     assert.ok(validation.checks.some((item) => item.id === id && item.status === "warning"), id);
   }
+});
+
+test("project validation distinguishes a task-bearing hero from an empty atmospheric opening", () => {
+  const recovery = buildRecoveryProject("Opening fixture", "html", "test");
+  const functional = {
+    ...recovery,
+    files: recovery.files.map((file) => file.path === "index.html" ? {
+      ...file,
+      content: `<!doctype html><html><body><main><section style="min-height:100vh"><h1 data-verve-task="primary-object">Riso Notebook</h1><dl data-verve-task="decision-evidence"><dt>Paper</dt><dd>120gsm recycled</dd></dl><a href="#compare" data-verve-primary-action>Compare all lines</a></section><section id="compare">Comparison</section></main></body></html>`,
+    } : file),
+  };
+  const atmospheric = {
+    ...recovery,
+    files: recovery.files.map((file) => file.path === "index.html" ? {
+      ...file,
+      content: `<!doctype html><html><body><main><section style="min-height:100vh"><h1>Objects made slowly</h1><p>Discover our story.</p></section></main></body></html>`,
+    } : file),
+  };
+
+  const functionalCheck = validateGeneratedProject(functional).checks.find((item) => item.id === "first-viewport-contract");
+  const atmosphericCheck = validateGeneratedProject(atmospheric).checks.find((item) => item.id === "first-viewport-contract");
+  assert.equal(functionalCheck?.status, "pass");
+  assert.equal(atmosphericCheck?.status, "warning");
 });
 
 test("static HTML projects ship truthful no-build instructions", () => {

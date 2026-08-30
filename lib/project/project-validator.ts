@@ -94,6 +94,14 @@ export function validateGeneratedProject(project: GeneratedProject): ProjectVali
     : check("dependencies", "Package dependencies", "fail", `Undeclared packages: ${undeclared.slice(0, 4).join("; ")}.`));
 
   const combined = inspectableFiles(project).map((file) => file.content).join("\n");
+  const firstViewportTaskSignals = new Set(
+    [...combined.matchAll(/\bdata-verve-task\s*=\s*["'](primary-object|decision-evidence)["']/gi)]
+      .map((match) => match[1].toLowerCase())
+  );
+  const hasPrimaryActionSignal = /\bdata-verve-primary-action(?=[\s=>/])(?:\s*=\s*(?:["'][^"']*["']|\{true\}))?/i.test(combined);
+  checks.push(firstViewportTaskSignals.size >= 2 && hasPrimaryActionSignal
+    ? check("first-viewport-contract", "First viewport contract", "pass", "Source declares distinct primary-object and decision-evidence signals plus a primary action; the Render Gate will confirm that they are initially visible.")
+    : check("first-viewport-contract", "First viewport contract", "warning", `Opening measurement hooks are incomplete (${firstViewportTaskSignals.size}/2 task signals, primary action ${hasPrimaryActionSignal ? "declared" : "missing"}). Add truthful data-verve-task and data-verve-primary-action markers without changing the composition's scale.`));
   checks.push(/innerHTML|dangerouslySetInnerHTML/i.test(combined)
     ? check("html-injection", "HTML injection", "fail", "Unsafe HTML injection API detected.")
     : check("html-injection", "HTML injection", "pass", "No HTML injection API detected."));

@@ -1,10 +1,11 @@
 import type { GeneratedProject } from "./types";
 import { replaceOwnedAssetReferences } from "./brand-kit";
+import { FIRST_VIEWPORT_THRESHOLDS, type FirstViewportEvidence } from "../domain/first-viewport";
 
 export type SandboxFileMap = Record<string, { code: string }>;
 
 export type RenderGateCheck = {
-  id: "horizontal-overflow" | "runtime-errors" | "tiny-text" | "image-alt" | "duplicate-ids" | "button-names";
+  id: "horizontal-overflow" | "runtime-errors" | "tiny-text" | "image-alt" | "duplicate-ids" | "button-names" | "first-viewport-effectiveness";
   title: string;
   status: "pass" | "warning" | "fail";
   message: string;
@@ -28,6 +29,7 @@ export type RenderGateReport = {
   viewport: { width: number; height: number; documentWidth: number };
   checks: RenderGateCheck[];
   fingerprint: VisualFingerprint;
+  firstViewport?: FirstViewportEvidence;
 };
 
 function vectorDistance(left: number[], right: number[]): number {
@@ -71,6 +73,7 @@ export type RenderEvidenceMatrix = {
   score: number;
   failures: number;
   warnings: number;
+  firstViewportScore: number | null;
 };
 
 export function createRenderEvidenceMatrix(): RenderEvidenceMatrix {
@@ -82,6 +85,7 @@ export function createRenderEvidenceMatrix(): RenderEvidenceMatrix {
     score: 85,
     failures: 0,
     warnings: 0,
+    firstViewportScore: null,
   };
 }
 
@@ -105,6 +109,7 @@ export function recordRenderEvidence(
   const warnings = checks.filter((check) => check.status === "warning").length;
   const covered = captured.length;
   const complete = covered === RENDER_EVIDENCE_WIDTHS.length;
+  const firstViewportScores = captured.flatMap((item) => item.firstViewport ? [item.firstViewport.score] : []);
   const status = failures > 0
     ? "fail"
     : warnings > 0
@@ -121,6 +126,7 @@ export function recordRenderEvidence(
     score: Math.max(0, 100 - failures * 35 - warnings * 8 - (RENDER_EVIDENCE_WIDTHS.length - covered) * 5),
     failures,
     warnings,
+    firstViewportScore: firstViewportScores.length ? Math.min(...firstViewportScores) : null,
   };
 }
 
@@ -237,6 +243,52 @@ export function createRenderProbeSource(probeId: string): string {
     const colorTotal = Math.max(1, [...colors.values()].reduce((sum, value) => sum + value, 0));
     const colorHistogram = [...colors.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([color, count]) => ({ color, weight: Number((count / colorTotal).toFixed(3)) }));
     const viewportArea = Math.max(1, width * window.innerHeight);
+    const inFirstViewport = (element) => {
+      if (!visible(element)) return false;
+      const rect = element.getBoundingClientRect();
+      return rect.bottom > 0 && rect.top < window.innerHeight && rect.right > 0 && rect.left < width;
+    };
+    const hasTaskContent = (element) => (element.textContent || "").trim().length >= 2
+      || element.matches("img,video,canvas,svg,input,select,button,a[href]")
+      || Boolean(element.querySelector("img,video,canvas,svg,input,select,button,a[href],table,dl"));
+    const taskElements = [...document.querySelectorAll("[data-verve-task]")]
+      .filter((element) => inFirstViewport(element) && hasTaskContent(element));
+    const taskSignalNames = new Set(taskElements
+      .map((element) => element.getAttribute("data-verve-task"))
+      .filter((value) => value === "primary-object" || value === "decision-evidence"));
+    const primaryActionElements = [...document.querySelectorAll("[data-verve-primary-action]")];
+    const namedPrimaryActions = primaryActionElements.filter((element) => {
+      if (!inFirstViewport(element) || !element.matches("a[href],button,input,select,textarea,[role=button]")) return false;
+      const labelledBy = element.getAttribute("aria-labelledby");
+      return Boolean((element.textContent || "").trim() || element.getAttribute("aria-label") || element.getAttribute("title") || element.getAttribute("value") || (labelledBy && document.getElementById(labelledBy)));
+    });
+    const taskSignalCount = taskSignalNames.size;
+    const taskCoverage = Math.min(1, taskSignalCount / ${FIRST_VIEWPORT_THRESHOLDS.minimumTaskSignals});
+    const taskArea = taskElements.reduce((sum, element) => {
+      const rect = element.getBoundingClientRect();
+      const visibleWidth = Math.max(0, Math.min(width, rect.right) - Math.max(0, rect.left));
+      const visibleHeight = Math.max(0, Math.min(window.innerHeight, rect.bottom) - Math.max(0, rect.top));
+      return sum + Math.min(viewportArea * 0.08, visibleWidth * visibleHeight);
+    }, 0);
+    const informationSalience = Math.min(1, taskArea / Math.max(1, viewportArea * 0.12));
+    const primaryActionVisible = namedPrimaryActions.length > 0;
+    const actionClarity = primaryActionVisible ? 1 : 0;
+    const nearestActionTop = primaryActionElements.reduce((nearest, element) => Math.min(nearest, Math.max(0, element.getBoundingClientRect().top)), Number.POSITIVE_INFINITY);
+    const scrollCost = primaryActionVisible ? 0 : Number.isFinite(nearestActionTop) ? Math.min(1, Math.max(0, nearestActionTop - window.innerHeight) / Math.max(1, window.innerHeight)) : 1;
+    const firstViewportScore = Math.min(1, (
+      taskCoverage * ${FIRST_VIEWPORT_THRESHOLDS.taskCoverageWeight}
+      + informationSalience * ${FIRST_VIEWPORT_THRESHOLDS.informationSalienceWeight}
+      + actionClarity * ${FIRST_VIEWPORT_THRESHOLDS.actionClarityWeight}
+    ) / (1 + scrollCost * ${FIRST_VIEWPORT_THRESHOLDS.scrollCostWeight}));
+    const firstViewport = {
+      taskSignalCount,
+      taskCoverage: Number(taskCoverage.toFixed(3)),
+      informationSalience: Number(informationSalience.toFixed(3)),
+      primaryActionVisible,
+      actionClarity,
+      scrollCost: Number(scrollCost.toFixed(3)),
+      score: Number(firstViewportScore.toFixed(3))
+    };
     const mediaArea = [...document.querySelectorAll("img,video,canvas,svg")].filter(visible).reduce((sum, element) => { const rect = element.getBoundingClientRect(); return sum + Math.max(0, rect.width) * Math.max(0, Math.min(window.innerHeight, rect.bottom) - Math.max(0, rect.top)); }, 0);
     const interactionCount = visibleElements.filter((element) => element.matches("a,button,input,select,textarea,[role=button],[tabindex]")).length;
     const roundedCount = visibleElements.filter((element) => parseFloat(getComputedStyle(element).borderRadius) >= 8).length;
@@ -262,9 +314,10 @@ export function createRenderProbeSource(probeId: string): string {
       { id: "tiny-text", title: "Rendered text size", status: tinyText.length ? "warning" : "pass", message: tinyText.length ? "Visible text below 10px: " + tinyText.join(", ") : "No visible text below 10px detected." },
       { id: "image-alt", title: "Rendered image alternatives", status: missingAlt.length ? "warning" : "pass", message: missingAlt.length ? "Images without alt: " + missingAlt.join(", ") : "Every rendered image has an alt attribute." },
       { id: "duplicate-ids", title: "Rendered element identity", status: duplicateIds.length ? "warning" : "pass", message: duplicateIds.length ? "Duplicate ids: " + duplicateIds.join(", ") : "No duplicate rendered ids detected." },
-      { id: "button-names", title: "Rendered button names", status: unnamedButtons.length ? "warning" : "pass", message: unnamedButtons.length ? "Unnamed buttons: " + unnamedButtons.join(", ") : "Every rendered button has an accessible name." }
+      { id: "button-names", title: "Rendered button names", status: unnamedButtons.length ? "warning" : "pass", message: unnamedButtons.length ? "Unnamed buttons: " + unnamedButtons.join(", ") : "Every rendered button has an accessible name." },
+      { id: "first-viewport-effectiveness", title: "First viewport effectiveness", status: taskSignalCount < ${FIRST_VIEWPORT_THRESHOLDS.minimumTaskSignals} || !primaryActionVisible || firstViewportScore < ${FIRST_VIEWPORT_THRESHOLDS.reviewScore} ? "warning" : "pass", message: "FVE " + firstViewport.score.toFixed(2) + ": " + taskSignalCount + "/${FIRST_VIEWPORT_THRESHOLDS.minimumTaskSignals} task signals, information salience " + firstViewport.informationSalience.toFixed(2) + ", primary action " + (primaryActionVisible ? "visible" : "not visible") + ". Opening size is not scored." }
     ];
-    parent.postMessage({ source: "verve-render-gate", probeId: PROBE_ID, sequence: ++sequence, viewport: { width, height: window.innerHeight, documentWidth }, checks, fingerprint }, "*");
+    parent.postMessage({ source: "verve-render-gate", probeId: PROBE_ID, sequence: ++sequence, viewport: { width, height: window.innerHeight, documentWidth }, checks, fingerprint, firstViewport }, "*");
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", schedule, { once: true });
   else schedule();
@@ -310,6 +363,7 @@ export function instrumentSandboxFiles(project: GeneratedProject, probeId: strin
 export function isRenderGateReport(value: unknown, probeId: string): value is RenderGateReport {
   if (!value || typeof value !== "object") return false;
   const report = value as Partial<RenderGateReport>;
+  const boundedUnit = (candidate: unknown) => typeof candidate === "number" && Number.isFinite(candidate) && candidate >= 0 && candidate <= 1;
   return report.source === "verve-render-gate"
     && report.probeId === probeId
     && typeof report.sequence === "number"
@@ -331,9 +385,20 @@ export function isRenderGateReport(value: unknown, probeId: string): value is Re
     && typeof report.fingerprint.interactionDensity === "number"
     && typeof report.fingerprint.roundedness === "number"
     && typeof report.fingerprint.routeCount === "number"
+    && (!report.firstViewport || (
+      Number.isInteger(report.firstViewport.taskSignalCount)
+      && report.firstViewport.taskSignalCount >= 0
+      && report.firstViewport.taskSignalCount <= 2
+      && boundedUnit(report.firstViewport.taskCoverage)
+      && boundedUnit(report.firstViewport.informationSalience)
+      && typeof report.firstViewport.primaryActionVisible === "boolean"
+      && boundedUnit(report.firstViewport.actionClarity)
+      && boundedUnit(report.firstViewport.scrollCost)
+      && boundedUnit(report.firstViewport.score)
+    ))
     && report.checks.length <= 10
     && report.checks.every((item) => item
-      && ["horizontal-overflow", "runtime-errors", "tiny-text", "image-alt", "duplicate-ids", "button-names"].includes(item.id)
+      && ["horizontal-overflow", "runtime-errors", "tiny-text", "image-alt", "duplicate-ids", "button-names", "first-viewport-effectiveness"].includes(item.id)
       && ["pass", "warning", "fail"].includes(item.status)
       && typeof item.title === "string"
       && item.title.length <= 120

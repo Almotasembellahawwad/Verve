@@ -14,6 +14,7 @@ Verve is an open-source project intelligence engine for generating distinctive w
 - **Private local design memory** — the browser keeps only bounded structural and numeric DOM fingerprints, including a 12×12 occupancy grid, type distribution, color histogram, media/interaction density, section rhythm, and route count. Briefs, code, images, and API keys are never stored in this memory.
 - **Inspectable Stage Graph** — deterministic post-plan work now runs as immutable, independently testable experience-contract and direction-diversity stages.
 - **Three-viewport render evidence** — HTML and React readiness cannot pass from one convenient preview. Render Gate retains separate evidence at 360, 768, and 1440 pixels and triggers one bounded Creative retry when the delivered structure repeats Verve's house composition.
+- **Task-bearing openings** — ProjectSpec allows compact, split, or viewport-filling openings. [First Viewport Effectiveness](docs/FIRST_VIEWPORT_EFFECTIVENESS.md) measures visible task signals, information salience, primary-action clarity, and scroll cost; opening size itself is never rewarded or penalized.
 - **Fast stays fast** — one board call plus one code call. Creative normally spends five calls and is bounded at seven when a plan revision, code repair, or one diversity retry is needed.
 
 ### Research rationale
@@ -164,7 +165,7 @@ Spoken or written brief + optional owned brand kit
         ↓
 [04] Deterministic contrast correction
         |
-[04.1] VerveProjectSpec experience contract
+[04.1] VerveProjectSpec experience + task-bearing opening contract
         |
 [04.2] Quality-diversity assessment + local novelty memory
         ↓
@@ -172,7 +173,7 @@ Spoken or written brief + optional owned brand kit
         ↓
 [05.5] Syntax validation ─ deterministic in Fast / bounded repair in Creative
         ↓
-[06] Distinctiveness + template diversity + engineering evidence
+[06] Distinctiveness + template diversity + first-viewport + engineering evidence
         ↓
 [07] Project Engine → files + dependencies + scripts + README + warnings
         ↓

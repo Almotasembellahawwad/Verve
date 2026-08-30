@@ -21,6 +21,16 @@ test("all six frozen examples pass the three-width render contract", async ({ pa
         const unnamedButtons = [...document.querySelectorAll<HTMLButtonElement>("button")]
           .filter((button) => !(button.textContent ?? "").trim() && !button.getAttribute("aria-label") && !button.title)
           .length;
+        const inFirstViewport = (element: Element) => {
+          const rect = element.getBoundingClientRect();
+          const style = getComputedStyle(element);
+          return style.display !== "none" && style.visibility !== "hidden" && rect.bottom > 0 && rect.top < window.innerHeight;
+        };
+        const taskSignals = new Set([...document.querySelectorAll<HTMLElement>("[data-verve-task]")]
+          .filter(inFirstViewport)
+          .map((element) => element.dataset.verveTask));
+        const primaryActionVisible = [...document.querySelectorAll<HTMLElement>("[data-verve-primary-action]")]
+          .some(inFirstViewport);
         return {
           viewport: document.documentElement.clientWidth,
           documentWidth: document.documentElement.scrollWidth,
@@ -29,6 +39,8 @@ test("all six frozen examples pass the three-width render contract", async ({ pa
           duplicates: [...new Set(duplicates)],
           lang: document.documentElement.lang,
           dir: document.documentElement.dir,
+          taskSignalCount: taskSignals.size,
+          primaryActionVisible,
         };
       });
       expect(audit.documentWidth, `${demo.id} overflows at ${width}px`).toBeLessThanOrEqual(audit.viewport + 1);
@@ -37,6 +49,8 @@ test("all six frozen examples pass the three-width render contract", async ({ pa
       expect(audit.duplicates, `${demo.id} has duplicate element ids`).toEqual([]);
       expect(audit.lang, `${demo.id} has no document language`).not.toBe("");
       if (demo.id === "cairo") expect(audit.dir).toBe("rtl");
+      expect(audit.taskSignalCount, `${demo.id} lacks first-viewport task evidence at ${width}px`).toBeGreaterThanOrEqual(2);
+      expect(audit.primaryActionVisible, `${demo.id} postpones its primary action at ${width}px`).toBe(true);
       expect(runtimeErrors, `${demo.id} raised a runtime error at ${width}px`).toEqual([]);
     }
   }

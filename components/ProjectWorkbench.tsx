@@ -220,7 +220,7 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
     : validation.status === "review-required" || project.warnings.length > 0 || renderWarnings > 0 || visualReviewRequired
       ? "review-required"
       : "ready";
-  const renderGateStatus = `${renderEvidence.status.toUpperCase()} ${renderEvidence.covered}/3`;
+  const renderGateStatus = `${renderEvidence.status.toUpperCase()} ${renderEvidence.covered}/3${renderEvidence.firstViewportScore == null ? "" : ` · FVE ${renderEvidence.firstViewportScore.toFixed(2)}`}`;
 
   useEffect(() => {
     const receiveReport = (event: MessageEvent<unknown>) => {

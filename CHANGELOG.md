@@ -6,12 +6,15 @@ All notable changes to Verve are documented here.
 
 ### Added
 
+- Added a task-bearing opening contract and First Viewport Effectiveness render evidence at 360, 768, and 1440 pixels. The metric evaluates task coverage, information salience, action clarity, and scroll cost without treating hero scale as a quality proxy.
 - Added a human-gated AI Development Studio to `/editor`: Fast stages one targeted model call, while Studio uses a bounded plan and implementation pass.
 - Added multi-file proposal preview, deterministic validation receipts, accept/reject decisions, automatic pre-AI rollback snapshots, and a browser-local iteration trail.
 - Added `/create` as the focused generation destination and `/examples` as the single home for runnable case stories and their evidence.
 
 ### Changed
 
+- Replaced the blanket oversized-hero warning in direction, planning, and code prompts with a functional rule: cinematic openings are valid when they carry verified decision information and an immediate primary action.
+- Added a conservative local Print / Stationery brief classification for material-specification and wholesale-comparison work.
 - Reduced global navigation to Create, Examples, Editor, and Docs, with Settings and GitHub treated as utilities.
 - Reframed the homepage around one product promise, one three-step flow, one live example, and one primary call to action.
 - Rebuilt the editor as a preview-first application shell with explicit Preview, Code, AI, Checks, and Project controls.
