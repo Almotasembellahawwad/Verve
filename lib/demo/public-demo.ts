@@ -22,8 +22,8 @@ const demoHtml = `<!doctype html>
     <section class="hero" aria-labelledby="hero-title">
       <div class="season"><span>موسم ٠٣</span><b>الطماطم البلدية · الليمون المخلل · النعناع</b></div>
       <p class="kicker">القاهرة · الزمالك · منذ ٢٠٢٦</p>
-      <h1 id="hero-title">القاهرة<br><em>تُقدَّم</em><br>على مهل.</h1>
-      <div class="hero-foot"><p>وصفات مصرية لا تتنكر في هيئة أخرى. نطبخ من السوق، ونكتب اسم القرية بجانب كل طبق.</p><a href="#menu">اقرأ مائدة المساء <span aria-hidden="true">↓</span></a></div>
+      <h1 id="hero-title" data-verve-task="primary-object">القاهرة<br><em>تُقدَّم</em><br>على مهل.</h1>
+      <div class="hero-foot"><p data-verve-task="decision-evidence">وصفات مصرية لا تتنكر في هيئة أخرى. نطبخ من السوق، ونكتب اسم القرية بجانب كل طبق.</p><a href="#menu" data-verve-primary-action>اقرأ مائدة المساء <span aria-hidden="true">↓</span></a></div>
       <div class="sun" aria-hidden="true"><span>٣٠°</span><i></i><small>قبل الغروب</small></div>
     </section>
     <section class="menu" id="menu" aria-labelledby="menu-title">

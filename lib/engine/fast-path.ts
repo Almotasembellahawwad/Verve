@@ -136,7 +136,7 @@ export function generateDesignPlanLocally(analysis: BriefAnalysis): DesignPlan {
     display: "Arial, Helvetica, sans-serif",
     signature: "The Decision Line",
     topology: [
-      "Lead with the primary task or evidence surface instead of a marketing hero.",
+      "Make the opening task-bearing: its scale may be compact or cinematic, but the primary object, verified evidence, and immediate action must be visible without a marketing prelude.",
       "Organize the page around one decision sequence with compact contextual copy.",
       "End at the truthful action state without repeating a generic navigation footer.",
     ],

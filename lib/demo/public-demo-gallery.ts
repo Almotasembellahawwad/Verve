@@ -56,9 +56,9 @@ const architectureHtml = `<!doctype html>
       <figure class="hero-image"><img src="/demo-assets/reframe-retention-study.webp" alt="Weathered London industrial building with a translucent adaptive-reuse insertion"><figcaption>Generated material study / fictional site / 2026</figcaption></figure>
       <div class="datum" aria-hidden="true" style="font-size:10px"><span>51°30′N</span><i></i><span>0°07′W</span></div>
       <p class="eyebrow">Existing fabric / future use / less extraction</p>
-      <h1 id="hero-title">The building<br><em>already knows.</em></h1>
-      <div class="hero-note"><b>01 / Position</b><p>We begin with what is load-bearing, weathered, useful—and worth keeping. New architecture follows the evidence.</p></div>
-      <a class="down" href="#register">Read the fabric <span aria-hidden="true">↓</span></a>
+      <h1 id="hero-title" data-verve-task="primary-object">The building<br><em>already knows.</em></h1>
+      <div class="hero-note" data-verve-task="decision-evidence"><b>01 / Position</b><p>We begin with what is load-bearing, weathered, useful—and worth keeping. New architecture follows the evidence.</p></div>
+      <a class="down" href="#register" data-verve-primary-action>Read the fabric <span aria-hidden="true">↓</span></a>
     </section>
     <section class="register" id="register" aria-labelledby="register-title">
       <header><p>Retention register / conceptual work</p><h2 id="register-title">Three ways to<br>keep more.</h2><small>All studies below are fictional and created for this interactive Verve demo.</small></header>
@@ -150,12 +150,12 @@ const carbonHtml = `<!doctype html>
 </head>
 <body>
   <a class="skip" href="#main">Skip to operations</a>
-  <header class="nav"><a class="logo" href="#main">LEDGER/<b>LINE</b></a><p>Carbon operations<br>Demo environment</p><nav aria-label="Primary navigation"><a href="#ledger">Ledger</a><a href="#method">Method</a></nav><a class="login" href="#ledger">Open demo</a></header>
+  <header class="nav"><a class="logo" href="#main">LEDGER/<b>LINE</b></a><p>Carbon operations<br>Demo environment</p><nav aria-label="Primary navigation"><a href="#ledger">Ledger</a><a href="#method">Method</a></nav><a class="login" href="#ledger" data-verve-primary-action>Open demo</a></header>
   <main id="main">
     <section class="hero" aria-labelledby="hero-title">
       <p class="eyebrow">For manufacturing operators / sample data only</p>
-      <h1 id="hero-title">Carbon data<br>the factory<br><em>can act on.</em></h1>
-      <div class="reading"><small>Portfolio intensity / demo</small><strong>0.82</strong><span>tCO₂e / unit</span><i>Illustrative value</i></div>
+      <h1 id="hero-title" data-verve-task="primary-object">Carbon data<br>the factory<br><em>can act on.</em></h1>
+      <div class="reading" data-verve-task="decision-evidence"><small>Portfolio intensity / demo</small><strong>0.82</strong><span>tCO₂e / unit</span><i>Illustrative value</i></div>
       <p class="intro">Trace every number to a source, assign the exception, and close the week with evidence—not another reporting deck.</p>
     </section>
     <section class="ledger" id="ledger" aria-labelledby="ledger-title">

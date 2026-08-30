@@ -80,7 +80,7 @@ export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly
       : validation.status === "review-required" || project.warnings.length > 0 || renderWarnings > 0 || visualReviewRequired
         ? "review-required"
         : "ready";
-  const renderGateStatus = `${renderEvidence.status.toUpperCase()} ${renderEvidence.covered}/3`;
+  const renderGateStatus = `${renderEvidence.status.toUpperCase()} ${renderEvidence.covered}/3${renderEvidence.firstViewportScore == null ? "" : ` · FVE ${renderEvidence.firstViewportScore.toFixed(2)}`}`;
 
   const receiveReport = useEffectEvent((message: MessageEvent<unknown>) => {
     if (message.source !== iframeRef.current?.contentWindow) return;
