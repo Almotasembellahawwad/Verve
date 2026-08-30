@@ -79,7 +79,7 @@ function DocsContent() {
         <section id="architecture" className={styles.section}>
           <h2 className={styles.sectionTitle}>Architecture</h2>
           <p className={styles.sectionLead}>
-            Think of the pipeline as four phases: Understand, Direct, Build, and Prove. The numbered modules make failures inspectable; they are not separate agents. Fast mode uses two core model calls and local preflight rules, while Studio adds adversarial critique and bounded repair. Both modes return the same runnable project contract.
+            Think of the pipeline as four phases: Understand, Explore, Build, and Prove. The numbered modules make failures inspectable; they are not separate agents. Fast uses one direction-board call plus one code call. Creative uses two independent direction batches, selected-plan expansion, critique, and code, with a bounded repair or diversity retry. Both modes return the same runnable project contract.
           </p>
           <p className={styles.sectionLead}>
             Delivery continues in the local-first <Link href="/editor">project editor</Link>: complete projects autosave to IndexedDB, keep bounded revisions, and re-run deterministic validation as source changes. HTML and React preview live; full Next.js remains an honest inspect, edit, and export boundary.
@@ -93,8 +93,8 @@ function DocsContent() {
               { id: "02.6", name: "Motion Language",     file: "animation-language.ts", desc: "Derives duration and easing tokens from the chosen archetype, including reduced-motion behavior." },
               { id: "03", name: "Plan + Critique",       file: "plan-generator.ts + critique-loop.ts",  desc: "Builds the design thesis and one signature element, then rejects and revises plans that remain generic." },
               { id: "04", name: "Contrast Enforcement", file: "contrast-fixer.ts",   desc: "Checks intended text/background pairs and applies one stable WCAG AA correction per text token." },
-              { id: "04.1", name: "Direction Selection", file: "direction-portfolio.ts + structural-fingerprint.ts", desc: "Assesses three directions against fit, feasibility, structural distance, the retired Verve house style, and browser-local delivered-project memory; then enforces the strongest direction without adding a provider call." },
-              { id: "04.2", name: "Experience Contract", file: "project-spec-builder.ts", desc: "Compiles the enforced direction with intent, facts, sections, components, interactions, responsive behavior, media policy, and brand invariants into a bounded VerveProjectSpec before code exists." },
+              { id: "04.1", name: "Direction Selection", file: "direction-board.ts + direction-portfolio.ts", desc: "Assesses six directions across fixed combinational, exploratory, and transformational cells. Selection applies a quality floor, then archive distance, then brief fit; estimated likelihood is not a reward." },
+              { id: "04.2", name: "Experience Contract", file: "project-spec-builder.ts", desc: "Compiles the chosen direction into ProjectSpec v2: complexity profile, routes, nested regions, components, interaction states, responsive compositions, visual depth, media policy, and bounded source-file budgets." },
               { id: "05", name: "Code Generation",       file: "code-generator.ts",  desc: "Generates full component code — responsive, accessible, prefers-reduced-motion aware. Output only produced after plan passes critique. Supports Next.js, React, and HTML+CSS." },
               { id: "05.5", name: "Syntax + Repair",     file: "code-quality-loop.ts", desc: "Parses TSX with TypeScript, verifies structure and the signature element, and performs one bounded repair pass." },
               { id: "06", name: "Proof Gates",           file: "scorer + diversity + engineering", desc: "Scores the delivered code, detects Verve's own repeated house template, and keeps visual distinctiveness separate from engineering and production readiness." },
@@ -142,13 +142,30 @@ export async function runGenerationUseCase(input, dependencies) {
 
           {[
             {
+              method: "POST", path: "/api/directions/stream",
+              desc: "Explore the six lightweight directions before code. Fast uses one call; Creative uses two independent three-direction calls. The response checkpoint is stateless, bounded, and tied to the exact brief, framework, mode, and brand profile.",
+              request: `{
+  "brief": "A bilingual civic service that guides residents through permit eligibility.",
+  "framework": "nextjs",
+  "mode": "creative",
+  "provider": "anthropic",
+  "apiKey": "sk-ant-api03-..."
+}`,
+              response: `event: directions:start
+event: heartbeat
+event: directions:complete
+data: { "board": { "portfolio": { "candidates": ["six bounded directions"] } }, "checkpoint": { "schemaVersion": 1 } }`,
+            },
+            {
               method: "POST", path: "/api/generate",
-              desc: "Run Fast or Studio generation. Returns the plan, validated entry code, complete project files, warnings, contrast report, and both scoring axes.",
+              desc: "Run Fast or Creative generation from an input-bound Direction Board checkpoint. Older requests without a checkpoint remain compatible and auto-select a Fast direction.",
               request: `{
   "brief": "A landing page for a carbon accounting SaaS targeting manufacturing CFOs.",
   "existingCode": "<optional — HTML/JSX/CSS to redesign>",
   "framework": "nextjs",  // "nextjs" | "react" | "html"
-  "mode": "fast",         // "fast" | "studio"
+  "mode": "fast",         // "fast" | "creative"; "studio" is an alias
+  "selectedDirectionId": "optional-board-candidate-id",
+  "directionCheckpoint": { "schemaVersion": 1, "inputHash": "...", "board": {} },
   "apiKey": "sk-ant-api03-..."
 }`,
               response: `{
@@ -191,7 +208,9 @@ export async function runGenerationUseCase(input, dependencies) {
 event: stage_start
 event: heartbeat       // { stageElapsedMs, totalElapsedMs }
 event: stage_retry
-event: stage_degraded  // optional Studio review used local fallback
+event: stage_degraded  // optional Creative review used local fallback
+event: diversity:check
+event: diversity:retry // at most once in Creative
 event: stage_done
 event: result
 
@@ -313,7 +332,7 @@ event: recovery`,
             {
               file: "plan-generator.ts",
               exports: "generateDesignPlan(analysis, blocklistInjection, previousCritique?): Promise<DesignPlan>",
-              desc: "Explores exactly three structurally different directions. Verve independently scores and may override the provider's selection, while delivered DOM/CSS traits and recent local fingerprints discourage renamed versions of the same composition without retaining private briefs.",
+              desc: "Explores exactly six directions distributed across combinational, exploratory, and transformational cells. Verve applies a brief-quality floor, then maximizes distance from recent local fingerprints, with no likelihood reward or brand-style imitation.",
             },
             {
               file: "critique-loop.ts",

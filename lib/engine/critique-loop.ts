@@ -177,7 +177,7 @@ Layout: ${plan.layoutConcept.slice(0, 300)}
 Usability baseline stated by designer: ${plan.cognitiveGrounding?.usabilityBaseline ?? "not stated"}`;
 
   // One combined call avoids three simultaneous provider requests, reducing
-  // rate-limit pressure and giving Studio a predictable review deadline.
+  // rate-limit pressure and giving Creative a predictable review deadline.
   const critiqueRaw = await llm.complete([{
     role: "user",
     content: `${planSummary}\n\n=== ENDING INPUT ===\n${planForEndingCheck}\n\n=== USABILITY INPUT ===\n${planForUsability}`,

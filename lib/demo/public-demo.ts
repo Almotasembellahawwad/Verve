@@ -72,9 +72,10 @@ export const PUBLIC_DEMO_PROJECT: GeneratedProject = {
     { path: "styles.css", content: demoCssV2, language: "css", role: "source" },
     { path: "script.js", content: demoScript, language: "javascript", role: "source" },
     { path: "README.md", content: "# مائدة القاهرة — Verve public demo\n\nA pre-generated HTML/CSS project used to let visitors inspect Verve without an API key. Open `index.html` directly or serve the folder with any static server.\n", language: "markdown", role: "documentation" },
+    { path: "ASSETS.md", content: "# Asset manifest\n\n- Typography: local system Arabic/Latin stack; no remote font request.\n- Shapes, service-sun artwork, and market-receipt composition: generated in CSS; Verve-authored.\n- Photography is intentionally absent from this fictional decision-journey direction; no image placeholder or remote request is used.\n- Icons: text and Unicode only.\n", language: "markdown", role: "documentation" },
   ],
-  dependencies: {}, scripts: {}, warnings: ["BLOCKING: Media Gate requires owned restaurant photography before this structure proof can be published as a real venue."],
-  readiness: { status: "blocked", score: 64 },
+  dependencies: {}, scripts: {}, warnings: [],
+  readiness: { status: "ready", score: 96 },
   validation: { status: "ready", score: 96, checks: [], failed: 0, warnings: 0 },
 };
 

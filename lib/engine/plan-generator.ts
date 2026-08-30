@@ -4,9 +4,10 @@ import type { BriefAnalysis } from "./brief-analyzer";
 import { buildCognitiveGroundingPrompt } from "./cognitive-principles";
 import { z } from "zod";
 import type { LLMOptions } from "../llm-adapter/types";
-import type { ReferenceEntry, ReferenceLibraryRepositoryPort } from "../ports/repositories";
-import type { DesignDirectionFingerprint, DirectionPortfolio } from "../domain/design-direction";
-import { createFallbackDirectionPortfolio, normalizeDirectionPortfolio } from "./direction-portfolio";
+import type { ReferenceLibraryRepositoryPort } from "../ports/repositories";
+import type { DesignDirectionFingerprint, DirectionBoard, DirectionPortfolio } from "../domain/design-direction";
+import { applySelectedDirection, createFallbackDirectionPortfolio, normalizeDirectionPortfolio } from "./direction-portfolio";
+import { formatReferencePatternsForPrompt, selectReferencePatterns } from "./reference-retrieval";
 
 export type DesignPlan = {
   colorPalette: { name: string; hex: string; role: string }[];
@@ -37,6 +38,8 @@ export type PlanGenerationOptions = {
   allowSchemaRetry?: boolean;
   referenceRepository?: ReferenceLibraryRepositoryPort;
   recentDirectionFingerprints?: DesignDirectionFingerprint[];
+  directionBoard?: DirectionBoard;
+  selectedDirectionId?: string;
 };
 
 const DirectionCandidateOutputSchema = z.object({
@@ -46,7 +49,6 @@ const DirectionCandidateOutputSchema = z.object({
   distinction: z.string().min(10).max(800),
   briefFit: z.number().min(0).max(100),
   feasibility: z.number().min(0).max(100),
-  estimatedLikelihood: z.number().min(0).max(1),
   dimensions: z.object({
     topology: z.string().min(3).max(500),
     hierarchy: z.string().min(3).max(500),
@@ -59,7 +61,7 @@ const DirectionCandidateOutputSchema = z.object({
 });
 
 const DirectionPortfolioOutputSchema = z.object({
-  candidates: z.array(DirectionCandidateOutputSchema).length(3),
+  candidates: z.array(DirectionCandidateOutputSchema).length(6),
   selectedDirectionId: z.string().min(2).max(80),
   selectionRationale: z.string().min(10).max(1000),
 }).superRefine((portfolio, context) => {
@@ -107,7 +109,6 @@ const DIRECTION_CANDIDATE_JSON_SCHEMA: Record<string, unknown> = {
     distinction: { type: "string", minLength: 10, maxLength: 800 },
     briefFit: { type: "number", minimum: 0, maximum: 100 },
     feasibility: { type: "number", minimum: 0, maximum: 100 },
-    estimatedLikelihood: { type: "number", minimum: 0, maximum: 1 },
     dimensions: {
       type: "object",
       additionalProperties: false,
@@ -123,14 +124,14 @@ const DIRECTION_CANDIDATE_JSON_SCHEMA: Record<string, unknown> = {
       required: ["topology", "hierarchy", "spatialRhythm", "typographyRole", "mediaStrategy", "interactionMetaphor", "signatureMechanism"],
     },
   },
-  required: ["id", "concept", "justification", "distinction", "briefFit", "feasibility", "estimatedLikelihood", "dimensions"],
+  required: ["id", "concept", "justification", "distinction", "briefFit", "feasibility", "dimensions"],
 };
 
 const DIRECTION_PORTFOLIO_JSON_SCHEMA: Record<string, unknown> = {
   type: "object",
   additionalProperties: false,
   properties: {
-    candidates: { type: "array", minItems: 3, maxItems: 3, items: DIRECTION_CANDIDATE_JSON_SCHEMA },
+    candidates: { type: "array", minItems: 6, maxItems: 6, items: DIRECTION_CANDIDATE_JSON_SCHEMA },
     selectedDirectionId: { type: "string", minLength: 2, maxLength: 80 },
     selectionRationale: { type: "string", minLength: 10, maxLength: 1000 },
   },
@@ -196,25 +197,15 @@ const DESIGN_PLAN_JSON_SCHEMA: Record<string, unknown> = {
   required: ["directionPortfolio", "colorPalette", "typePairing", "layoutConcept", "signatureElement", "referencesSampled", "cognitiveGrounding"],
 };
 
-function getRelevantReferences(
-  analysis: BriefAnalysis,
-  repository?: ReferenceLibraryRepositoryPort
-): ReferenceEntry[] {
-  const scored = (repository?.list() ?? []).map((ref) => {
-    let score = 0;
-    if (ref.industry === analysis.industry) score += 3;
-    const toneTags = analysis.tone.toLowerCase().split(/[\s,]+/);
-    toneTags.forEach((t) => {
-      if (ref.mood.some((m) => m.includes(t) || t.includes(m))) score += 1;
-      if (ref.tags.some((tag) => tag.includes(t) || t.includes(tag))) score += 1;
-    });
-    return { ref, score };
-  });
-
-  return scored
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5)
-    .map((s) => s.ref);
+function planResponseSchema(includeDirectionPortfolio: boolean): Record<string, unknown> {
+  if (includeDirectionPortfolio) return DESIGN_PLAN_JSON_SCHEMA;
+  const properties = { ...(DESIGN_PLAN_JSON_SCHEMA.properties as Record<string, unknown>) };
+  delete properties.directionPortfolio;
+  return {
+    ...DESIGN_PLAN_JSON_SCHEMA,
+    properties,
+    required: (DESIGN_PLAN_JSON_SCHEMA.required as string[]).filter((field) => field !== "directionPortfolio"),
+  };
 }
 
 export async function generateDesignPlan(
@@ -226,14 +217,9 @@ export async function generateDesignPlan(
   animationContext?: string,   // Module K injection
   options: PlanGenerationOptions = {}
 ): Promise<DesignPlan> {
-  const refs = getRelevantReferences(analysis, options.referenceRepository);
-
-  const refContext = refs
-    .map(
-      (r) =>
-        `• ${r.name} (${r.industry}): ${r.what_makes_it_work}\n  Techniques: ${r.specific_techniques.join(", ")}`
-    )
-    .join("\n");
+  const refContext = options.referenceRepository
+    ? formatReferencePatternsForPrompt(selectReferencePatterns(analysis, options.referenceRepository))
+    : "No external reference patterns were supplied. Derive the structure only from the brief.";
 
   const critiqueNote = previousCritique
     ? `\n\n=== PREVIOUS CRITIQUE (APPLY AS NEGATIVE FEEDBACK) ===\nThe following elements were flagged as generic defaults. EVERY ONE must be changed:\n${previousCritique}\n=== END CRITIQUE ===\n`
@@ -248,6 +234,12 @@ export async function generateDesignPlan(
   const animationSection = animationContext
     ? `\n${animationContext}\n`
     : "";
+  const selectedBoardDirection = options.directionBoard?.portfolio.candidates.find((candidate) =>
+    candidate.id === (options.selectedDirectionId ?? options.directionBoard?.portfolio.selectedDirectionId)
+  );
+  const directionTask = options.directionBoard
+    ? `Expand ONLY the authoritative selected direction into a complete, coherent plan. Do not generate, compare, rename, or select directions again. Selected direction:\n${JSON.stringify(selectedBoardDirection)}`
+    : "First explore EXACTLY SIX genuinely different design directions for this brief: two combinational, two exploratory, and two transformational. At least five must occupy different topology/opening/navigation cells. They must differ in experience topology, hierarchy, rhythm, media strategy, interaction metaphor, typography role, and signature mechanism—not merely color or font. Do not predict or reward likelihood. Select by brief quality first, then distance from recent Verve structures, then brief fit, and generate one COMPACT, OPINIONATED design plan that implements that selected direction.";
 
   const recentDirectionData = options.recentDirectionFingerprints?.map((fingerprint) => ({
     topology: fingerprint.topology,
@@ -267,7 +259,7 @@ ${blocklistInjection}
 ${cognitivePrompt}
 ${archetypeSection}${animationSection}${recentDirectionSection}
 === YOUR TASK ===
-First explore EXACTLY THREE genuinely different design directions for this brief. They must differ in experience topology, hierarchy, rhythm, media strategy, interaction metaphor, typography role, and signature mechanism—not merely color or font. Give each direction an estimated likelihood relative to the full valid solution distribution; the three likelihoods should sum to approximately 1. Select the strongest quality-diversity direction, then generate one COMPACT, OPINIONATED design plan that implements that selected direction.
+${directionTask}
 
 Rules:
 1. Choose colors that are DERIVED from the subject matter, not from a brand guide default. If the subject involves data, color should reference data. If it involves physical materials, reference those materials.
@@ -280,11 +272,12 @@ Rules:
 8. TOPOLOGY RULE: Choose a domain-native information topology before styling: for example a working ledger, menu path, evidence catalog, spatial plan, timeline, comparison field, or tool surface. Do not default to a 90vh oversized hero followed by stacked manifesto sections.
 9. HOUSE-STYLE BAN: The compound recipe "huge sans headline + one italic serif phrase + full-viewport sections + one bright accent" is now a Verve cliché. Any one trait may be justified; never use the recipe as a whole.
 10. EDITORIAL-REGISTER BAN: Do not repeat Verve's other house topology: split opening + vertical rail/datum + numbered evidence rows + ruled document styling + one full-width image interruption + dark closing folio. Changing its labels to case path, proof index, register, dossier, or journey does not make it a new topology. If the brief genuinely needs records, choose a different opening, rhythm, interaction model, and ending.
+${options.directionBoard ? `\n=== AUTHORITATIVE DIRECTION BOARD ===\n${JSON.stringify({ portfolio: options.directionBoard.portfolio, selectedDirectionId: options.selectedDirectionId ?? options.directionBoard.portfolio.selectedDirectionId })}\n=== END DIRECTION BOARD ===\n` : ""}
 ${critiqueNote}
 
 Respond ONLY in valid JSON with this exact schema:
 {
-  "directionPortfolio": {
+${options.directionBoard ? "" : `  "directionPortfolio": {
     "candidates": [
       {
         "id": "short-stable-id",
@@ -293,7 +286,6 @@ Respond ONLY in valid JSON with this exact schema:
         "distinction": "how it differs in kind from the other directions",
         "briefFit": 0,
         "feasibility": 0,
-        "estimatedLikelihood": 0.0,
         "dimensions": {
           "topology": "string",
           "hierarchy": "string",
@@ -307,7 +299,7 @@ Respond ONLY in valid JSON with this exact schema:
     ],
     "selectedDirectionId": "one candidate id; the plan below MUST implement it",
     "selectionRationale": "quality-diversity reason for choosing it"
-  },
+  },`}
   "colorPalette": [
     { "name": "string", "hex": "#XXXXXX", "role": "string — where/how it's used" }
   ],
@@ -354,7 +346,7 @@ Generate the design plan now.`;
     maxTokens: 4400,
     reasoningEffort: options.reasoningEffort ?? "medium",
     timeoutMs: options.timeoutMs,
-    responseFormat: { name: "design_plan", schema: DESIGN_PLAN_JSON_SCHEMA },
+    responseFormat: { name: "design_plan", schema: planResponseSchema(!options.directionBoard) },
   });
 
   let result = DesignPlanOutputSchema.safeParse(extractJSON<unknown>(raw, "Plan Generator"));
@@ -371,15 +363,32 @@ Generate the design plan now.`;
       maxTokens: 4400,
       reasoningEffort: "low",
       timeoutMs: options.timeoutMs,
-      responseFormat: { name: "design_plan", schema: DESIGN_PLAN_JSON_SCHEMA },
+      responseFormat: { name: "design_plan", schema: planResponseSchema(!options.directionBoard) },
     });
     result = DesignPlanOutputSchema.safeParse(extractJSON<unknown>(raw, "Plan Generator retry"));
   }
   if (!result.success) throw new Error(`Plan Generator returned invalid structured output: ${result.error.issues[0]?.message ?? "unknown schema error"}`);
   const { directionPortfolio: rawPortfolio, ...planData } = result.data;
   const plan: DesignPlan = { ...planData, rawPlan: raw };
-  plan.directionPortfolio = rawPortfolio
-    ? normalizeDirectionPortfolio({ ...rawPortfolio, source: "provider" })
-    : createFallbackDirectionPortfolio(plan, analysis);
-  return plan;
+  if (options.directionBoard) {
+    plan.directionPortfolio = normalizeDirectionPortfolio(options.directionBoard.portfolio);
+    return applySelectedDirection(
+      plan,
+      options.selectedDirectionId ?? options.directionBoard.portfolio.selectedDirectionId,
+      options.selectedDirectionId ? "Selected by the user from the Direction Board." : options.directionBoard.portfolio.selectionRationale
+    );
+  }
+  const fallbackPortfolio = createFallbackDirectionPortfolio(plan, analysis);
+  if (rawPortfolio) {
+    const providerPortfolio = normalizeDirectionPortfolio({ ...rawPortfolio, source: "provider" } as DirectionPortfolio);
+    const usedModels = new Set(providerPortfolio.candidates.map((candidate) => candidate.descriptors.experienceModel));
+    const additions = fallbackPortfolio.candidates.filter((candidate) => !usedModels.has(candidate.descriptors.experienceModel));
+    plan.directionPortfolio = normalizeDirectionPortfolio({
+      ...providerPortfolio,
+      candidates: [...providerPortfolio.candidates, ...additions].slice(0, 6),
+    });
+  } else {
+    plan.directionPortfolio = fallbackPortfolio;
+  }
+  return applySelectedDirection(plan, plan.directionPortfolio.selectedDirectionId, plan.directionPortfolio.selectionRationale);
 }

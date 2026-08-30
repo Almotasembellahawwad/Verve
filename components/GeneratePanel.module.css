@@ -1786,7 +1786,36 @@
   font: .68rem var(--font-plex-mono), monospace;
 }
 
+.directionBoard {
+  display: grid;
+  gap: 18px;
+  margin: 18px 0;
+  padding: clamp(18px, 3vw, 30px);
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-raised) 92%, var(--accent) 8%);
+}
+.directionBoardHeader { display: flex; align-items: end; justify-content: space-between; gap: 20px; }
+.directionBoardHeader span, .directionMeta { color: var(--accent); font: 700 .6rem var(--font-plex-mono), monospace; letter-spacing: .12em; text-transform: uppercase; }
+.directionBoardHeader h3 { max-width: 680px; margin: 8px 0 0; font-size: clamp(1.45rem, 3vw, 2.5rem); line-height: 1; letter-spacing: -.045em; }
+.directionBoardHeader button { min-height: 40px; border: 1px solid var(--accent); background: transparent; color: var(--accent); padding: 0 13px; cursor: pointer; font: 700 .64rem var(--font-plex-mono), monospace; }
+.directionGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.directionCard { position: relative; min-width: 0; display: grid; align-content: start; gap: 12px; padding: 18px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; transition: border-color .16s, transform .16s, background .16s; }
+.directionCard:hover { transform: translateY(-2px); border-color: var(--text-muted); }
+.directionCardActive { border-color: var(--accent); background: color-mix(in srgb, var(--surface) 90%, var(--accent) 10%); }
+.directionCard input { position: absolute; inset: 14px 14px auto auto; accent-color: var(--accent); }
+.directionCard strong { max-width: 90%; font-size: 1rem; line-height: 1.2; }
+.directionCard p { min-height: 4.5em; margin: 0; color: var(--text-muted); font-size: .76rem; line-height: 1.5; }
+.directionCard dl { display: grid; gap: 5px; margin: 0; }
+.directionCard dl div { display: grid; grid-template-columns: 70px 1fr; gap: 8px; font: .6rem var(--font-plex-mono), monospace; }
+.directionCard dt { color: var(--text-muted); }.directionCard dd { margin: 0; color: var(--text); }
+.directionPalette { height: 22px; display: flex; overflow: clip; border: 1px solid var(--line); }
+.directionPalette i { flex: 1; display: block; }
+.directionCard small { color: var(--status-success); font: .58rem var(--font-plex-mono), monospace; text-transform: uppercase; letter-spacing: .08em; }
+.directionEvidence { margin: 0; color: var(--text-muted); font: .64rem var(--font-plex-mono), monospace; }
+
 @media (max-width: 700px) {
   .projectView { padding: 8px; }
   .recoveryHeader { align-items: flex-start; flex-direction: column; }
+  .directionBoardHeader { align-items: flex-start; flex-direction: column; }
+  .directionGrid { grid-template-columns: 1fr; }
 }

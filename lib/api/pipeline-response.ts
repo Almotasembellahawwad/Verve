@@ -1,13 +1,38 @@
 import type { PipelineResult } from "@/lib/engine/pipeline";
+import { buildQualityReport } from "@/lib/engine/quality-report";
 
 /** One public response contract shared by JSON, SSE, and background jobs. */
 export function serializePipelineResult(result: PipelineResult, requestId?: string) {
+  const qualityReport = buildQualityReport(result.project, result.assetUsage, result.finalCritique);
   return {
     mode: result.mode,
+    effectiveMode: result.execution.effectiveMode.startsWith("creative") ? "creative" : "fast",
+    directionBoard: result.directionBoard,
+    selectedDirection: result.designPlan.directionPortfolio?.candidates.find((candidate) =>
+      candidate.id === result.designPlan.directionPortfolio?.selectedDirectionId
+    ),
     briefAnalysis: result.briefAnalysis,
     plan: result.designPlan,
     projectSpec: result.projectSpec,
     directionDiversity: result.directionDiversity,
+    diversityEvidence: {
+      passed: result.directionDiversity.passed,
+      medianPairDistance: result.directionDiversity.medianPairDistance,
+      minimumPairDistance: result.directionDiversity.minimumPairDistance,
+      distinctStructureCount: result.directionDiversity.distinctStructureCount,
+      archiveDistance: result.directionDiversity.historicalNoveltyScore == null
+        ? null
+        : result.directionDiversity.historicalNoveltyScore / 100,
+      warnings: result.directionDiversity.warnings,
+    },
+    qualityReport,
+    experienceReview: {
+      kind: "descriptive-not-novelty-score",
+      visceral: result.distinctivenessReport.normanLevels?.visceral,
+      behavioral: result.distinctivenessReport.normanLevels?.behavioral,
+      reflective: result.distinctivenessReport.normanLevels?.reflective,
+      summary: result.distinctivenessReport.normanSummary,
+    },
     inputBlocklistMatches: result.inputBlocklistResult.matches,
     blocklistMatches: result.blocklistResult.matches,
     assetBundle: result.assetBundle,

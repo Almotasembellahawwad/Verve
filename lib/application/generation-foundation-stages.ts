@@ -10,6 +10,7 @@ import { buildVerveProjectSpec } from "../engine/project-spec-builder";
 import type { BrandProfile, OwnedAssetManifest } from "../project/brand-kit";
 import type { DesignDirectionFingerprint, DirectionDiversityAssessment } from "../domain/design-direction";
 import type { VerveProjectSpec } from "../domain/project-spec";
+import type { GenerationMode } from "../domain/generation-mode";
 import { NullProgressPublisher, type ProgressPublisherPort } from "../ports/progress";
 import { executePipelineStages, type PipelineStage } from "./pipeline-stage";
 
@@ -17,10 +18,12 @@ type GenerationFoundationContext = {
   analysis: BriefAnalysis;
   designPlan: DesignPlan;
   framework: string;
+  mode?: GenerationMode;
   assetBundle: AssetBundle;
   brandProfile?: BrandProfile;
   ownedAssets: OwnedAssetManifest[];
   recentDirectionFingerprints: DesignDirectionFingerprint[];
+  selectedDirectionLocked?: boolean;
   projectSpec?: VerveProjectSpec;
   directionDiversity?: DirectionDiversityAssessment;
 };
@@ -35,6 +38,7 @@ const projectSpecStage: PipelineStage<GenerationFoundationContext> = {
         analysis: context.analysis,
         plan: context.designPlan,
         framework: context.framework,
+        mode: context.mode,
         assetBundle: context.assetBundle,
         brandProfile: context.brandProfile,
         ownedAssets: context.ownedAssets,
@@ -52,7 +56,9 @@ const directionDiversityStage: PipelineStage<GenerationFoundationContext> = {
       ?? createFallbackDirectionPortfolio(context.designPlan, context.analysis);
     const designPlan = { ...context.designPlan, directionPortfolio };
     const initialAssessment = assessDirectionPortfolio(directionPortfolio, context.recentDirectionFingerprints);
-    const enforcedPlan = enforceRecommendedDirection(designPlan, initialAssessment);
+    const enforcedPlan = context.selectedDirectionLocked
+      ? designPlan
+      : enforceRecommendedDirection(designPlan, initialAssessment);
     const enforcedPortfolio = enforcedPlan.directionPortfolio ?? directionPortfolio;
     return {
       designPlan: enforcedPlan,

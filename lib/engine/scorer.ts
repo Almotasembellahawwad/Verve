@@ -410,7 +410,7 @@ export function generateDistinctivenessReport(
     clichesDetected: [...new Set(clichesDetected)],
     signatureElement: `${plan.signatureElement.name}: ${plan.signatureElement.description}`,
     critiqueSummary: finalCritique.rawCritique.includes("Deterministic Fast-mode preflight") && blocklistResult.matches.length > 0
-      ? `Fast structural preflight passed, but the delivered code contains ${blocklistResult.matches.length} blocked visual pattern${blocklistResult.matches.length === 1 ? "" : "s"}. Resolve them or run Studio for adversarial review.`
+      ? `Fast structural preflight passed, but the delivered code contains ${blocklistResult.matches.length} blocked visual pattern${blocklistResult.matches.length === 1 ? "" : "s"}. Resolve them or run Creative for adversarial review.`
       : finalCritique.overallVerdict,
     critiqueTranscript: finalCritique.rawCritique,
     revisionCount,

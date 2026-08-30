@@ -33,7 +33,7 @@ import {
   type LocalOwnedAsset,
 } from "@/lib/project/brand-kit";
 import { DEFAULT_GENERATION_MODE, type GenerationMode } from "@/lib/domain/generation-mode";
-import type { DirectionPortfolio } from "@/lib/domain/design-direction";
+import type { DirectionBoard, DirectionCheckpoint, DirectionPortfolio } from "@/lib/domain/design-direction";
 import { fingerprintDirection } from "@/lib/engine/direction-portfolio";
 import {
   getRecentLocalDesignFingerprints,
@@ -46,6 +46,8 @@ const PROVIDERS: { id: Provider; label: string; icon: string }[] = [
   { id: "gemini",     label: "Gemini",     icon: "G" },
   { id: "openrouter", label: "OpenRouter", icon: "R" },
 ];
+
+const CREATIVE_ENGINE_V3_ENABLED = process.env.NEXT_PUBLIC_CREATIVE_ENGINE_V3 !== "false";
 
 // ─── Pipeline telemetry stages (SSE real events now power this) ───────────────
 const PIPELINE_STAGES = [
@@ -86,11 +88,11 @@ const GENERATION_MODE_OPTIONS: ReadonlyArray<{
     description: "Local brief, archetype, and critique. Deterministic validation with resumable checkpoints.",
   },
   {
-    id: "studio",
-    title: "Studio",
-    badge: "Deep review",
-    budget: "Variable, bounded calls",
-    description: "Provider critique, one optional plan revision, and one targeted repair when needed.",
+    id: "creative",
+    title: "Creative",
+    badge: "Divergent",
+    budget: "5 core / 7 max calls",
+    description: "Two independent ideation passes, adversarial review, and one bounded diversity repair.",
   },
 ];
 
@@ -126,7 +128,7 @@ type PipelineResult = {
   };
   execution?: {
     requestedMode: GenerationMode;
-    effectiveMode: "fast" | "studio" | "studio-degraded";
+    effectiveMode: "fast" | "creative" | "creative-degraded";
     provider: Provider;
     requestedModel: string;
     resolvedModel: string;
@@ -147,6 +149,9 @@ type PipelineResult = {
     passed: boolean;
     diversityScore: number;
     historicalNoveltyScore: number | null;
+    medianPairDistance: number;
+    minimumPairDistance: number;
+    distinctStructureCount: number;
     recommendedDirectionId: string;
     warnings: string[];
   };
@@ -207,6 +212,8 @@ type PipelineResult = {
     reasoning: string;
     suggestion: string | null;
     restraintScore: number;
+    richnessScore?: number;
+    meaningfulLayers?: string[];
   };
   // Engineering Score -- Dual Scoring axis 2
   engineeringResult?: {
@@ -293,6 +300,11 @@ export default function GeneratePanel() {
   const [mode, setMode] = useState<GenerationMode>(DEFAULT_GENERATION_MODE);
   const [showCode, setShowCode] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [directionLoading, setDirectionLoading] = useState(false);
+  const [directionBoard, setDirectionBoard] = useState<DirectionBoard | null>(null);
+  const [directionCheckpoint, setDirectionCheckpoint] = useState<DirectionCheckpoint | null>(null);
+  const [selectedDirectionId, setSelectedDirectionId] = useState<string | null>(null);
+  const [directionSnapshot, setDirectionSnapshot] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PipelineResult | null>(null);
   const [patchedCode, setPatchedCode] = useState<string | null>(null);
@@ -313,6 +325,12 @@ export default function GeneratePanel() {
   const telemetryTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const latestCheckpointRef = useRef<PipelineCheckpoint | null>(null);
+  const creativeVisualRetryRef = useRef(0);
+
+  const currentDirectionSnapshot = JSON.stringify({ brief: brief.trim(), framework, mode, provider, model, brandProfile });
+  const activeDirectionBoard = directionSnapshot === currentDirectionSnapshot ? directionBoard : null;
+  const activeDirectionCheckpoint = activeDirectionBoard ? directionCheckpoint : null;
+  const busy = loading || directionLoading;
 
   useEffect(() => {
     setHydrated(true); // eslint-disable-line react-hooks/set-state-in-effect -- prevent native details toggles before hydration
@@ -361,7 +379,6 @@ export default function GeneratePanel() {
     const stored = getLocalApiKey(p);
     setApiKey(stored);
     setMissingKey(false);
-    if (p === "openrouter") setMode("fast");
   };
 
   const openApiKeyModal = () => {
@@ -392,9 +409,80 @@ export default function GeneratePanel() {
     if (completed) setStageStates(PIPELINE_STAGES.map(() => "done"));
   };
 
+  const handleExploreDirections = async () => {
+    if (!brief.trim() || brief.length < 10) {
+      setError("Please enter a design brief (at least 10 characters).");
+      return;
+    }
+    const currentKey = getLocalApiKey(provider) || apiKey;
+    if (!currentKey) {
+      setMissingKey(true);
+      setError(null);
+      return;
+    }
+    const requestController = new AbortController();
+    abortRef.current = requestController;
+    setDirectionLoading(true);
+    setError(null);
+    setMissingKey(false);
+    setResult(null);
+    try {
+      const response = await fetch("/api/directions/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: requestController.signal,
+        body: JSON.stringify({
+          brief,
+          framework,
+          apiKey: currentKey,
+          provider,
+          model,
+          mode,
+          brandProfile,
+          recentDirectionFingerprints: getRecentLocalDesignFingerprints(24),
+        }),
+      });
+      if (!response.ok || !response.body) throw new Error("Direction exploration failed.");
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let completed = false;
+      while (true) {
+        const { done, value } = await readWithInactivityTimeout(reader);
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+        for (const part of parts) {
+          const event = part.split("\n").find((line) => line.startsWith("event: "))?.slice(7).trim();
+          const data = part.split("\n").find((line) => line.startsWith("data: "))?.slice(6).trim();
+          if (!data) continue;
+          const payload = JSON.parse(data) as { board?: DirectionBoard; checkpoint?: DirectionCheckpoint; message?: string };
+          if (event === "directions:complete" && payload.board && payload.checkpoint) {
+            setDirectionBoard(payload.board);
+            setDirectionCheckpoint(payload.checkpoint);
+            setSelectedDirectionId(payload.board.portfolio.selectedDirectionId);
+            setDirectionSnapshot(currentDirectionSnapshot);
+            completed = true;
+          } else if (event === "error") {
+            throw new Error(payload.message ?? "Direction exploration failed.");
+          }
+        }
+      }
+      if (!completed) throw new Error("Direction exploration ended before a board was delivered.");
+    } catch (error) {
+      if (requestController.signal.aborted) setError("Direction exploration cancelled.");
+      else setError(error instanceof Error ? error.message : "Direction exploration failed.");
+    } finally {
+      setDirectionLoading(false);
+      if (abortRef.current === requestController) abortRef.current = null;
+    }
+  };
+
   const handleGenerate = async (
     requestedMode: GenerationMode = mode,
-    resumeCheckpoint?: PipelineCheckpoint
+    resumeCheckpoint?: PipelineCheckpoint,
+    visualRetry = false
   ) => {
     if (!brief.trim() || brief.length < 10) {
       setError("Please enter a design brief (at least 10 characters).");
@@ -408,6 +496,7 @@ export default function GeneratePanel() {
       return;
     }
 
+    if (!visualRetry) creativeVisualRetryRef.current = 0;
     setLoading(true);
     setError(null);
     setMissingKey(false);
@@ -444,6 +533,8 @@ export default function GeneratePanel() {
           brandProfile,
           ownedAssets: assetManifest,
           recentDirectionFingerprints: getRecentLocalDesignFingerprints(),
+          directionCheckpoint: activeDirectionCheckpoint ?? undefined,
+          selectedDirectionId: activeDirectionCheckpoint ? selectedDirectionId ?? undefined : undefined,
           checkpoint: resumeCheckpoint && checkpointMatchesInput(resumeCheckpoint, {
             brief,
             existingCode: existingCode || undefined,
@@ -505,6 +596,12 @@ export default function GeneratePanel() {
           } else if (eventType === "stage_degraded") {
             updateStage(String(payload.id ?? ""), "running", "local fallback");
             setRetryMessage(String(payload.message ?? "Optional provider review was replaced by the local preflight."));
+          } else if (eventType === "diversity:retry") {
+            setRetryMessage("Creative diversity gate found a repeated composition · generating one structural alternative");
+          } else if (eventType === "diversity:check") {
+            const passed = Boolean(payload.passed);
+            const attempt = Number(payload.attempt ?? 1);
+            setRetryMessage(passed ? `Diversity gate passed · attempt ${attempt}` : `Diversity gate needs more distance · attempt ${attempt}`);
           } else if (eventType === "checkpoint") {
             if (isPipelineCheckpoint(payload.checkpoint)) {
               latestCheckpointRef.current = payload.checkpoint;
@@ -592,6 +689,20 @@ export default function GeneratePanel() {
     }
   };
 
+  const handleVisualDiversity = (distance: number | null) => {
+    if (
+      distance === null
+      || distance >= 0.45
+      || loading
+      || !result?.execution?.effectiveMode.startsWith("creative")
+      || !activeDirectionCheckpoint
+      || creativeVisualRetryRef.current >= 1
+    ) return;
+    creativeVisualRetryRef.current += 1;
+    setRetryMessage(`Rendered diversity distance ${distance.toFixed(2)} is below 0.45 · retrying Creative once`);
+    void handleGenerate("creative", undefined, true);
+  };
+
   const handleRestoreHistory = (entry: HistoryEntry) => {
     setHistoryOpen(false);
     setBrief(entry.brief);
@@ -665,7 +776,7 @@ export default function GeneratePanel() {
                 className={`${styles.providerTab} ${provider === p.id ? styles.providerTabActive : ""}`}
                 onClick={() => handleProviderChange(p.id)}
                 type="button"
-                disabled={loading}
+                disabled={busy}
               >
                 <span aria-hidden="true">{p.icon}</span>
                 {p.label}
@@ -681,7 +792,7 @@ export default function GeneratePanel() {
             className={styles.select}
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            disabled={loading}
+            disabled={busy}
           >
             {PROVIDER_MODELS[provider].map((m) => (
               <option key={m.id} value={m.id}>
@@ -737,7 +848,7 @@ export default function GeneratePanel() {
                 key={s.label}
                 className={styles.sampleChip}
                 onClick={() => setBrief(s.brief)}
-                disabled={loading}
+                disabled={busy}
                 title={s.brief}
                 type="button"
               >
@@ -747,7 +858,7 @@ export default function GeneratePanel() {
           </div>
 
           <VoiceBriefInput
-            disabled={loading}
+            disabled={busy}
             onTranscript={(transcript) => setBrief((current) => `${current}${current.trim() ? " " : ""}${transcript}`)}
           />
 
@@ -758,7 +869,7 @@ export default function GeneratePanel() {
             onChange={(e) => setBrief(e.target.value)}
             placeholder="Describe what you're building. Be specific: who uses it, what it must accomplish, what tone is appropriate. Generic briefs produce generic plans — that's the problem Verve solves."
             rows={6}
-            disabled={loading}
+            disabled={busy}
             aria-describedby="brief-hint"
           />
           <p id="brief-hint" className={styles.hint}>
@@ -767,13 +878,13 @@ export default function GeneratePanel() {
         </div>
 
         <details className={styles.advancedSettings} inert={hydrated ? undefined : true}>
-          <summary><span>Project options</span><b>{mode === "fast" ? "Fast" : "Studio"} · {framework}</b><i>+</i></summary>
+          <summary><span>Project options</span><b>{mode === "fast" ? "Fast" : "Creative"} · {framework}</b><i>+</i></summary>
           <div className={styles.advancedBody}>
         <div className={styles.optionsRow}>
-          <fieldset className={styles.modeFieldset} disabled={loading}>
+          <fieldset className={styles.modeFieldset} disabled={busy}>
             <legend className={styles.label}>Generation mode</legend>
             <div className={styles.modeGrid}>
-              {GENERATION_MODE_OPTIONS.map((option) => (
+              {GENERATION_MODE_OPTIONS.filter((option) => option.id === "fast" || CREATIVE_ENGINE_V3_ENABLED).map((option) => (
                 <label
                   key={option.id}
                   className={`${styles.modeCard} ${mode === option.id ? styles.modeCardActive : ""}`}
@@ -796,9 +907,9 @@ export default function GeneratePanel() {
                 </label>
               ))}
             </div>
-            {provider === "openrouter" && mode === "studio" && (
+            {provider === "openrouter" && mode === "creative" && (
               <span className={styles.modeNotice} role="status">
-                Free OpenRouter capacity is more reliable in Fast. Studio remains available and may degrade to local review.
+                Free OpenRouter capacity is more reliable in Fast. Creative remains available and may use local fallbacks.
               </span>
             )}
           </fieldset>
@@ -811,7 +922,7 @@ export default function GeneratePanel() {
               className={styles.select}
               value={framework}
               onChange={(e) => setFramework(e.target.value as Framework)}
-              disabled={loading}
+              disabled={busy}
             >
               <option value="nextjs">Next.js 16</option>
               <option value="react">React 19</option>
@@ -841,7 +952,7 @@ export default function GeneratePanel() {
               onChange={(e) => setExistingCode(e.target.value)}
               placeholder="Paste existing HTML, JSX, or CSS here..."
               rows={8}
-              disabled={loading}
+              disabled={busy}
             />
           </div>
         )}
@@ -849,7 +960,7 @@ export default function GeneratePanel() {
         <BrandKitInput
           profile={brandProfile}
           assets={ownedAssets}
-          disabled={loading}
+          disabled={busy}
           onProfileChange={setBrandProfile}
           onAssetsChange={setOwnedAssets}
         />
@@ -898,22 +1009,44 @@ export default function GeneratePanel() {
           </div>
         )}
 
+        {activeDirectionBoard && (
+          <section className={styles.directionBoard} aria-labelledby="direction-board-title">
+            <div className={styles.directionBoardHeader}>
+              <div><span>DIRECTION BOARD / 6 STRUCTURAL OPTIONS</span><h3 id="direction-board-title">Choose the experience before Verve writes code.</h3></div>
+              <button type="button" onClick={() => setSelectedDirectionId(activeDirectionBoard.diversity.recommendedDirectionId)} disabled={busy}>Use Verve&apos;s most novel</button>
+            </div>
+            <div className={styles.directionGrid}>
+              {activeDirectionBoard.portfolio.candidates.map((candidate) => (
+                <label key={candidate.id} className={`${styles.directionCard} ${selectedDirectionId === candidate.id ? styles.directionCardActive : ""}`}>
+                  <input type="radio" name="selected-direction" value={candidate.id} checked={selectedDirectionId === candidate.id} onChange={() => setSelectedDirectionId(candidate.id)} disabled={busy} />
+                  <span className={styles.directionMeta}>{candidate.descriptors.creativityClass} / {candidate.descriptors.experienceModel}</span>
+                  <strong>{candidate.concept}</strong><p>{candidate.distinction}</p>
+                  <dl><div><dt>Opening</dt><dd>{candidate.descriptors.openingMode}</dd></div><div><dt>Navigation</dt><dd>{candidate.descriptors.navigationModel}</dd></div><div><dt>Media</dt><dd>{candidate.descriptors.mediaRole}</dd></div></dl>
+                  <div className={styles.directionPalette} aria-label="Direction palette">{candidate.identity.palette.map((color) => <i key={`${candidate.id}-${color.hex}`} style={{ background: color.hex }} title={`${color.name}: ${color.role}`} />)}</div>
+                  <small>{candidate.quality.passed ? "Quality floor passed" : "Needs review"}</small>
+                </label>
+              ))}
+            </div>
+            <p className={styles.directionEvidence}>{activeDirectionBoard.diversity.distinctStructureCount}/6 structural cells · median distance {activeDirectionBoard.diversity.medianPairDistance.toFixed(2)} · minimum {activeDirectionBoard.diversity.minimumPairDistance.toFixed(2)}</p>
+          </section>
+        )}
+
         <button
-          className={`${styles.generateBtn} ${loading ? styles.cancelBtn : ""}`}
-          onClick={loading ? () => abortRef.current?.abort() : () => void handleGenerate()}
-          disabled={!loading && !brief.trim()}
+          className={`${styles.generateBtn} ${busy ? styles.cancelBtn : ""}`}
+          onClick={busy ? () => abortRef.current?.abort() : activeDirectionBoard ? () => void handleGenerate() : () => void handleExploreDirections()}
+          disabled={!busy && !brief.trim()}
           id="generate-submit"
-          aria-busy={loading}
+          aria-busy={busy}
         >
-          {loading ? (
+          {busy ? (
             <>
               <span aria-hidden="true">■</span>
-              Cancel generation
+              Cancel {directionLoading ? "direction exploration" : "generation"}
             </>
           ) : (
             <>
               <span aria-hidden="true">▶</span>
-              Run {mode === "fast" ? "Fast" : "Studio"} pipeline
+              {activeDirectionBoard ? `Generate ${mode === "fast" ? "Fast" : "Creative"} result` : "Explore 6 directions"}
             </>
           )}
         </button>
@@ -1061,7 +1194,11 @@ export default function GeneratePanel() {
 
           {activeView === "project" && result.project && (
             <div role="tabpanel" className={styles.projectView}>
-              <ProjectWorkbench project={result.project} />
+              <ProjectWorkbench
+                project={result.project}
+                visualDiversityThreshold={result.execution?.effectiveMode.startsWith("creative") ? 0.45 : 0.35}
+                onVisualDiversity={handleVisualDiversity}
+              />
             </div>
           )}
 

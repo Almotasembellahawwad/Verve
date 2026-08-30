@@ -3,6 +3,10 @@ import type { BriefAnalysis } from "./brief-analyzer";
 import type { DesignPlan } from "./plan-generator";
 import type { VerveProjectSpec } from "../domain/project-spec";
 import { formatVerveProjectSpecForGeneration } from "./project-spec-builder";
+import type { GenerationMode } from "../domain/generation-mode";
+import { extractJSON } from "./llm-utils";
+
+export type GeneratedSourceFile = { path: string; content: string; language: string };
 
 export type GeneratedCode = {
   code: string;
@@ -10,12 +14,61 @@ export type GeneratedCode = {
   componentName: string;
   imports: string[];
   setupNotes: string;
+  entryPath?: string;
+  files?: GeneratedSourceFile[];
 };
+
+/**
+ * Return the complete delivered source, not only the compatibility entry file.
+ * Deterministic evaluators use this view so a secondary component or stylesheet
+ * cannot bypass the same policy and diversity checks applied to the entry.
+ */
+export function generatedSourceText(generated: GeneratedCode): string {
+  if (!generated.files?.length) return generated.code;
+  return generated.files
+    .map((file) => `/* ${file.path} */\n${file.content}`)
+    .join("\n\n");
+}
 
 const FRAMEWORK_NOTES: Record<string, string> = {
   nextjs: "Next.js 16 App Router app/page.tsx on React 19. It MUST have a default export. Add 'use client' only when browser state, effects, or event handlers require it.",
   react: "React 19 src/App.tsx with TypeScript and accessible semantic markup. It MUST have a default export.",
   html: "Pure valid HTML5 + CSS with no build step.",
+};
+
+const ENTRY_PATHS: Record<string, string> = { nextjs: "app/page.tsx", react: "src/App.tsx", html: "index.html" };
+const SAFE_SOURCE_PATH = /^(?:app\/(?:[a-z0-9_-]+\/)*page\.tsx|components\/[A-Za-z0-9_-]+\.tsx|src\/(?:components|routes)\/[A-Za-z0-9_-]+\.tsx|src\/App\.tsx|(?:[a-z0-9_-]+\/)*index\.html|[a-z0-9_-]+\.html|(?:app|src)\/[A-Za-z0-9_/-]+\.css|styles\.css|script\.js)$/;
+
+function languageFor(path: string): string {
+  if (path.endsWith(".tsx")) return "tsx";
+  if (path.endsWith(".css")) return "css";
+  if (path.endsWith(".html")) return "html";
+  if (path.endsWith(".js")) return "javascript";
+  return "text";
+}
+
+function parseGeneratedArtifact(raw: string, framework: string, maxFiles: number): { entryPath: string; files: GeneratedSourceFile[] } {
+  const defaultEntry = ENTRY_PATHS[framework] ?? ENTRY_PATHS.nextjs;
+  try {
+    const parsed = extractJSON<{ files?: { path?: string; content?: string; language?: string }[] }>(raw, "Code Generator");
+    const files = (parsed.files ?? [])
+      .filter((candidate): candidate is { path: string; content: string; language?: string } => Boolean(candidate.path && candidate.content))
+      .filter((candidate) => SAFE_SOURCE_PATH.test(candidate.path) && !candidate.path.includes(".."))
+      .slice(0, maxFiles)
+      .map((candidate) => ({ path: candidate.path.replace(/\\/g, "/"), content: candidate.content.trim(), language: candidate.language ?? languageFor(candidate.path) }));
+    const entry = files.find((file) => file.path === defaultEntry) ?? files[0];
+    if (entry) return { entryPath: entry.path, files };
+  } catch {
+    // Providers without reliable structured code output keep the legacy entry-file path.
+  }
+  const cleaned = raw.replace(/^```[\w]*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+  return { entryPath: defaultEntry, files: [{ path: defaultEntry, content: cleaned, language: languageFor(defaultEntry) }] };
+}
+
+const GENERATED_ARTIFACT_JSON_SCHEMA: Record<string, unknown> = {
+  type: "object", additionalProperties: false,
+  properties: { files: { type: "array", minItems: 1, maxItems: 16, items: { type: "object", additionalProperties: false, properties: { path: { type: "string" }, content: { type: "string" }, language: { type: "string" } }, required: ["path", "content", "language"] } } },
+  required: ["files"],
 };
 
 export async function generateCode(
@@ -24,7 +77,7 @@ export async function generateCode(
   plan: DesignPlan,
   injectionContext: string,
   framework = "nextjs",
-  mode: "fast" | "studio" = "studio",
+  mode: GenerationMode = "creative",
   projectSpec?: VerveProjectSpec
 ): Promise<GeneratedCode> {
   const frameworkNote = FRAMEWORK_NOTES[framework] ?? FRAMEWORK_NOTES.nextjs;
@@ -89,8 +142,8 @@ ${plan.layoutConcept}
 8. Every interaction must be truthful and operational. Never show fake form success. A form without a backend must clearly say it is a demo and must not claim submission.
 9. Do not use innerHTML or dangerouslySetInnerHTML. Avoid runtime font imports and unnecessary third-party dependencies. Build dynamic content with safe DOM APIs or framework rendering.
 10. Navigation targets must exist. Include an intentional ending and a real footer when the page format needs them.
-11. Return ONLY one complete entry file for the selected framework. Verve will create the remaining project files deterministically. No markdown or explanations.
-12. Keep styling inside the entry component using a plain <style> element. Do not import a local CSS file that Verve has not supplied. Avoid package imports beyond React unless essential.
+11. Return ONLY a JSON object with a files array. Implement every declared route within ${projectSpec?.complexity.maxSourceFiles ?? (mode === "fast" ? 8 : 16)} source files. Required entry: ${ENTRY_PATHS[framework] ?? ENTRY_PATHS.nextjs}. No markdown or prose.
+12. Split meaningful route or component boundaries into files. A local CSS file may be included in the files array and imported normally. Avoid package imports beyond React unless essential.
 13. Every mapped React item must have an explicit unique stable id and use that id as its key. Never use visible copy such as label, title, name, result, or measurement as a key.
 14. Do not use overflow:hidden on html, body, #root, or the page shell to conceal responsive overflow. Fix the child layout, use minmax(0, 1fr), and make deliberate wide data tables individually scrollable.
 15. Do not reference a named font unless AVAILABLE ASSETS includes a bundled/local font file. A remote font name without the font file is not available. Otherwise use the exact system stack supplied by the plan. Keep all readable text at 10px or larger.
@@ -98,7 +151,7 @@ ${plan.layoutConcept}
 17. FACTUAL SAFETY OVERRIDES THE DESIGN PLAN: if the plan contains a metric, clinical result, timeframe, participant count, ingredient, product, award, testimonial, or factual claim absent from the source brief below, do not render it. Replace it with an explicit "Verified value pending" label.
 18. STRUCTURAL NOVELTY: Never combine a split opening, vertical rail/datum, numbered ledger rows, a full-width image interruption, and a dark closing folio. That is Verve's retired editorial-register template even when the class names or domain labels differ. Use the enforced direction's actual interaction and information topology instead.
 
-DELIVERY MODE: ${mode === "fast" ? "FAST — concise implementation; preserve correctness before decorative depth." : "STUDIO — complete production-quality implementation with careful responsive details."}
+DELIVERY MODE: ${mode === "fast" ? "FAST — concise implementation; preserve correctness before decorative depth." : "CREATIVE — complete production-quality implementation with careful responsive details."}
 
 Framework: ${frameworkNote}`;
 
@@ -110,19 +163,16 @@ Tone: ${analysis.tone}
 Source brief - the sole authority for factual claims:
 ${analysis.rawBrief}`;
 
-  const code = await llm.complete([{ role: "user", content: userMessage }], {
+  const raw = await llm.complete([{ role: "user", content: userMessage }], {
     systemPrompt,
     temperature: 0.5,
     maxTokens: mode === "fast" ? 8000 : 14000,
     reasoningEffort: mode === "fast" ? "low" : "medium",
     timeoutMs: mode === "fast" ? 90_000 : 110_000,
+    responseFormat: { name: "generated_project_sources", schema: GENERATED_ARTIFACT_JSON_SCHEMA },
   });
-
-  // Strip markdown code fences if present
-  const cleaned = code
-    .replace(/^```[\w]*\n?/m, "")
-    .replace(/\n?```\s*$/m, "")
-    .trim();
+  const artifact = parseGeneratedArtifact(raw, framework, projectSpec?.complexity.maxSourceFiles ?? (mode === "fast" ? 8 : 16));
+  const cleaned = artifact.files.find((file) => file.path === artifact.entryPath)?.content ?? artifact.files[0]?.content ?? "";
 
   // Extract component name from code
   const nameMatch = cleaned.match(/(?:function|const|export default function)\s+([A-Z][A-Za-z]+)/);
@@ -137,5 +187,7 @@ ${analysis.rawBrief}`;
     componentName,
     imports: importMatches,
     setupNotes: `Typography: ${plan.typePairing.display} for display and ${plan.typePairing.body} for body. Follow the imports embedded in the generated file.`,
+    entryPath: artifact.entryPath,
+    files: artifact.files,
   };
 }

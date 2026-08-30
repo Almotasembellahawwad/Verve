@@ -1,6 +1,6 @@
 import type { Provider } from "../llm-adapter/types";
 
-export type EffectiveGenerationMode = "fast" | "studio" | "studio-degraded";
+export type EffectiveGenerationMode = "fast" | "creative" | "creative-degraded";
 export type CritiqueEvidenceSource = "provider" | "local-preflight" | "local-fallback";
 export type ScoreConfidence = "structural" | "adversarial";
 
@@ -15,7 +15,7 @@ export type PipelineDegradation = {
  * score: a high score without its evidence source is not a trustworthy result.
  */
 export type ExecutionEvidence = {
-  requestedMode: "fast" | "studio";
+  requestedMode: "fast" | "creative" | "studio";
   effectiveMode: EffectiveGenerationMode;
   provider: Provider;
   requestedModel: string;
@@ -27,7 +27,7 @@ export type ExecutionEvidence = {
 };
 
 export function buildExecutionEvidence(input: {
-  requestedMode: "fast" | "studio";
+  requestedMode: "fast" | "creative" | "studio";
   provider: Provider;
   requestedModel: string;
   resolvedModel: string;
@@ -40,8 +40,8 @@ export function buildExecutionEvidence(input: {
     effectiveMode: input.requestedMode === "fast"
       ? "fast"
       : degraded || input.critiqueSource === "local-fallback"
-        ? "studio-degraded"
-        : "studio",
+        ? "creative-degraded"
+        : "creative",
     scoreConfidence: input.critiqueSource === "provider" ? "adversarial" : "structural",
     degraded,
   };

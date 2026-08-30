@@ -12,6 +12,17 @@ export type ReferenceEntry = {
   specific_techniques: string[];
   color_palette: string[];
   tags: string[];
+  domainTags?: string[];
+  experienceModels?: string[];
+  transferablePrinciples?: string[];
+  mechanics?: string[];
+  fixationRisks?: string[];
+  languageCoverage?: ("latin" | "arabic")[];
+  source?: {
+    title: string;
+    url: string;
+    license: string;
+  };
 };
 
 export interface ReferenceLibraryRepositoryPort { list(): ReferenceEntry[]; }

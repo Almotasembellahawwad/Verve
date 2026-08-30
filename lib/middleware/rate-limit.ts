@@ -80,6 +80,7 @@ export async function acquireConcurrentSlot(
 }
 
 export const ROUTE_LIMITS: Record<string, RateLimitConfig> = {
+  "directions-stream": { routeKey: "directions-stream", maxRequests: 8, windowMs: 60_000, maxConcurrent: 2 },
   "generate-stream": { routeKey: "generate-stream", maxRequests: 5, windowMs: 60_000, maxConcurrent: 2 },
   generate: { routeKey: "generate", maxRequests: 5, windowMs: 60_000, maxConcurrent: 2 },
   compare: { routeKey: "compare", maxRequests: 3, windowMs: 60_000, maxConcurrent: 1 },

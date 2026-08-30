@@ -1,6 +1,8 @@
-export const VERVE_PROJECT_SPEC_VERSION = 1 as const;
+export const VERVE_PROJECT_SPEC_VERSION = 2 as const;
 
 export type VerveProjectFramework = "nextjs" | "react" | "html";
+export type ComplexityProfile = "focused" | "balanced" | "systemic";
+export type ExperienceModel = "narrative-scroll" | "spatial-map" | "task-workbench" | "guided-conversation" | "collection-browser" | "live-canvas";
 
 export type ProjectIntentSpec = {
   subject: string;
@@ -18,26 +20,48 @@ export type ProjectFact = {
   mutable: boolean;
 };
 
-export type ExperienceSectionRole = "opening" | "evidence" | "offer" | "process" | "decision";
+export type ExperienceRegionRole = "orientation" | "task" | "evidence" | "collection" | "comparison" | "story" | "action" | "support";
 
-export type ExperienceSection = {
+export type ExperienceRegion = {
   id: string;
-  role: ExperienceSectionRole;
+  routeId: string;
+  parentId?: string;
+  role: ExperienceRegionRole;
   purpose: string;
+  layoutRole: "anchor" | "primary" | "secondary" | "overlay" | "transition";
   componentIds: string[];
 };
 
-export type ProjectComponentKind = "navigation" | "section" | "content" | "media" | "action" | "form";
+/** Compatibility alias for extensions built against ProjectSpec v1. */
+export type ExperienceSection = ExperienceRegion;
+
+export type ExperienceRoute = {
+  id: string;
+  path: string;
+  purpose: string;
+  regionIds: string[];
+};
+
+export type ProjectComponentKind = "navigation" | "section" | "content" | "media" | "action" | "form" | "data" | "canvas" | "control";
 
 export type ProjectComponentSpec = {
   id: string;
+  routeId: string;
+  regionId: string;
+  /** Compatibility field; equal to regionId. */
   sectionId: string;
   kind: ProjectComponentKind;
   responsibility: string;
   children: string[];
 };
 
-export type InteractionImplementation = "navigation" | "local-state" | "external-link" | "form-adapter";
+export type InteractionImplementation = "navigation" | "local-state" | "external-link" | "form-adapter" | "direct-manipulation" | "filter";
+
+export type InteractionState = {
+  id: string;
+  label: string;
+  description: string;
+};
 
 export type InteractionContract = {
   id: string;
@@ -46,25 +70,36 @@ export type InteractionContract = {
   outcome: string;
   implementation: InteractionImplementation;
   requiresExternalAdapter: boolean;
+  states: InteractionState[];
 };
 
 export type ResponsiveViewportContract = {
   width: 360 | 768 | 1440;
   label: "mobile" | "tablet" | "desktop";
   requirements: string[];
+  composition: string;
 };
 
 export type VerveProjectSpec = {
   schemaVersion: typeof VERVE_PROJECT_SPEC_VERSION;
   framework: VerveProjectFramework;
   intent: ProjectIntentSpec;
+  complexity: {
+    profile: ComplexityProfile;
+    reason: string;
+    maxRoutes: number;
+    maxSourceFiles: number;
+  };
   facts: {
     policy: "brief-is-source-of-truth";
     items: ProjectFact[];
   };
   experience: {
-    route: "/";
-    sections: ExperienceSection[];
+    model: ExperienceModel;
+    route: string;
+    sections: ExperienceRegion[];
+    routes: ExperienceRoute[];
+    regions: ExperienceRegion[];
   };
   components: ProjectComponentSpec[];
   interactions: InteractionContract[];
@@ -76,6 +111,15 @@ export type VerveProjectSpec = {
     colors: { name: string; hex: string; role: string }[];
     typography: { display: string; body: string; rationale: string };
     signature: { name: string; mechanism: string; justification: string };
+    depth: {
+      surfaceLayers: number;
+      mediaLayer: boolean;
+      shapeLayer: boolean;
+      motionLayer: boolean;
+      dataLayer: boolean;
+      rationale: string;
+    };
+    variationAxes: string[];
   };
   media: {
     policy: "required" | "recommended" | "optional" | "avoid";
@@ -88,47 +132,45 @@ export type VerveProjectSpec = {
   };
 };
 
-export type ProjectSpecValidation = {
-  valid: boolean;
-  issues: string[];
-};
+export type ProjectSpecValidation = { valid: boolean; issues: string[] };
 
 export function validateVerveProjectSpec(spec: VerveProjectSpec): ProjectSpecValidation {
   const issues: string[] = [];
-  const sectionIds = new Set(spec.experience.sections.map((section) => section.id));
+  const routeIds = new Set(spec.experience.routes.map((route) => route.id));
+  const regionIds = new Set(spec.experience.regions.map((region) => region.id));
   const componentIds = new Set(spec.components.map((component) => component.id));
 
   if (spec.schemaVersion !== VERVE_PROJECT_SPEC_VERSION) issues.push("Unsupported project specification version.");
-  if (spec.experience.sections.length < 3) issues.push("The experience graph requires at least three purposeful sections.");
-  if (sectionIds.size !== spec.experience.sections.length) issues.push("Experience section IDs must be unique.");
+  if (spec.experience.routes.length < 1 || spec.experience.routes.length > spec.complexity.maxRoutes) issues.push("Route count exceeds the complexity budget.");
+  if (spec.experience.regions.length < 3) issues.push("The experience graph requires at least three purposeful regions.");
+  if (routeIds.size !== spec.experience.routes.length) issues.push("Experience route IDs must be unique.");
+  if (regionIds.size !== spec.experience.regions.length) issues.push("Experience region IDs must be unique.");
   if (componentIds.size !== spec.components.length) issues.push("Component IDs must be unique.");
   if (spec.visualSystem.colors.length < 3) issues.push("The visual system requires at least three color tokens.");
+  if (spec.visualSystem.depth.surfaceLayers < 1) issues.push("The visual depth contract requires at least one surface layer.");
 
-  for (const section of spec.experience.sections) {
-    if (!section.purpose.trim()) issues.push(`${section.id} has no purpose.`);
-    for (const componentId of section.componentIds) {
-      if (!componentIds.has(componentId)) issues.push(`${section.id} references unknown component ${componentId}.`);
-    }
+  for (const route of spec.experience.routes) {
+    if (!route.path.startsWith("/")) issues.push(`${route.id} must use an absolute route path.`);
+    if (route.regionIds.length === 0) issues.push(`${route.id} has no purposeful regions.`);
+    for (const regionId of route.regionIds) if (!regionIds.has(regionId)) issues.push(`${route.id} references unknown region ${regionId}.`);
   }
-
+  for (const region of spec.experience.regions) {
+    if (!routeIds.has(region.routeId)) issues.push(`${region.id} references unknown route ${region.routeId}.`);
+    if (region.parentId && !regionIds.has(region.parentId)) issues.push(`${region.id} references unknown parent ${region.parentId}.`);
+    if (!region.purpose.trim()) issues.push(`${region.id} has no purpose.`);
+    for (const componentId of region.componentIds) if (!componentIds.has(componentId)) issues.push(`${region.id} references unknown component ${componentId}.`);
+  }
   for (const component of spec.components) {
-    if (!sectionIds.has(component.sectionId)) issues.push(`${component.id} references unknown section ${component.sectionId}.`);
-    for (const childId of component.children) {
-      if (!componentIds.has(childId)) issues.push(`${component.id} references unknown child ${childId}.`);
-    }
+    if (!routeIds.has(component.routeId)) issues.push(`${component.id} references unknown route ${component.routeId}.`);
+    if (!regionIds.has(component.regionId)) issues.push(`${component.id} references unknown region ${component.regionId}.`);
+    for (const childId of component.children) if (!componentIds.has(childId)) issues.push(`${component.id} references unknown child ${childId}.`);
   }
-
   for (const interaction of spec.interactions) {
     if (!componentIds.has(interaction.componentId)) issues.push(`${interaction.id} references unknown component ${interaction.componentId}.`);
-    if (interaction.implementation === "form-adapter" && !interaction.requiresExternalAdapter) {
-      issues.push(`${interaction.id} must disclose its external form adapter requirement.`);
-    }
+    if (interaction.implementation === "form-adapter" && !interaction.requiresExternalAdapter) issues.push(`${interaction.id} must disclose its external form adapter requirement.`);
+    if (interaction.states.length < 2) issues.push(`${interaction.id} must document initial and outcome states.`);
   }
-
   const widths = new Set(spec.responsive.viewports.map((viewport) => viewport.width));
-  for (const width of [360, 768, 1440] as const) {
-    if (!widths.has(width)) issues.push(`Responsive evidence is missing the ${width}px viewport contract.`);
-  }
-
+  for (const width of [360, 768, 1440] as const) if (!widths.has(width)) issues.push(`Responsive evidence is missing the ${width}px viewport contract.`);
   return { valid: issues.length === 0, issues };
 }

@@ -6,13 +6,14 @@ import { NextRequest } from "next/server";
 import { getAllCliches, runBlocklistFilter } from "../lib/engine/blocklist-filter";
 import { fixPaletteContrast } from "../lib/engine/contrast-fixer";
 import { extractJSON } from "../lib/engine/llm-utils";
-import { runCodeQualityLoop } from "../lib/engine/code-quality-loop";
+import { inspectSupportingSource, runCodeQualityLoop } from "../lib/engine/code-quality-loop";
+import { generatedSourceText } from "../lib/engine/code-generator";
 import { PROVIDER_MODELS } from "../lib/llm-adapter/types";
 import { fetchPublicDesignSource, normalizeFetchedDesignSource } from "../lib/security/safe-url";
 import type { LLMAdapter } from "../lib/llm-adapter/types";
 import { buildGeneratedProject, buildRecoveryProject, inspectProductionRisks, splitHtmlEntry } from "../lib/project/project-builder";
 import { analyzeBriefLocally, type BriefAnalysis } from "../lib/engine/brief-analyzer";
-import type { DesignPlan } from "../lib/engine/plan-generator";
+import { generateDesignPlan, type DesignPlan } from "../lib/engine/plan-generator";
 import { validateGeneratedProject } from "../lib/project/project-validator";
 import { mergeEditorFiles } from "../lib/project/editor-project";
 import { runOptionalProviderStep } from "../lib/engine/provider-resilience";
@@ -33,6 +34,7 @@ import {
   instrumentSandboxFiles,
   isRenderGateReport,
   recordRenderEvidence,
+  visualFingerprintDistance,
   type RenderGateReport,
 } from "../lib/project/render-gate";
 import { buildHtmlPreviewDocument } from "../lib/project/html-preview";
@@ -67,6 +69,8 @@ import { checkRateLimit } from "../lib/middleware/rate-limit";
 import { createEditorProjectRecord } from "../lib/client/editor-workspace";
 import { DEFAULT_GENERATION_MODE } from "../lib/domain/generation-mode";
 import { GenerationRequestSchema } from "../lib/api/generation-request";
+import JSZip from "jszip";
+import { createProjectArchive, referencedLocalAssetPaths } from "../lib/client/project-archive";
 import { runProjectPatchUseCase } from "../lib/application/run-project-patch-use-case";
 import { applyProjectPatchProposal, projectPatchContext } from "../lib/project/ai-patch";
 import { buildVerveProjectSpec } from "../lib/engine/project-spec-builder";
@@ -88,6 +92,9 @@ import { ProviderResponseError } from "../lib/errors/provider-response-error";
 import { classifyError } from "../lib/middleware/error-handler";
 import { inferDesignStructure } from "../lib/engine/structural-fingerprint";
 import type { DirectionPortfolio } from "../lib/domain/design-direction";
+import { StaticReferenceLibraryRepository } from "../lib/adapters/storage/static-content-repositories";
+import { classifyReferenceDomain, selectReferencePatterns } from "../lib/engine/reference-retrieval";
+import { createDirectionCheckpoint, directionCheckpointMatches, generateDirectionBoard } from "../lib/engine/direction-board";
 
 async function runPipeline(
   input: PipelineInput & {
@@ -187,8 +194,8 @@ test("Direction Portfolio balances quality and structural diversity without extr
   const portfolio = createFallbackDirectionPortfolio(plan, analysis);
   const assessment = assessDirectionPortfolio(portfolio);
 
-  assert.equal(portfolio.candidates.length, 3);
-  assert.ok(Math.abs(portfolio.candidates.reduce((sum, candidate) => sum + candidate.estimatedLikelihood, 0) - 1) < 0.001);
+  assert.equal(portfolio.candidates.length, 6);
+  assert.ok(portfolio.candidates.every((candidate) => candidate.quality.passed));
   assert.equal(assessment.passed, true);
   assert.ok(assessment.diversityScore >= 52);
 
@@ -198,10 +205,156 @@ test("Direction Portfolio balances quality and structural diversity without extr
   })), selectedDirectionId: "repeat-0" };
   const collapsed = assessDirectionPortfolio(repeated);
   assert.equal(collapsed.passed, false);
-  assert.ok(collapsed.warnings.some((warning) => /styling rather than experience structure/i.test(warning)));
+  assert.ok(collapsed.warnings.some((warning) => /near-duplicates|distinct experience structures/i.test(warning)));
+});
+
+test("reference library v2 expands to 72 abstract patterns without first-row fallback", () => {
+  const repository = new StaticReferenceLibraryRepository();
+  const entries = repository.list();
+  assert.equal(entries.length, 72);
+  assert.equal(new Set(entries.map((entry) => entry.industry)).size, 12);
+  assert.equal(new Set(entries.flatMap((entry) => entry.experienceModels ?? [])).size, 6);
+  assert.ok(entries.every((entry) => entry.color_palette.length === 0));
+  assert.ok(entries.every((entry) => entry.source?.license === "reference-only"));
+
+  const architecture = analyzeBriefLocally("An architecture practice needs a spatial map of retained structures.");
+  const legal = analyzeBriefLocally("A legal service needs a guided employment-rights triage.");
+  const first = selectReferencePatterns(architecture, repository);
+  const second = selectReferencePatterns(legal, repository);
+  assert.equal(classifyReferenceDomain(architecture), "architecture");
+  assert.equal(classifyReferenceDomain(legal), "legal");
+  assert.notEqual(first.near.id, second.near.id);
+  assert.equal(new Set([first.near.id, ...first.far.map((entry) => entry.id)]).size, 3);
+  assert.notEqual(first.far[0].industry, first.far[1].industry);
+});
+
+test("estimated likelihood cannot influence quality-diversity selection", () => {
+  const analysis = analyzeBriefLocally("A civic eligibility service with a guided decision route.");
+  const portfolio = createFallbackDirectionPortfolio(generateDesignPlanLocally(analysis), analysis);
+  const highFirst = { ...portfolio, candidates: portfolio.candidates.map((candidate, index) => ({ ...candidate, estimatedLikelihood: index === 0 ? 1 : 0 })) };
+  const highLast = { ...portfolio, candidates: portfolio.candidates.map((candidate, index) => ({ ...candidate, estimatedLikelihood: index === portfolio.candidates.length - 1 ? 1 : 0 })) };
+  assert.equal(assessDirectionPortfolio(highFirst).recommendedDirectionId, assessDirectionPortfolio(highLast).recommendedDirectionId);
+});
+
+test("Direction Board always exposes six fixed creative cells and binds its checkpoint to the exact input", async () => {
+  const analysis = analyzeBriefLocally("A playful learning lab where students manipulate a visible physics model.");
+  const repository = new StaticReferenceLibraryRepository();
+  let directionCalls = 0;
+  const failingAdapter: LLMAdapter = { async complete() { directionCalls++; throw new Error("offline fixture"); } };
+  const board = await generateDirectionBoard({ llm: failingAdapter, analysis, mode: "creative", framework: "html", referenceRepository: repository });
+  const checkpoint = createDirectionCheckpoint(board);
+  assert.equal(directionCalls, 2, "Creative exploration must use exactly two independent direction batches");
+  assert.equal(board.portfolio.candidates.length, 6);
+  assert.equal(board.diversity.distinctStructureCount, 6);
+  assert.equal(board.portfolio.candidates.filter((candidate) => candidate.descriptors.creativityClass === "combinational").length, 2);
+  assert.equal(board.portfolio.candidates.filter((candidate) => candidate.descriptors.creativityClass === "exploratory").length, 2);
+  assert.equal(board.portfolio.candidates.filter((candidate) => candidate.descriptors.creativityClass === "transformational").length, 2);
+  assert.equal(directionCheckpointMatches(checkpoint, { brief: analysis.rawBrief, framework: "html", mode: "creative" }), true);
+  assert.equal(directionCheckpointMatches(checkpoint, { brief: `${analysis.rawBrief} changed`, framework: "html", mode: "creative" }), false);
+
+  const legacyCheckpoint = structuredClone(checkpoint) as typeof checkpoint & {
+    board: typeof checkpoint.board & { portfolio: typeof checkpoint.board.portfolio & { candidates: Array<Record<string, unknown>> } };
+  };
+  legacyCheckpoint.board.portfolio.candidates[0].estimatedLikelihood = 1;
+  const parsedRequest = GenerationRequestSchema.parse({
+    brief: analysis.rawBrief,
+    framework: "html",
+    mode: "creative",
+    apiKey: "test-key",
+    selectedDirectionId: board.portfolio.candidates[0].id,
+    directionCheckpoint: legacyCheckpoint,
+  });
+  assert.equal(Object.hasOwn(parsedRequest.directionCheckpoint!.board.portfolio.candidates[0], "estimatedLikelihood"), false);
+  assert.equal(GenerationRequestSchema.safeParse({
+    brief: analysis.rawBrief,
+    framework: "html",
+    mode: "creative",
+    apiKey: "test-key",
+    selectedDirectionId: "direction-not-on-board",
+    directionCheckpoint: checkpoint,
+  }).success, false);
+});
+
+test("a selected Direction Board is expanded once without regenerating the portfolio", async () => {
+  const analysis = analyzeBriefLocally("A carbon operations workbench for factory teams to resolve weekly exceptions.");
+  const seed = generateDesignPlanLocally(analysis);
+  const portfolio = createFallbackDirectionPortfolio(seed, analysis);
+  const board = {
+    schemaVersion: 1 as const,
+    engineVersion: "creative-engine-v3" as const,
+    inputHash: "a1b2c3d4",
+    requestedMode: "creative" as const,
+    effectiveMode: "creative" as const,
+    portfolio,
+    diversity: assessDirectionPortfolio(portfolio),
+    referencePatternIds: ["near", "far-a", "far-b"],
+    createdAt: new Date(0).toISOString(),
+  };
+  let calls = 0;
+  let systemPrompt = "";
+  let responseSchema: Record<string, unknown> = {};
+  const fakeAdapter: LLMAdapter = {
+    async complete(_messages, options) {
+      calls++;
+      systemPrompt = options?.systemPrompt ?? "";
+      responseSchema = options?.responseFormat?.schema ?? {};
+      return JSON.stringify({
+        colorPalette: [
+          { name: "Machine", hex: "#11181A", role: "work surface" },
+          { name: "Paper", hex: "#E9F0EE", role: "text" },
+          { name: "Signal", hex: "#D7FF3F", role: "active exception" },
+        ],
+        typePairing: { display: "Arial, sans-serif", body: "Arial, sans-serif", rationale: "Compact system typography keeps operational evidence readable." },
+        layoutConcept: "A task-first workbench keeps the exception queue, evidence drawer, and resolution state in one persistent operating surface.",
+        signatureElement: { name: "Exception lens", description: "The active exception opens its evidence in place.", implementation: "Use a persistent table and adjacent evidence drawer.", justification: "It turns traceability into the main interaction." },
+        referencesSampled: ["abstract near principle", "remote operational analogy"],
+        cognitiveGrounding: { vonRestorffCompliance: "One active state.", gutenbergCompliance: "Queue to evidence drawer.", signalNoiseRatio: 0.82, peakEndDesign: "End at a resolved exception state.", usabilityBaseline: "AA contrast and 44px controls." },
+      });
+    },
+  };
+
+  const plan = await generateDesignPlan(fakeAdapter, analysis, "", undefined, undefined, undefined, {
+    directionBoard: board,
+    selectedDirectionId: portfolio.selectedDirectionId,
+    referenceRepository: new StaticReferenceLibraryRepository(),
+    allowSchemaRetry: false,
+  });
+  assert.equal(calls, 1);
+  assert.match(systemPrompt, /Expand ONLY the authoritative selected direction/);
+  assert.doesNotMatch(systemPrompt, /First explore EXACTLY SIX/);
+  assert.match(systemPrompt, /remoteAnalogies/);
+  assert.equal((responseSchema.required as string[]).includes("directionPortfolio"), false);
+  assert.equal(plan.directionPortfolio?.candidates.length, 6);
+  assert.equal(plan.directionPortfolio?.selectedDirectionId, portfolio.selectedDirectionId);
+});
+
+test("the fixed creative benchmark covers 24 bilingual briefs and every local board clears the structural floors", async () => {
+  const corpus = JSON.parse(readFileSync(join(process.cwd(), "data", "creative-benchmark.json"), "utf8")) as { briefs: Array<{ brief: string; industry: string; language: string; expectedDepth: string; media: string }> };
+  assert.equal(corpus.briefs.length, 24);
+  assert.equal(new Set(corpus.briefs.map((brief) => brief.industry)).size, 12);
+  assert.equal(corpus.briefs.filter((brief) => brief.language === "ar").length, 12);
+  assert.equal(corpus.briefs.filter((brief) => brief.language === "en").length, 12);
+  assert.deepEqual(new Set(corpus.briefs.map((brief) => brief.expectedDepth)), new Set(["focused", "balanced", "systemic"]));
+  assert.deepEqual(new Set(corpus.briefs.map((brief) => brief.media)), new Set(["required", "optional", "avoid"]));
+
+  const repository = new StaticReferenceLibraryRepository();
+  const offlineAdapter: LLMAdapter = { async complete() { throw new Error("offline benchmark"); } };
+  const boards = await Promise.all(corpus.briefs.map((fixture) => generateDirectionBoard({
+    llm: offlineAdapter,
+    analysis: analyzeBriefLocally(fixture.brief),
+    mode: "creative",
+    framework: "html",
+    referenceRepository: repository,
+  })));
+  assert.ok(boards.every((board) => board.portfolio.candidates.length === 6));
+  assert.ok(boards.every((board) => board.diversity.distinctStructureCount >= 5));
+  assert.ok(boards.every((board) => board.diversity.medianPairDistance >= 0.55));
+  assert.ok(boards.every((board) => board.diversity.minimumPairDistance >= 0.3));
 });
 
 test("quality-diversity selection overrides a renamed editorial-register house direction", () => {
+  const basePlan = generateDesignPlanLocally(analyzeBriefLocally("An employment law firm for individuals seeking a confidential consultation."));
+  const defaults = createFallbackDirectionPortfolio(basePlan, analyzeBriefLocally("An employment law firm for individuals seeking a confidential consultation."));
   const dimensions = (topology: string, interaction: string, signature: string) => ({
     topology,
     hierarchy: `${topology} hierarchy`,
@@ -217,6 +370,7 @@ test("quality-diversity selection overrides a renamed editorial-register house d
     selectionRationale: "Provider choice",
     candidates: [
       {
+        ...defaults.candidates[0],
         id: "case-file",
         concept: "A confidential case path",
         justification: "Fits the legal brief.",
@@ -231,6 +385,7 @@ test("quality-diversity selection overrides a renamed editorial-register house d
         ),
       },
       {
+        ...defaults.candidates[1],
         id: "guided-intake",
         concept: "A calm guided intake",
         justification: "Lets an individual disclose only what is necessary.",
@@ -245,6 +400,7 @@ test("quality-diversity selection overrides a renamed editorial-register house d
         ),
       },
       {
+        ...defaults.candidates[2],
         id: "plain-language-map",
         concept: "A plain-language issue map",
         justification: "Supports orientation before contact.",
@@ -263,7 +419,6 @@ test("quality-diversity selection overrides a renamed editorial-register house d
   const assessment = assessDirectionPortfolio(portfolio);
   assert.notEqual(assessment.recommendedDirectionId, "case-file");
 
-  const basePlan = generateDesignPlanLocally(analyzeBriefLocally("An employment law firm for individuals seeking a confidential consultation."));
   const enforced = enforceRecommendedDirection({ ...basePlan, directionPortfolio: portfolio }, assessment);
   assert.equal(enforced.directionPortfolio?.selectedDirectionId, assessment.recommendedDirectionId);
   assert.match(enforced.layoutConcept, /ENFORCED DIRECTION/);
@@ -285,7 +440,7 @@ test("local design memory stores fingerprints without private briefs and penaliz
   const plan = generateDesignPlanLocally(analysis);
   const portfolio = createFallbackDirectionPortfolio(plan, analysis);
   const selected = portfolio.candidates.find((candidate) => candidate.id === portfolio.selectedDirectionId)!;
-  const fingerprint = { directionId: selected.id, ...selected.dimensions };
+  const fingerprint = fingerprintDirection(selected);
   const generated = rememberDesignDirection([], fingerprint, "generated", 100);
   const accepted = rememberDesignDirection(generated, fingerprint, "accepted", 200);
 
@@ -322,7 +477,7 @@ test("generation foundation runs as ordered, deterministic stages", async () => 
   });
 
   assert.equal(result.projectSpec.framework, "html");
-  assert.equal(result.designPlan.directionPortfolio?.candidates.length, 3);
+  assert.equal(result.designPlan.directionPortfolio?.candidates.length, 6);
   assert.equal(result.directionDiversity.passed, true);
 });
 
@@ -402,7 +557,7 @@ test("blocklist rules can be supplied through a repository port", () => {
   assert.equal(runBlocklistFilter("exact-custom-signal", undefined, repository).matches[0]?.id, "custom-1");
 });
 
-test("Fast and Studio behavior is selected by one strategy factory", () => {
+test("Fast and Creative behavior is selected by one strategy factory", () => {
   const fast = createGenerationStrategy("fast");
   const studio = createGenerationStrategy("studio");
   assert.equal(fast.emitsCheckpoints(), true);
@@ -604,14 +759,21 @@ test("structured progress logs keep metrics and redact untrusted payload fields"
 });
 
 test("every public demo is a complete, runnable native project", () => {
-  assert.equal(PUBLIC_DEMOS.length, 3);
+  assert.equal(PUBLIC_DEMOS.length, 6);
+  const structuralCells = new Set<string>();
   for (const demo of PUBLIC_DEMOS) {
     assert.equal(demo.result.project.framework, "html", demo.id);
-    assert.equal(demo.result.project.files.length, 4, demo.id);
+    assert.ok(demo.result.project.files.length >= 5, demo.id);
+    assert.ok(demo.result.project.files.some((file) => file.path === "ASSETS.md"), demo.id);
+    assert.equal(demo.receipt.tests.criticalAccessibility, 0, demo.id);
+    assert.equal(demo.receipt.tests.horizontalOverflow, 0, demo.id);
+    structuralCells.add(`${demo.receipt.direction.topology}/${demo.receipt.direction.opening}/${demo.receipt.direction.navigation}`);
     const validation = validateGeneratedProject(demo.result.project);
     assert.equal(validation.failed, 0, `${demo.id}: ${JSON.stringify(validation.checks)}`);
     assert.match(buildHtmlPreviewDocument(demo.result.project, `${demo.id}-probe`), new RegExp(`${demo.id}-probe`));
   }
+  assert.equal(structuralCells.size, 6);
+  assert.ok(Math.min(...PUBLIC_DEMOS.map((demo) => demo.receipt.nearestExampleDistance)) >= 0.5);
 });
 
 test("result sharing publishes bounded evidence without the private brief", () => {
@@ -830,7 +992,7 @@ test("Template Diversity Gate rejects Verve's repeated editorial house recipe", 
   assert.ok(detectedRegister.fingerprints.some((item) => /editorial register/i.test(item)));
 });
 
-test("Studio quality repair can replace a repeated structural recipe", async () => {
+test("Creative quality repair can replace a repeated structural recipe", async () => {
   let repairPrompt = "";
   const fakeAdapter: LLMAdapter = {
     async complete(messages) {
@@ -863,7 +1025,7 @@ test("Fast archetype scoring treats an individual employment law firm as authori
   assert.match(archetype.designConstraints, /SECONDARY TENSION: (?:The )?Caregiver/);
 });
 
-test("OpenRouter Fast mode survives a failed plan call and still assembles the project", async () => {
+test("OpenRouter Fast mode survives a failed Direction Board call and still assembles the project", async () => {
   const originalFetch = globalThis.fetch;
   let calls = 0;
   globalThis.fetch = async () => {
@@ -896,7 +1058,7 @@ test("OpenRouter Fast mode survives a failed plan call and still assembles the p
     });
     assert.equal(calls, 2, "local brief analysis must not spend an OpenRouter request");
     assert.equal(result.briefAnalysis.industry, "Food & Hospitality");
-    assert.match(result.designPlan.rawPlan, /Deterministic local resilience plan/);
+    assert.match(result.designPlan.rawPlan, /Creative Engine v3 plan derived from direction board/);
     assert.equal(result.project.framework, "html");
     assert.equal(result.project.readiness.status, "blocked");
     assert.ok(result.project.warnings.some((warning) => warning.includes("Media Gate requires")));
@@ -1030,6 +1192,57 @@ test("project engine assembles a runnable Next.js file contract", () => {
   assert.ok(project.warnings.some((warning) => warning.includes("Reduced-motion")));
 });
 
+test("multi-file delivery is assembled once and evaluated as one source surface", () => {
+  const analysis = {
+    subject: "Multi-route tool",
+    audience: "Operators",
+    primaryJob: "Inspect a work queue",
+    tone: "direct",
+    industry: "Operations",
+    constraints: [],
+    rawBrief: "A multi-route operations tool",
+  } as BriefAnalysis;
+  const plan = {
+    colorPalette: [{ name: "Ink", hex: "#111111", role: "text" }],
+    typePairing: { display: "Arial", body: "Arial", rationale: "Local system typography." },
+    layoutConcept: "A compact task surface with one inspection route.",
+    signatureElement: { name: "Task lens", description: "A focused task lens.", implementation: "Semantic region", justification: "Keeps the operation visible." },
+    referencesSampled: [],
+  } as unknown as DesignPlan;
+  const generated = {
+    framework: "react",
+    componentName: "App",
+    imports: [],
+    setupNotes: "",
+    entryPath: "src/App.tsx",
+    code: "export default function App(){return <main><h1>Task lens</h1></main>}",
+    files: [
+      { path: "src/App.tsx", language: "tsx", content: "export default function App(){return <main><h1>Task lens</h1></main>}" },
+      { path: "src/index.css", language: "css", content: "main{display:grid}@media(prefers-reduced-motion:reduce){*{animation:none}}" },
+      { path: "index.html", language: "html", content: '<!doctype html><html><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>' },
+    ],
+  };
+
+  const delivered = generatedSourceText(generated);
+  assert.match(delivered, /src\/index\.css/);
+  assert.match(delivered, /prefers-reduced-motion/);
+  const project = buildGeneratedProject(generated, analysis, plan);
+  assert.equal(project.files.filter((entry) => entry.path === "index.html").length, 1);
+  assert.equal(project.files.filter((entry) => entry.path === "src/index.css").length, 1);
+  assert.ok(project.files.some((entry) => entry.path === "ASSETS.md"));
+});
+
+test("supporting source validation cannot hide unsafe policy violations", () => {
+  const issues = inspectSupportingSource(
+    'export function Widget(){return <section dangerouslySetInnerHTML={{__html:"<b>unsafe</b>"}} />}',
+    "src/components/Widget.tsx",
+    "react",
+    "A safe component"
+  );
+  assert.ok(issues.some((issue) => issue.includes("src/components/Widget.tsx")));
+  assert.ok(issues.some((issue) => issue.includes("Unsafe HTML injection")));
+});
+
 test("project risk scan rejects deceptive form behavior", () => {
   const warnings = inspectProductionRisks(`<form><button>Send</button></form><script>alert('Success — sent')</script>`);
   assert.ok(warnings.some((warning) => warning.includes("submission contract")));
@@ -1138,12 +1351,14 @@ test("Render Gate instrumentation stays ephemeral and supports HTML and React pr
 });
 
 test("Render Gate accepts only reports for the active probe", () => {
+  const fingerprint = { occupancyGrid: Array(144).fill(0), typographyScale: [0, 0, 1, 0, 0, 0], colorHistogram: [], mediaCoverage: 0, interactionDensity: 0, roundedness: 0, sectionRhythm: [], routeCount: 1 };
   const report = {
     source: "verve-render-gate",
     probeId: "active",
     sequence: 1,
     viewport: { width: 360, height: 640, documentWidth: 420 },
     checks: [{ id: "horizontal-overflow", title: "Rendered mobile width", status: "fail", message: "Overflow" }],
+    fingerprint,
   };
   assert.equal(isRenderGateReport(report, "active"), true);
   assert.equal(isRenderGateReport(report, "other"), false);
@@ -1151,12 +1366,14 @@ test("Render Gate accepts only reports for the active probe", () => {
 });
 
 test("Render Gate requires evidence at 360, 768, and 1440 before passing", () => {
+  const fingerprint = { occupancyGrid: Array(144).fill(0), typographyScale: [0, 0, 1, 0, 0, 0], colorHistogram: [], mediaCoverage: 0, interactionDensity: 0, roundedness: 0, sectionRhythm: [], routeCount: 1 };
   const report = (width: number, status: "pass" | "warning" | "fail" = "pass"): RenderGateReport => ({
     source: "verve-render-gate",
     probeId: "matrix",
     sequence: width,
     viewport: { width, height: 900, documentWidth: width },
     checks: [{ id: "horizontal-overflow", title: "Responsive width", status, message: "Measured" }],
+    fingerprint,
   });
   let matrix = createRenderEvidenceMatrix();
   matrix = recordRenderEvidence(matrix, report(360));
@@ -1169,6 +1386,12 @@ test("Render Gate requires evidence at 360, 768, and 1440 before passing", () =>
   matrix = recordRenderEvidence(matrix, report(768, "fail"));
   assert.equal(matrix.status, "fail");
   assert.equal(matrix.failures, 1);
+});
+
+test("visual fingerprint distance includes project route topology", () => {
+  const base = { occupancyGrid: Array(144).fill(0), typographyScale: [0, 0, 1, 0, 0, 0], colorHistogram: [], mediaCoverage: 0, interactionDensity: 0, roundedness: 0, sectionRhythm: [1], routeCount: 1 };
+  assert.equal(visualFingerprintDistance(base, base), 0);
+  assert.ok(visualFingerprintDistance(base, { ...base, routeCount: 5 }) > 0);
 });
 
 test("skincare subject evidence overrides a broad Personal Brand classification", () => {
@@ -1344,7 +1567,7 @@ test("Fast evidence cannot turn a blocked visual result into an S grade", () => 
 
   const restraint = runRestraintCheck(plan);
   assert.doesNotMatch(restraint.reasoning, /The The Material Datum/);
-  assert.match(restraint.reasoning, /The Material Datum is purposeful/);
+  assert.match(restraint.reasoning, /functional role|visually described/);
 });
 
 test("a rejected adversarial review cannot produce a 100 distinctiveness score", () => {
@@ -1474,6 +1697,28 @@ test("ZIP project source follows the live editor state", () => {
   });
   assert.match(edited.files.find((file) => file.path === "index.html")?.content ?? "", /Edited and exported/);
   assert.notEqual(edited.files[0].content, project.files[0].content);
+});
+
+test("project ZIPs copy referenced local public assets instead of exporting broken links", async () => {
+  const project = buildRecoveryProject("Local asset package", "html", "test");
+  project.files[0] = {
+    ...project.files[0],
+    content: '<!doctype html><html><body><img src="/demo-assets/retention-study.webp" alt="Retained structure"></body></html>',
+  };
+  assert.deepEqual(referencedLocalAssetPaths(project.files), ["/demo-assets/retention-study.webp"]);
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    assert.equal(String(input), "/demo-assets/retention-study.webp");
+    return new Response(new Uint8Array([82, 73, 70, 70]), { status: 200 });
+  };
+  try {
+    const blob = await createProjectArchive(project);
+    const archive = await JSZip.loadAsync(await blob.arrayBuffer());
+    assert.ok(archive.file("demo-assets/retention-study.webp"));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("editor persistence strips preview probes and restores owned-asset paths", () => {
@@ -1631,7 +1876,7 @@ test("optional provider fallback never swallows user cancellation", async () => 
   );
 });
 
-test("Studio critique uses one bounded provider call", async () => {
+test("Creative critique uses one bounded provider call", async () => {
   let calls = 0;
   let observedTimeout = 0;
   const fakeAdapter: LLMAdapter = {

@@ -1,6 +1,6 @@
 import type { LLMPort, Provider } from "../ports/llm";
-import { analyzeBrief, analyzeBriefLocally, type BriefAnalysis } from "../engine/brief-analyzer";
-import { resolveArchetype, type ArchetypeResolution } from "../engine/brand-archetype-resolver";
+import { analyzeBriefLocally, type BriefAnalysis } from "../engine/brief-analyzer";
+import type { ArchetypeResolution } from "../engine/brand-archetype-resolver";
 import { critiquePlanLocally, resolveArchetypeLocally } from "../engine/fast-path";
 import { runSelfCritique, type CritiqueResult } from "../engine/critique-loop";
 import type { DesignPlan, PlanGenerationOptions } from "../engine/plan-generator";
@@ -55,21 +55,16 @@ export class FastGenerationStrategy implements GenerationStrategy {
   allowsCodeRepair(): boolean { return false; }
 }
 
-export class StudioGenerationStrategy implements GenerationStrategy {
-  readonly mode = "studio" as const;
+export class CreativeGenerationStrategy implements GenerationStrategy {
+  readonly mode = "creative" as const;
   readonly critiqueSource = "provider" as const;
 
-  async analyzeBrief(llm: LLMPort, brief: string, existingCode?: string, signal?: AbortSignal): Promise<BriefStrategyResult> {
-    const result = await runOptionalProviderStep(
-      () => analyzeBrief(llm, brief, existingCode),
-      () => analyzeBriefLocally(brief, existingCode),
-      signal
-    );
-    return { ...result, source: result.degraded ? "local-fallback" : "provider" };
+  async analyzeBrief(_llm: LLMPort, brief: string, existingCode?: string): Promise<BriefStrategyResult> {
+    return { value: analyzeBriefLocally(brief, existingCode), degraded: false, source: "local-fast-path" };
   }
 
-  resolveArchetype(llm: LLMPort, analysis: BriefAnalysis): Promise<ArchetypeResolution> {
-    return resolveArchetype(llm, analysis);
+  resolveArchetype(_llm: LLMPort, analysis: BriefAnalysis): Promise<ArchetypeResolution> {
+    return Promise.resolve(resolveArchetypeLocally(analysis));
   }
 
   critique(
@@ -95,5 +90,5 @@ export class StudioGenerationStrategy implements GenerationStrategy {
 }
 
 export function createGenerationStrategy(mode: GenerationMode): GenerationStrategy {
-  return mode === "fast" ? new FastGenerationStrategy() : new StudioGenerationStrategy();
+  return mode === "fast" ? new FastGenerationStrategy() : new CreativeGenerationStrategy();
 }

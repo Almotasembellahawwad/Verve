@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   SandpackCodeEditor,
   SandpackConsole,
@@ -10,8 +10,8 @@ import {
   SandpackProvider,
   useSandpack,
 } from "@codesandbox/sandpack-react";
-import JSZip from "jszip";
 import type { GeneratedProject } from "@/lib/project/types";
+import { downloadProjectArchive } from "@/lib/client/project-archive";
 import { validateGeneratedProject } from "@/lib/project/project-validator";
 import { mergeEditorFiles } from "@/lib/project/editor-project";
 import { liveSandboxTemplate, supportsLiveSandbox } from "@/lib/project/live-sandbox";
@@ -21,11 +21,13 @@ import {
   isRenderGateReport,
   recordRenderEvidence,
   RENDER_EVIDENCE_WIDTHS,
+  visualFingerprintDistance,
   type RenderEvidenceWidth,
 } from "@/lib/project/render-gate";
 import NativeHtmlWorkbench from "./NativeHtmlWorkbench";
 import styles from "./ProjectWorkbench.module.css";
 import { projectFileDataUrl } from "@/lib/project/brand-kit";
+import { getRecentVisualFingerprints, rememberVisualFingerprint } from "@/lib/client/design-memory";
 
 type Viewport = "mobile" | "tablet" | "desktop";
 type BottomPanel = "problems" | "console";
@@ -37,6 +39,8 @@ type ProjectWorkbenchProps = {
   readOnly?: boolean;
   focusMode?: WorkbenchFocusMode;
   showDiagnostics?: boolean;
+  visualDiversityThreshold?: number;
+  onVisualDiversity?: (distance: number | null) => void;
 };
 
 const VIEWPORT_LABELS: Array<{ id: Viewport; label: string; width: string; pixels: RenderEvidenceWidth }> = [
@@ -61,18 +65,6 @@ function sandboxFilesRevision(files: Record<string, { code: string }>): number {
   return hash >>> 0;
 }
 
-async function downloadProjectFiles(project: GeneratedProject): Promise<void> {
-  const zip = new JSZip();
-  for (const item of project.files) zip.file(item.path, item.content, item.encoding === "base64" ? { base64: true } : undefined);
-  const blob = await zip.generateAsync({ type: "blob" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `${project.name}.zip`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
 function NextProjectInspector({ project, onProjectChange, readOnly = false, showDiagnostics = true }: ProjectWorkbenchProps) {
   const [files, setFiles] = useState(project.files);
   const [selectedPath, setSelectedPath] = useState(project.entryFile);
@@ -90,7 +82,7 @@ function NextProjectInspector({ project, onProjectChange, readOnly = false, show
   const downloadProject = async () => {
     setDownloading(true);
     try {
-      await downloadProjectFiles(editedProject);
+      await downloadProjectArchive(editedProject);
     } finally {
       setDownloading(false);
     }
@@ -185,11 +177,13 @@ function NextProjectInspector({ project, onProjectChange, readOnly = false, show
   );
 }
 
-function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true }: ProjectWorkbenchProps & { probeId: string }) {
+function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, onVisualDiversity }: ProjectWorkbenchProps & { probeId: string }) {
   const { sandpack } = useSandpack();
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [bottomPanel, setBottomPanel] = useState<BottomPanel>("problems");
   const [downloading, setDownloading] = useState(false);
+  const [visualArchiveDistance, setVisualArchiveDistance] = useState<number | null>(null);
+  const visualMeasuredRevisionRef = useRef<number | null>(null);
   const filesRevision = useMemo(() => sandboxFilesRevision(sandpack.files), [sandpack.files]);
   const [renderEvidenceState, setRenderEvidenceState] = useState(() => ({
     revision: filesRevision,
@@ -216,13 +210,14 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
   const renderWarnings = renderEvidence.warnings;
   const totalProblems = problemChecks.length + renderProblems.length + (runtimeError ? 1 : 0);
   const riskScore = Math.max(0, 100 - project.warnings.length * 18);
+  const visualReviewRequired = visualArchiveDistance !== null && visualArchiveDistance < visualDiversityThreshold;
   const renderScore = renderEvidence.covered > 0 ? renderEvidence.score : 85;
   const readinessScore = Math.min(validation.score, riskScore, renderScore);
   const readinessStatus = validation.status === "blocked" || renderFailures > 0 || runtimeError
     ? "blocked"
     : !renderEvidence.complete
       ? "verifying"
-    : validation.status === "review-required" || project.warnings.length > 0 || renderWarnings > 0
+    : validation.status === "review-required" || project.warnings.length > 0 || renderWarnings > 0 || visualReviewRequired
       ? "review-required"
       : "ready";
   const renderGateStatus = `${renderEvidence.status.toUpperCase()} ${renderEvidence.covered}/3`;
@@ -231,6 +226,14 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
     const receiveReport = (event: MessageEvent<unknown>) => {
       if (isRenderGateReport(event.data, probeId)) {
         const report = event.data;
+        if (!readOnly && Math.abs(report.viewport.width - 1440) <= 2 && visualMeasuredRevisionRef.current !== filesRevision) {
+          visualMeasuredRevisionRef.current = filesRevision;
+          const archive = getRecentVisualFingerprints();
+          const distance = archive.length ? Math.min(...archive.map((fingerprint) => visualFingerprintDistance(report.fingerprint, fingerprint))) : null;
+          setVisualArchiveDistance(distance);
+          onVisualDiversity?.(distance);
+          rememberVisualFingerprint(report.fingerprint);
+        }
         setRenderEvidenceState((current) => ({
           revision: filesRevision,
           evidence: recordRenderEvidence(
@@ -242,7 +245,7 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
     };
     window.addEventListener("message", receiveReport);
     return () => window.removeEventListener("message", receiveReport);
-  }, [filesRevision, probeId]);
+  }, [filesRevision, onVisualDiversity, probeId, readOnly]);
 
   useEffect(() => {
     onProjectChange?.(editedProject);
@@ -251,7 +254,7 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
   const downloadProject = async () => {
     setDownloading(true);
     try {
-      await downloadProjectFiles(editedProject);
+      await downloadProjectArchive(editedProject);
     } finally {
       setDownloading(false);
     }
@@ -294,6 +297,12 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
         <div className={styles.warning} role="status">
           <strong>Generation warnings</strong>
           <ul>{project.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+        </div>
+      )}
+      {visualReviewRequired && (
+        <div className={styles.warning} role="status">
+          <strong>Visual diversity review</strong>
+          <p>This render is close to a recent local result ({visualArchiveDistance.toFixed(2)} distance). Fast results should be reviewed; Creative results should be regenerated from another direction.</p>
         </div>
       )}
 
@@ -359,24 +368,27 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
   );
 }
 
-export default function ProjectWorkbench({ project, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true }: ProjectWorkbenchProps) {
+export default function ProjectWorkbench({ project, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, onVisualDiversity }: ProjectWorkbenchProps) {
   const probeId = useId();
+  const projectRevision = useMemo(() => sandboxFilesRevision(Object.fromEntries(
+    project.files.map((file) => [file.path, { code: file.content }])
+  )), [project.files]);
   const files = useMemo(
     () => instrumentSandboxFiles(project, probeId),
     [project, probeId]
   );
 
   if (!supportsLiveSandbox(project.framework)) {
-    return <NextProjectInspector project={project} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} />;
+    return <NextProjectInspector key={projectRevision} project={project} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} />;
   }
 
   if (project.framework === "html") {
-    return <NativeHtmlWorkbench key={`${project.name}-${project.files.length}`} project={project} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} />;
+    return <NativeHtmlWorkbench key={`${project.name}-${projectRevision}`} project={project} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} visualDiversityThreshold={visualDiversityThreshold} onVisualDiversity={onVisualDiversity} />;
   }
 
   return (
     <SandpackProvider
-      key={`${project.name}-${project.files.length}`}
+      key={`${project.name}-${projectRevision}`}
       template={projectTemplate(project)}
       files={files}
       customSetup={{ dependencies: project.dependencies }}
@@ -408,7 +420,7 @@ export default function ProjectWorkbench({ project, onProjectChange, readOnly = 
       }}
       options={{ activeFile: `/${project.entryFile}`, visibleFiles: project.files.map((item) => `/${item.path}`) }}
     >
-      <ProjectWorkspaceBody project={project} probeId={probeId} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} />
+      <ProjectWorkspaceBody project={project} probeId={probeId} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} visualDiversityThreshold={visualDiversityThreshold} onVisualDiversity={onVisualDiversity} />
     </SandpackProvider>
   );
 }
