@@ -79,7 +79,7 @@ function checkMinimumStructure(code: string, framework: string): string[] {
     : ["Component output has no exported or named component"];
 }
 
-function checkDeliveryPolicies(code: string, rawBrief = ""): string[] {
+function checkDeliveryPolicies(code: string, rawBrief = "", allowedFontFamilies: string[] = []): string[] {
   const issues: string[] = [];
   if (/dangerouslySetInnerHTML|\.innerHTML\s*=/i.test(code)) {
     issues.push("Unsafe HTML injection API detected; use framework rendering or safe DOM construction");
@@ -105,7 +105,7 @@ function checkDeliveryPolicies(code: string, rawBrief = ""): string[] {
   );
   const unbackedFonts = [...code.matchAll(/font-family\s*:\s*["']([^"']+)["']/gi)]
     .map((match) => match[1])
-    .filter((family) => !declaredFonts.has(family.toLowerCase()));
+    .filter((family) => !declaredFonts.has(family.toLowerCase()) && !allowedFontFamilies.some((allowed) => allowed.toLowerCase() === family.toLowerCase()));
   if (unbackedFonts.length > 0) {
     issues.push(`Font "${unbackedFonts[0]}" is referenced without a bundled font or @font-face declaration`);
   }
@@ -167,12 +167,12 @@ function checkSignatureElement(code: string, signatureElement: string): boolean 
   return found.length >= Math.ceil(keywords.length / 2);
 }
 
-export function inspectSupportingSource(code: string, path: string, framework: string, rawBrief = ""): string[] {
+export function inspectSupportingSource(code: string, path: string, framework: string, rawBrief = "", allowedFontFamilies: string[] = []): string[] {
   const stripped = stripFences(code);
   const syntax = /\.(?:tsx?|jsx?|mjs)$/i.test(path) ? checkSyntax(stripped, framework === "html" ? "react" : framework) : [];
   const markup = /\.(?:tsx?|jsx?|html)$/i.test(path) ? checkUnclosedTags(stripped) : [];
   const doctype = path.endsWith(".html") ? checkDoctype(stripped, "html") : [];
-  return [...syntax, ...markup, ...doctype, ...checkInlineStyles(stripped), ...checkDeliveryPolicies(stripped, rawBrief)]
+  return [...syntax, ...markup, ...doctype, ...checkInlineStyles(stripped), ...checkDeliveryPolicies(stripped, rawBrief, allowedFontFamilies)]
     .map((issue) => `${path}: ${issue}`);
 }
 
@@ -184,7 +184,8 @@ export async function runCodeQualityLoop(
   signatureElement: string,
   framework: string,
   allowRepair = true,
-  rawBrief = ""
+  rawBrief = "",
+  allowedFontFamilies: string[] = []
 ): Promise<CodeQualityResult> {
   // Step 1: Strip fences
   const stripped = stripFences(rawCode);
@@ -197,7 +198,7 @@ export async function runCodeQualityLoop(
     ...checkUnclosedTags(stripped),
     ...checkSyntax(stripped, framework),
     ...checkInlineStyles(stripped),
-    ...checkDeliveryPolicies(stripped, rawBrief),
+    ...checkDeliveryPolicies(stripped, rawBrief, allowedFontFamilies),
   ];
 
   // Step 3: Check signature element
@@ -243,7 +244,7 @@ export async function runCodeQualityLoop(
       ...checkDoctype(repairedStripped, framework),
       ...checkUnclosedTags(repairedStripped),
       ...checkSyntax(repairedStripped, framework),
-      ...checkDeliveryPolicies(repairedStripped, rawBrief),
+      ...checkDeliveryPolicies(repairedStripped, rawBrief, allowedFontFamilies),
     ];
 
     const repairedSignatureFound = checkSignatureElement(repairedStripped, signatureElement);

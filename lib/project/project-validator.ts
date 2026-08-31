@@ -137,6 +137,16 @@ export function validateGeneratedProject(project: GeneratedProject): ProjectVali
     ? check("button-types", "Button behavior", "pass", "Every button declares its type.")
     : check("button-types", "Button behavior", "warning", `${buttonsWithoutType} button(s) rely on an implicit type.`));
 
+  const hasTablist = /role\s*=\s*["']tablist["']/i.test(combined);
+  if (hasTablist) {
+    const hasRovingTabindex = /tabindex\s*=\s*["']-1["']|tabIndex\s*=\s*\{[^}]*-1/i.test(combined);
+    const hasArrowNavigation = /ArrowLeft|ArrowRight/i.test(combined);
+    const hasSelectionUpdate = /aria-selected|ariaSelected/i.test(combined) && /setAttribute\s*\(\s*["']aria-selected|set[A-Z]\w*\s*\(/i.test(combined);
+    checks.push(hasRovingTabindex && hasArrowNavigation && hasSelectionUpdate
+      ? check("tabs-keyboard", "Tabs keyboard model", "pass", "The tablist exposes one Tab stop, arrow navigation, and synchronized selection.")
+      : check("tabs-keyboard", "Tabs keyboard model", "warning", "ARIA tabs require roving tabindex, arrow navigation, and selection synchronized with the visible panel."));
+  }
+
   const authoredMotion = /(?:animation(?:-name|-duration)?|transition(?:-property|-duration)?)\s*:|requestAnimationFrame\s*\(|\buseReducedMotion\s*\(|from\s+["']framer-motion["']/i.test(combined);
   const reducedMotionPolicy = /prefers-reduced-motion|\buseReducedMotion\s*\(/i.test(combined);
   checks.push(!authoredMotion
@@ -179,6 +189,27 @@ export function validateGeneratedProject(project: GeneratedProject): ProjectVali
   checks.push(unbackedFont
     ? check("font-assets", "Font assets", "warning", `Font "${unbackedFont}" is referenced without a bundled font or @font-face declaration.`)
     : check("font-assets", "Font assets", "pass", "Every named font reference has a local declaration."));
+
+  const hasTypographyContract = project.files.some((file) => file.path === "ASSETS.md" && /## Typography contract\b/i.test(file.content));
+  if (hasTypographyContract) {
+    const fontFiles = project.files.filter((file) => file.encoding === "base64" && file.mediaType === "font/woff2");
+    const fontUrls = [...combined.matchAll(/url\(\s*["']?([^"')?#]+\.woff2)[^)]*\)/gi)].map((match) => normalized(match[1]));
+    const missingFontUrls = fontUrls.filter((fontUrl) => !paths.has(fontUrl) && !paths.has(`public/${fontUrl}`));
+    const sourceWithoutFaces = combined.replace(/@font-face\s*\{[^}]*\}/gi, "");
+    const appliesContract = /font-family\s*:\s*[^;}]*var\(\s*--verve-font-(?:display|body|mono)\s*\)/i.test(sourceWithoutFaces)
+      || [...declaredFonts].some((family) => new RegExp(`font-family\\s*:\\s*[^;}]*["']?${family.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["']?`, "i").test(sourceWithoutFaces));
+    checks.push(fontFiles.length > 0 && fontUrls.length > 0 && missingFontUrls.length === 0
+      ? check("font-delivery", "Typography delivery", "pass", `${fontFiles.length} local WOFF2 file(s) satisfy the typography contract.`)
+      : check("font-delivery", "Typography delivery", "fail", missingFontUrls.length
+        ? `Missing bundled font paths: ${missingFontUrls.slice(0, 4).join(", ")}.`
+        : "The typography contract has no verifiable local WOFF2 delivery."));
+    checks.push(project.files.some((file) => file.path === "FONT-LICENSES.md")
+      ? check("font-license", "Typography license", "pass", "OFL notices are included with the project.")
+      : check("font-license", "Typography license", "fail", "FONT-LICENSES.md is required when font binaries are redistributed."));
+    checks.push(appliesContract
+      ? check("font-contract", "Typography contract", "pass", "Generated styling applies a bundled contract family.")
+      : check("font-contract", "Typography contract", "fail", "Bundled font files exist, but no authored font-family declaration applies the contract."));
+  }
 
   const placeholderSignals = combined.match(/\b(?:lorem ipsum|todo:|dummy content|fake testimonial|replace me|pending|tbd|to be confirmed|coming soon)\b/gi) ?? [];
   checks.push(placeholderSignals.length === 0

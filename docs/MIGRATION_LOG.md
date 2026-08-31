@@ -1,5 +1,7 @@
 # Architecture migration log
 
+> Historical note: references below to the experimental Google Fonts module describe the repository at that migration step. The module was retired in 0.12 and replaced by the local, executable `lib/engine/typography-contract.ts` pipeline with bundled OFL files and no runtime font API.
+
 This log records the incremental engineering pass. A phase is marked complete only when build, lint, typecheck, and tests pass after its changes.
 
 ## Step 0 — discovery

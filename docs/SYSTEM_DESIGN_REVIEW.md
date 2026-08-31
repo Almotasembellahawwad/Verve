@@ -4,6 +4,8 @@ This review records the observed implementation before the architecture retrofit
 
 > This is the discovery snapshot captured before the engineering migration. It is intentionally preserved as the as-is baseline; see `docs/ARCHITECTURE.md` and `docs/MIGRATION_LOG.md` for the enforced post-refactor structure and disposition of these findings.
 
+> The Google Fonts module mentioned in this baseline was removed in 0.12. Current output uses `lib/engine/typography-contract.ts`, bounded local OFL files, and no runtime font API.
+
 ## Discovery baseline
 
 The repository was inspected on 2026-08-28 at `df2f681` with pre-existing, uncommitted product-readiness work in the working tree. Those changes were preserved. The required baseline commands produced these terminal results:

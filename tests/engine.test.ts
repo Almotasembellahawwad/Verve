@@ -77,6 +77,11 @@ import { applyProjectPatchProposal, projectPatchContext } from "../lib/project/a
 import { buildVerveProjectSpec } from "../lib/engine/project-spec-builder";
 import { validateVerveProjectSpec } from "../lib/domain/project-spec";
 import {
+  applyTypographyContract,
+  buildTypographyContract,
+} from "../lib/engine/typography-contract";
+import { deliverTypographyContract } from "../lib/engine/typography-delivery";
+import {
   assessDirectionPortfolio,
   createFallbackDirectionPortfolio,
   enforceRecommendedDirection,
@@ -439,6 +444,93 @@ test("Licensed Asset Delivery allowlists origins, localizes used Pexels bytes, a
   ).fetchApprovedAsset({ assetId: "pexels:42", url: remoteUrl, signal: cancellation.signal });
   cancellation.abort(new Error("user cancelled asset delivery"));
   await assert.rejects(cancelledDelivery, /user cancelled asset delivery/);
+});
+
+test("Typography Contract selects a local legal-services profile and bundles executable OFL files", async () => {
+  const analysis = analyzeBriefLocally("Employment law firm for individuals seeking a discreet discrimination consultation.");
+  const initialPlan = generateDesignPlanLocally(analysis);
+  const contract = buildTypographyContract(analysis, initialPlan);
+  const plan = applyTypographyContract(initialPlan, contract);
+  assert.equal(contract.profileId, "civic-editorial");
+  assert.equal(contract.display.family, "Newsreader Variable");
+  assert.equal(contract.body.family, "Manrope Variable");
+  assert.doesNotMatch(plan.typePairing.display.split(",")[0], /Georgia|Times New Roman|Arial|Verdana/);
+
+  const delivery = await deliverTypographyContract(contract, "html", async (_packageName, packagePath) =>
+    Buffer.from(`wOF2:${packagePath}`)
+  );
+  assert.equal(delivery.receipt.status, "ready");
+  assert.equal(delivery.files.length, contract.files.length);
+  assert.match(delivery.css, /--verve-font-display/);
+  assert.match(delivery.css, /\.\/assets\/fonts\/newsreader-latin-wght-normal\.woff2/);
+  assert.ok(delivery.receipt.files.every((file) => /^[a-f0-9]{64}$/.test(file.sha256)));
+
+  const packageDelivery = await deliverTypographyContract(contract, "html");
+  assert.equal(packageDelivery.receipt.status, "ready");
+  assert.ok(packageDelivery.files.every((file) => Buffer.from(file.content, "base64").subarray(0, 4).toString("ascii") === "wOF2"));
+  assert.match(packageDelivery.licenseFile?.content ?? "", /SIL OPEN FONT LICENSE Version 1\.1/);
+  assert.match(packageDelivery.licenseFile?.content ?? "", /Newsreader Project Authors/);
+
+  const source = `<!doctype html><html><head><style>body{font-family:var(--verve-font-body)}h1{font-family:var(--verve-font-display)}</style></head><body><main><h1 data-verve-task="primary-object">Private guidance</h1><p data-verve-task="decision-evidence">For individuals</p><a href="#start" data-verve-primary-action>Start</a><section id="start">Consultation</section></main></body></html>`;
+  const generated = { code: source, framework: "html", componentName: "TypographyFixture", imports: [], setupNotes: "test" };
+  const project = buildGeneratedProject(
+    generated,
+    analysis,
+    plan,
+    [],
+    [],
+    undefined,
+    undefined,
+    [],
+    contract,
+    delivery.receipt,
+    delivery.files,
+    delivery.css,
+    delivery.licenseFile
+  );
+  const manifest = project.files.find((file) => file.path === "ASSETS.md")?.content ?? "";
+  assert.match(manifest, /## Typography contract/);
+  assert.match(manifest, /Profile: civic-editorial/);
+  assert.match(manifest, /SHA-256 `[a-f0-9]{64}`/);
+  assert.ok(project.files.some((file) => file.path === "FONT-LICENSES.md"));
+  for (const id of ["font-delivery", "font-license", "font-contract"]) {
+    assert.equal(project.validation.checks.find((item) => item.id === id)?.status, "pass");
+  }
+  const preview = buildHtmlPreviewDocument(project, "typography-fixture");
+  assert.match(preview, /data:font\/woff2;base64/);
+});
+
+test("Typography Contract includes Arabic and Latin subsets for mixed-script output", () => {
+  const analysis = analyzeBriefLocally("منصة قانونية عربية في القاهرة with bilingual case comparison");
+  const contract = buildTypographyContract(analysis, generateDesignPlanLocally(analysis));
+  assert.equal(contract.script, "mixed");
+  assert.match(contract.display.family, /Noto Kufi Arabic/);
+  assert.ok(contract.files.some((file) => file.subset === "arabic"));
+  assert.ok(contract.files.some((file) => file.subset === "latin"));
+});
+
+test("scene asset requirements distinguish external-media avoidance from programmatic richness", () => {
+  const analysis = analyzeBriefLocally("Employment law consultation with a question-led comparison.");
+  const plan = generateDesignPlanLocally(analysis);
+  const assetBundle = {
+    photos: [], icons: [], extractedPalette: [], warnings: [], readinessWarnings: [],
+    font: { family: "Arial", weights: [400, 700], cssImport: "none", isGoogleFont: false, source: "fallback" as const },
+    mediaRequirement: { level: "recommended" as const, minimumAssets: 1, reason: "One authentic image can support trust.", suggestedSubjects: ["consultation"] },
+    assetSummary: "No approved photo.",
+  };
+  const spec = buildVerveProjectSpec({ analysis, plan, framework: "html", assetBundle });
+  const notApplicable = spec.assetDirection.sceneDirections.filter((direction) => direction.requirement === "not-applicable");
+  assert.ok(notApplicable.length > 0);
+  assert.ok(notApplicable.every((direction) => direction.selectedAssetIds.length === 0));
+  assert.ok(notApplicable.some((direction) => direction.expectedLayers.some((layer) => layer !== "type")));
+});
+
+test("project validation flags ARIA tabs that omit roving tabindex", () => {
+  const analysis = analyzeBriefLocally("Simple comparison tool");
+  const plan = generateDesignPlanLocally(analysis);
+  const source = `<!doctype html><html><body><main><h1 data-verve-task="primary-object">Compare</h1><p data-verve-task="decision-evidence">Two paths</p><div role="tablist"><button type="button" role="tab" aria-selected="true">One</button><button type="button" role="tab" aria-selected="false">Two</button></div><section id="go"><a href="#go" data-verve-primary-action>Continue</a></section><script>document.addEventListener('keydown',event=>{if(event.key==='ArrowRight')document.querySelector('[role=tab]').setAttribute('aria-selected','true')})</script></main></body></html>`;
+  const project = buildGeneratedProject({ code: source, framework: "html", componentName: "TabsFixture", imports: [], setupNotes: "test" }, analysis, plan);
+  assert.equal(project.validation.checks.find((item) => item.id === "tabs-keyboard")?.status, "warning");
 });
 
 test("Licensed Asset Delivery enforces the aggregate response budget without hiding the remaining remote dependency", async () => {

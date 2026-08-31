@@ -61,6 +61,7 @@ request
        [03] plan + critique + optional revision
        [04] deterministic contrast correction
        [04.1] direction diversity and local novelty selection
+       [04.15] executable Typography Contract: script-aware profile + local OFL file manifest
        [04.2] ProjectSpec Visual Narrative: semantic routes, story scenes, art direction, richness budget
        [04.3] Scene Asset Director: licensed catalog, scene purpose, framing, fallback, expected layers
        [05] code generation
@@ -101,6 +102,10 @@ Optional analysis, planning, and critique fail open to deterministic fallbacks. 
 `AssetSourcePort` separates discovery from Pexels. `PexelsAssetSourceAdapter` owns the key and a request-scoped circuit breaker (`lib/adapters/assets/pexels-asset-source.ts`). Owned binary assets remain browser-local; the server receives only a bounded manifest. `asset-director.ts` turns approved sources into a licensed catalog and assigns them to Story Graph scenes with purpose, framing, alt intent, and fallback. A fetched asset is not counted as used until `asset-usage.ts` finds its URL, verifies required attribution, and traces its assigned asset ID in delivered code.
 
 `AssetDeliveryPort` is a separate post-generation capability. The Pexels delivery adapter accepts only exact HTTPS `images.pexels.com` URLs without credentials, ports, or redirects; it streams into a 1.2 MB per-file cap, enforces a 2.4 MB project cap, validates JPEG/PNG/WebP signatures, and computes SHA-256. The conservative binary budget leaves room for Base64 expansion plus the surrounding streamed project response under intermediary payload envelopes. Only Pexels assets actually referenced by delivered source are copied. Source references and ProjectSpec catalog URLs are rewritten to framework-correct local paths, binary files enter preview and ZIP, and `ASSETS.md` preserves the source page, API credit, Pexels License link, media type, size, checksum, and standalone-redistribution/third-party-rights warning. Failure leaves the remote preview dependency visible and blocks production readiness. The checksum proves delivered-byte identity, not ownership, endorsement, third-party clearance, or continuing license validity.
+
+## Typography boundary
+
+Typography has an independent delivery boundary. `typography-contract.ts` selects from a curated local OFL catalog only after the final direction and script are known. It emits role assignments, exact package files, Unicode coverage, fallback policy, and deterministic CSS. The delivery step copies WOFF2 bytes into the generated project under a 500 KB cap, records SHA-256 and provenance, includes complete license text in `FONT-LICENSES.md`, and injects the contract after authored CSS so an accidental Georgia, Times, Verdana, or generic system default cannot win the cascade. Validation checks that declared binaries exist, CSS URLs resolve, contracted families are applied, and the license file ships. No browser-time Google Fonts request or font API key is part of generation.
 
 ## Project and preview boundary
 

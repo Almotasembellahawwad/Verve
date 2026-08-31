@@ -10,6 +10,7 @@ import type {
 import { VERVE_PROJECT_SPEC_VERSION, validateVerveProjectSpec } from "../domain/project-spec";
 import { FIRST_VIEWPORT_POLICY_VERSION, FIRST_VIEWPORT_THRESHOLDS } from "../domain/first-viewport";
 import type { BrandProfile, OwnedAssetManifest } from "../project/brand-kit";
+import type { TypographyContract } from "../domain/typography";
 import type { BriefAnalysis } from "./brief-analyzer";
 import type { AssetBundle } from "./asset-sourcer";
 import type { DesignPlan } from "./plan-generator";
@@ -92,8 +93,9 @@ export function buildVerveProjectSpec(input: {
   assetBundle: AssetBundle;
   brandProfile?: BrandProfile;
   ownedAssets?: OwnedAssetManifest[];
+  typographyContract?: TypographyContract;
 }): VerveProjectSpec {
-  const { analysis, plan, assetBundle, brandProfile, ownedAssets = [] } = input;
+  const { analysis, plan, assetBundle, brandProfile, ownedAssets = [], typographyContract } = input;
   const direction = selectedDirection(plan);
   const model: ExperienceModel = direction?.descriptors.experienceModel ?? "guided-conversation";
   const complexity = complexityFor(analysis);
@@ -190,6 +192,7 @@ export function buildVerveProjectSpec(input: {
     facts: { policy: "brief-is-source-of-truth", items: facts },
     narrative,
     assetDirection,
+    ...(typographyContract ? { typographyContract } : {}),
     experience: {
       model,
       route: routes[0].path,

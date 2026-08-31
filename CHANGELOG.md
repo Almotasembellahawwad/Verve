@@ -6,6 +6,8 @@ All notable changes to Verve are documented here.
 
 ### Added
 
+- Added an executable Typography Contract selected after the final design direction: curated local OFL families, Latin/Arabic subset coverage, deterministic `@font-face` CSS, a 500 KB bundle limit, SHA-256 receipts, and complete `FONT-LICENSES.md` output.
+- Added result-surface typography evidence and project validation for missing font binaries, broken CSS URLs, unused contract families, missing licenses, and incomplete ARIA tab keyboard behavior.
 - Added Licensed Asset Delivery for used Pexels selections: exact-host allowlisting, redirect rejection, streamed size limits, JPEG/PNG/WebP signature verification, SHA-256 receipts, local project paths, and binary ZIP inclusion.
 - Added an explicit delivery receipt to the API, result plan, ProjectSpec-localized catalog, and generated `ASSETS.md`; unused search results are never downloaded and delivery failures block production readiness.
 - Added a task-bearing opening contract and First Viewport Effectiveness render evidence at 360, 768, and 1440 pixels. The metric evaluates task coverage, information salience, action clarity, and scroll cost without treating hero scale as a quality proxy.
@@ -15,6 +17,8 @@ All notable changes to Verve are documented here.
 
 ### Changed
 
+- Replaced ambiguous scene-level `avoid` values with `not-applicable` when a scene intentionally uses programmatic data, shape, interaction, or motion instead of external media; Pexels discovery now requests only the minimum scene demand.
+- Removed the dormant Google Fonts API/import experiment. Generated projects now use only locally bundled, licensed fonts and require no font-service API key or runtime CDN.
 - Replaced the blanket oversized-hero warning in direction, planning, and code prompts with a functional rule: cinematic openings are valid when they carry verified decision information and an immediate primary action.
 - Added a conservative local Print / Stationery brief classification for material-specification and wholesale-comparison work.
 - Reduced global navigation to Create, Examples, Editor, and Docs, with Settings and GitHub treated as utilities.

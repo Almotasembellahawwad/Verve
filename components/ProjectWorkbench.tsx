@@ -141,8 +141,10 @@ function NextProjectInspector({ project, onProjectChange, readOnly = false, show
           </div>
           {selectedFile.encoding === "base64" ? (
             <div className={styles.assetInspector}>
-              {/* eslint-disable-next-line @next/next/no-img-element -- local user-owned preview */}
-              <img src={projectFileDataUrl(selectedFile) ?? ""} alt="Bundled project asset preview" />
+              {selectedFile.mediaType?.startsWith("image/") && (
+                // eslint-disable-next-line @next/next/no-img-element -- local user-owned preview
+                <img src={projectFileDataUrl(selectedFile) ?? ""} alt="Bundled project asset preview" />
+              )}
               <p>Binary asset · {selectedFile.mediaType} · included in ZIP</p>
             </div>
           ) : (

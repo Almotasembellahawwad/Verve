@@ -5,12 +5,10 @@
 // Sources:
 //   - Pexels API (free; linked attribution is preserved for API compliance)
 //   - Lucide Icons (contextual, SVG-based)
-//   - Fontshare API (high-quality, less-common than Google Fonts)
 //   - colorthief (extracts real palette from Pexels image — Phase 2.5)
 //
 // Timeouts (Phase 1.6):
 //   - Pexels: 8s
-//   - Fontshare verify: skipped (CSS @import URL is deterministic)
 // =========================================================
 
 import type { BriefAnalysis } from "./brief-analyzer";
@@ -167,10 +165,14 @@ export async function sourceAssets(
     }));
   let extractedPalette: AssetBundle["extractedPalette"] = [];
 
-  if (pexelsKey && photos.length < 3) {
+  const targetPhotoCount = mediaRequirement.level === "required" || mediaRequirement.level === "recommended"
+    ? mediaRequirement.minimumAssets
+    : 0;
+
+  if (pexelsKey && photos.length < targetPhotoCount) {
     try {
       const query = buildPexelsQuery(analysis);
-      const raw = await breaker.execute(() => fetchPexelsPhotos(query, pexelsKey, 3 - photos.length));
+      const raw = await breaker.execute(() => fetchPexelsPhotos(query, pexelsKey, targetPhotoCount - photos.length));
 
       const sourcedPhotos = raw.map((p) => ({
         id:           `pexels:${p.id}`,
@@ -217,7 +219,7 @@ export async function sourceAssets(
       ? `Palette extracted from hero photo: ${extractedPalette.map((c) => `${c.hex} (${c.role})`).join(", ")}`
       : "",
     `Icons (Lucide — use these names): ${icons.join(", ")}`,
-    `Font stack: ${font.family} via ${font.source}; runtime import: ${font.cssImport}`,
+    `Typography planning fallback: ${font.family}. The executable local OFL Typography Contract is selected only after the final direction is locked; this fallback must not become the delivered identity.`,
     photos.some((photo) => photo.source === "pexels")
       ? "PEXELS DELIVERY CONTRACT: If a Pexels photo is used, include a visible linked credit to Pexels and the named photographer. A fetched photo is not automatically selected."
       : "",

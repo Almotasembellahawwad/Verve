@@ -114,7 +114,7 @@ function sourcePolicy(scene: StoryScene, hasApprovedAsset: boolean, mediaPolicy:
 function requirementFor(scene: StoryScene, bundle: AssetBundle): SceneAssetDirection["requirement"] {
   if (bundle.mediaRequirement.level === "avoid" && needsExternalAsset(scene)) return "avoid";
   if (needsExternalAsset(scene) && (bundle.mediaRequirement.level === "required" || scene.narrativeRole === "proof")) return "required";
-  return needsExternalAsset(scene) || scene.medium === "illustration" ? "supporting" : "avoid";
+  return needsExternalAsset(scene) || scene.medium === "illustration" ? "supporting" : "not-applicable";
 }
 
 function fallbackFor(scene: StoryScene, hasApprovedAsset: boolean, suggestedSubjects: string[]): string {
@@ -168,6 +168,7 @@ export function buildAssetDirectionContract(input: {
     unusedAssetIds: catalog.filter((asset) => !identity.has(asset.id) && !selectedIds.has(asset.id)).map((asset) => asset.id),
     globalRules: [
       "Every visible asset must answer a scene question, expose evidence, orient the audience, or reveal state; atmosphere alone is not fulfillment.",
+      "External-media requirement is separate from visual richness: not-applicable scenes still require their declared data, shape, motion, or interaction layers.",
       "Use only catalog URLs or original programmatic geometry. Never invent or silently substitute an asset; remote stock URLs are preview-only until copied into the project.",
       "Keep the assigned credit and source record in ASSETS.md; Pexels use also needs a visible linked credit in the experience.",
       "Treat framing as responsive information design: preserve the evidence-bearing subject before preserving the crop.",
@@ -194,7 +195,7 @@ ${catalog}
 
 ## Scene assignments
 
-| Scene | Function | Requirement | Assigned source | Framing |
+| Scene | Function | External media need | Assigned source | Framing |
 | --- | --- | --- | --- | --- |
 ${scenes}
 

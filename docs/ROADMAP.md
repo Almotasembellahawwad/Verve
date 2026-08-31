@@ -43,6 +43,9 @@ This document tracks shipped foundations and the next evidence-driven product wo
 
 ## Phase 2.1 — Quality calibration
 
+- [x] Executable Typography Contract with direction/script-aware profiles, bounded local OFL delivery, Arabic+Latin subsets, CSS enforcement, license text, and SHA-256 receipts
+- [x] Scene media semantics that distinguish `not-applicable` external media from required programmatic visual richness
+- [x] ARIA tabs validator for roving focus plus synchronized arrow-key selection and panels
 - [x] Media Requirement Engine that classifies photography as required, recommended, optional, or avoidable before generation
 - [x] Asset Assurance that prevents image-dependent projects from appearing production-ready without approved media
 - [x] Browser-local brand kit with owned logos/images embedded in preview and ZIP without sending binary content to the provider

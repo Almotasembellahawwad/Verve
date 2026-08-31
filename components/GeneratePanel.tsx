@@ -147,6 +147,31 @@ type PipelineResult = {
     }[];
     warnings: string[];
   };
+  typographyContract?: {
+    version: 1;
+    profileId: string;
+    script: "latin" | "arabic" | "mixed";
+    display: { family: string; stack: string; rationale: string };
+    body: { family: string; stack: string; rationale: string };
+    mono?: { family: string; stack: string; rationale: string };
+    rationale: string;
+    fallbackPolicy: string;
+  };
+  typographyDelivery?: {
+    version: 1;
+    status: "ready" | "failed";
+    profileId: string;
+    script: "latin" | "arabic" | "mixed";
+    files: {
+      id: string;
+      family: string;
+      projectPath: string;
+      byteLength: number;
+      sha256: string;
+      license: "OFL-1.1";
+    }[];
+    warnings: string[];
+  };
   visualIntentSource?: {
     status: "pass" | "review" | "fail";
     score: number;
@@ -1327,6 +1352,33 @@ export default function GeneratePanel() {
                           ))}
                         </div>
                       )}
+                    </>
+                  )}
+                  {result.typographyContract && result.typographyDelivery && (
+                    <>
+                      <div className={styles.narrativeHead}>
+                        <div>
+                          <span className={styles.metaKey}>Typography Contract</span>
+                          <h3>Selected after the direction, bundled locally, and applied by the assembler.</h3>
+                        </div>
+                        <b>{result.typographyDelivery.status} · {result.typographyContract.script}</b>
+                      </div>
+                      <dl className={styles.richnessReceipt}>
+                        <div><dt>Profile</dt><dd>{result.typographyContract.profileId.replaceAll("-", " ")}</dd></div>
+                        <div><dt>Display</dt><dd>{result.typographyContract.display.family}</dd></div>
+                        <div><dt>Body</dt><dd>{result.typographyContract.body.family}</dd></div>
+                        <div><dt>Delivery</dt><dd>{result.typographyDelivery.files.length} local OFL files · {Math.round(result.typographyDelivery.files.reduce((sum, file) => sum + file.byteLength, 0) / 1024)} KB</dd></div>
+                      </dl>
+                      <div className={styles.sceneGrid}>
+                        {result.typographyDelivery.files.map((file) => (
+                          <article key={`font-${file.id}`}>
+                            <span>{file.license} · local WOFF2</span>
+                            <strong>{file.family}</strong>
+                            <p>{file.projectPath}</p>
+                            <small>sha256 {file.sha256.slice(0, 16)}…</small>
+                          </article>
+                        ))}
+                      </div>
                     </>
                   )}
                 </div>

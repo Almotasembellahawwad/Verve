@@ -30,7 +30,8 @@ export type VisualMedium = "typography" | "photography" | "illustration" | "data
 export type VisualLayer = "type" | "media" | "data" | "shape" | "motion" | "interaction";
 
 export type AssetLicense = "user-owned" | "pexels-license" | "programmatic-original" | "not-applicable";
-export type AssetRequirement = "required" | "supporting" | "avoid";
+/** External-media need. `not-applicable` means the scene is fulfilled programmatically, not visually empty. */
+export type AssetRequirement = "required" | "supporting" | "avoid" | "not-applicable";
 export type AssetSourcePolicy = "approved-only" | "programmatic-only" | "approved-or-programmatic" | "no-visual-asset";
 export type AssetNarrativeFunction = "orientation" | "material-context" | "exploration" | "evidence" | "comparison" | "state-feedback";
 
@@ -206,6 +207,8 @@ export type VerveProjectSpec = {
   };
   narrative: VisualNarrativeContract;
   assetDirection: AssetDirectionContract;
+  /** Added compatibly in ProjectSpec v2; older checkpoints may omit it. */
+  typographyContract?: import("./typography").TypographyContract;
   experience: {
     model: ExperienceModel;
     route: string;
@@ -309,6 +312,14 @@ export function validateVerveProjectSpec(spec: VerveProjectSpec): ProjectSpecVal
   if (regionIds.size !== spec.experience.regions.length) issues.push("Experience region IDs must be unique.");
   if (componentIds.size !== spec.components.length) issues.push("Component IDs must be unique.");
   if (spec.visualSystem.colors.length < 3) issues.push("The visual system requires at least three color tokens.");
+  if (spec.typographyContract) {
+    if (spec.typographyContract.version !== 1) issues.push("Unsupported typography contract version.");
+    if (spec.typographyContract.files.length < 1) issues.push("The typography contract requires at least one bundled font file.");
+    const fileIds = new Set(spec.typographyContract.files.map((file) => file.id));
+    for (const assignment of [spec.typographyContract.display, spec.typographyContract.body, spec.typographyContract.mono].filter(Boolean)) {
+      for (const fileId of assignment!.fileIds) if (!fileIds.has(fileId)) issues.push(`Typography assignment references unknown file ${fileId}.`);
+    }
+  }
   if (spec.visualSystem.depth.surfaceLayers < 1) issues.push("The visual depth contract requires at least one surface layer.");
   if (spec.experience.firstViewport.policy !== "task-bearing-opening") issues.push("The first viewport must use the task-bearing opening policy.");
   if (spec.experience.firstViewport.presentation !== "any-scale") issues.push("The first viewport must not prohibit a composition solely because of its scale.");
