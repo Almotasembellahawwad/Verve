@@ -34,6 +34,7 @@ import {
 } from "@/lib/project/brand-kit";
 import { DEFAULT_GENERATION_MODE, type GenerationMode } from "@/lib/domain/generation-mode";
 import type { DirectionBoard, DirectionCheckpoint, DirectionPortfolio } from "@/lib/domain/design-direction";
+import type { VerveProjectSpec } from "@/lib/domain/project-spec";
 import { fingerprintDirection } from "@/lib/engine/direction-portfolio";
 import {
   getRecentLocalDesignFingerprints,
@@ -155,6 +156,7 @@ type PipelineResult = {
     recommendedDirectionId: string;
     warnings: string[];
   };
+  projectSpec?: VerveProjectSpec;
   critique: {
     passed: boolean;
     flaggedElements: { element: string; reason: string; severity: string }[];
@@ -1111,6 +1113,21 @@ export default function GeneratePanel() {
 
       {result && (
         <div className={styles.results} id="generation-result">
+          {activeView === "project" && result.project && (
+            <>
+              <header className={styles.resultPreviewBar}>
+                <div><span>VERVE / GENERATED PROJECT</span><strong>{result.project.name}</strong></div>
+                <b>{result.project.framework} · {result.projectSpec?.narrative.structure ?? "brief-derived"} experience</b>
+              </header>
+              <div role="tabpanel" className={styles.projectView}>
+                <ProjectWorkbench
+                  project={result.project}
+                  visualDiversityThreshold={result.execution?.effectiveMode.startsWith("creative") ? 0.45 : 0.35}
+                  onVisualDiversity={handleVisualDiversity}
+                />
+              </div>
+            </>
+          )}
           {/* Score Banner */}
           <div className={styles.scoreBanner}>
             <div className={styles.scoreMain}>
@@ -1192,16 +1209,6 @@ export default function GeneratePanel() {
             ))}
           </div>
 
-          {activeView === "project" && result.project && (
-            <div role="tabpanel" className={styles.projectView}>
-              <ProjectWorkbench
-                project={result.project}
-                visualDiversityThreshold={result.execution?.effectiveMode.startsWith("creative") ? 0.45 : 0.35}
-                onVisualDiversity={handleVisualDiversity}
-              />
-            </div>
-          )}
-
           {/* Plan View */}
           {activeView === "plan" && (
             <div className={styles.planView} role="tabpanel">
@@ -1214,6 +1221,35 @@ export default function GeneratePanel() {
                   <div><span className={styles.metaKey}>Tone</span><span className={styles.metaVal}>{result.briefAnalysis.tone}</span></div>
                 </div>
               </div>
+
+              {result.projectSpec?.narrative && (
+                <div className={styles.planCard}>
+                  <div className={styles.narrativeHead}>
+                    <div>
+                      <span className={styles.metaKey}>Visual Narrative / Story Graph</span>
+                      <h3>{result.projectSpec.narrative.thesis}</h3>
+                    </div>
+                    <b>{result.projectSpec.narrative.structure} · {result.projectSpec.narrative.scenes.length} scenes</b>
+                  </div>
+                  <p className={styles.narrativeTension}>{result.projectSpec.narrative.emotionalTension}</p>
+                  <div className={styles.sceneGrid}>
+                    {result.projectSpec.narrative.scenes.map((scene, index) => (
+                      <article key={scene.id}>
+                        <span>{String(index + 1).padStart(2, "0")} / {scene.narrativeRole} / {scene.medium}</span>
+                        <strong>{scene.audienceQuestion}</strong>
+                        <p>{scene.focalObject}</p>
+                        {scene.visibleConsequence && <small>{scene.visibleConsequence}</small>}
+                      </article>
+                    ))}
+                  </div>
+                  <dl className={styles.richnessReceipt}>
+                    <div><dt>Functional layers</dt><dd>{result.projectSpec.narrative.richness.requiredLayers.join(" · ")}</dd></div>
+                    <div><dt>Meaningful states</dt><dd>{result.projectSpec.narrative.richness.minimumMeaningfulStates} minimum</dd></div>
+                    <div><dt>Detail strategy</dt><dd>{result.projectSpec.narrative.richness.strategy.replaceAll("-", " ")}</dd></div>
+                    <div><dt>Art direction</dt><dd>{result.projectSpec.narrative.artDirection.detailDensity} · {result.projectSpec.narrative.artDirection.interactionMetaphor}</dd></div>
+                  </dl>
+                </div>
+              )}
 
               {result.plan.directionPortfolio && (
                 <div className={styles.planCard}>

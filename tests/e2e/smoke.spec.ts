@@ -86,7 +86,7 @@ test("the brand kit accepts owned media without uploading it during setup", asyn
 
 test("examples replace the duplicate demo and evidence galleries", async ({ page, request }) => {
   await page.goto("/examples", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: /Six briefs/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Six different ways/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Reframe/ })).toHaveAttribute("href", "/examples/architecture");
   await expect(page.getByRole("link", { name: /Maeda Cairo/ })).toHaveAttribute("href", "/examples/cairo");
   await expect(page.getByRole("link", { name: /Ledgerline/ })).toHaveAttribute("href", "/examples/carbon");
@@ -214,5 +214,5 @@ test("the mobile navigation is keyboard-safe and uses plain labels", async ({ pa
   await hamburger.click();
   await drawer.getByRole("link", { name: "Examples", exact: true }).click();
   await expect(page).toHaveURL(/\/examples$/);
-  await expect(page.getByRole("heading", { name: /Six briefs/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Six different ways/ })).toBeVisible();
 });

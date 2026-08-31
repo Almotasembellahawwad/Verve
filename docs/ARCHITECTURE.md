@@ -52,7 +52,7 @@ request
   -> direction exploration (`/api/directions/stream`)
        Fast: one six-candidate call
        Creative: two independent three-candidate calls
-       quality floor -> archive novelty -> brief fit -> signed checkpoint
+       brief-sensitive selection from 18 cells -> quality floor -> archive novelty -> brief fit -> signed checkpoint
   -> generation use case
        [01] brief analysis
        [02] blocklist + asset sourcing + competitive field (parallel)
@@ -60,6 +60,8 @@ request
        [02.6] motion language
        [03] plan + critique + optional revision
        [04] deterministic contrast correction
+       [04.1] direction diversity and local novelty selection
+       [04.2] ProjectSpec Visual Narrative: semantic routes, story scenes, art direction, richness budget
        [05] code generation
        [05.5] syntax/quality + optional repair
        delivered-code quality, restraint, engineering, diversity checks

@@ -8,8 +8,8 @@ Verve is an open-source project intelligence engine for generating distinctive w
 
 ## Verve Creative Engine v3 (beta)
 
-- **Six-direction board** — every new run explores two combinational, two exploratory, and two transformational directions before code. Auto-selection applies a quality floor, then maximizes distance from recent Verve structures, then brief fit; statistical likelihood is never a reward.
-- **Executable ProjectSpec v2** — the chosen direction compiles into bounded routes, nested regions, interaction states, responsive compositions, visual depth, media policy, invariants, and file budgets before code generation.
+- **Brief-sensitive six-direction board** — every new run selects six cells from an 18-cell experience/opening/navigation pool: two combinational, two exploratory, and two transformational, with all six experience models represented. Auto-selection applies a quality floor, then maximizes distance from recent Verve structures, then brief fit; statistical likelihood is never a reward.
+- **Executable ProjectSpec v2 + Visual Narrative** — the chosen direction compiles into semantic routes and connected story scenes. Every scene names the audience question, focal object, evidence, visual medium, action, and visible consequence; an art-direction contract and functional richness budget reach code generation with it.
 - **Fixation-resistant references** — `data/reference-library.json` defines a 12-domain × 6-experience matrix (72 abstract patterns). Retrieval supplies one near principle, two remote analogies, and one anti-reference without passing source palettes or brand identities to the model.
 - **Private local design memory** — the browser keeps only bounded structural and numeric DOM fingerprints, including a 12×12 occupancy grid, type distribution, color histogram, media/interaction density, section rhythm, and route count. Briefs, code, images, and API keys are never stored in this memory.
 - **Inspectable Stage Graph** — deterministic post-plan work now runs as immutable, independently testable experience-contract and direction-diversity stages.
@@ -22,6 +22,14 @@ Verve is an open-source project intelligence engine for generating distinctive w
 Creative Engine v3 adapts established ideas rather than treating one numeric score as proof of creativity. The separate board and expansion phases are informed by the generative/exploratory distinction in [Creative Cognition](https://mitpress.mit.edu/9780262560962/creative-cognition/). Reference retrieval deliberately mixes near and remote principles because early examples can stimulate ideation but can also create design fixation, as reported by [Jansson and Smith](https://doi.org/10.1016/0142-694X(91)90003-F) and [Perttula and Sipilä](https://doi.org/10.1080/09544820600679679). Direction operators are structured variation prompts informed by the empirical [77 Design Heuristics](https://doi.org/10.1016/j.destud.2016.05.001).
 
 The selector is a small product-specific adaptation of [MAP-Elites](https://arxiv.org/abs/1504.04909) and [quality-diversity search](https://doi.org/10.3389/frobt.2016.00040): it keeps quality as a gate while comparing candidates across explicit behavioral descriptors. It is not a full evolutionary optimizer. Archive distance borrows the anti-convergence motivation of [novelty search](https://doi.org/10.1162/EVCO_a_00025). Norman's visceral, behavioral, and reflective levels from [Emotional Design](https://www.hachettebookgroup.com/titles/don-norman/emotional-design/9780465004171/) remain a descriptive review lens, never a creativity score.
+
+## What changed in 0.9 Visual Narrative Engine
+
+- **Story Graph instead of a section recipe** — the former five-role sequence was removed. Focused, balanced, and systemic briefs now produce connected hook, tension, discovery, proof, choice, and payoff scenes only when the job needs them.
+- **Semantic multi-route depth** — comparison, collection, evidence, workflow, and action routes are inferred from brief signals; Creative can use five routes while Fast remains bounded at three.
+- **Global clarity, local detail** — every project declares required type, interaction, media, data, shape, and motion layers plus a minimum meaningful-state budget. Decorative effects do not satisfy the budget by themselves.
+- **Coherent art direction** — composition grammar, material vocabulary, image language, typography voice, motion choreography, and forbidden generic fallbacks are compiled as one contract.
+- **Result-first presentation** — the live project precedes score chrome, while the plan view exposes the actual story graph and richness receipt. Example cards narrate expectation, design turn, and audience consequence around real runnable previews.
 
 ## What changed in 0.8 Simplified Product Flow
 
@@ -165,9 +173,9 @@ Spoken or written brief + optional owned brand kit
         ↓
 [04] Deterministic contrast correction
         |
-[04.1] VerveProjectSpec experience + task-bearing opening contract
+[04.1] Quality-diversity selection from a brief-sensitive 18-cell pool
         |
-[04.2] Quality-diversity assessment + local novelty memory
+[04.2] ProjectSpec + Visual Narrative + task-bearing opening contract
         ↓
 [05] Production-minded entry code
         ↓

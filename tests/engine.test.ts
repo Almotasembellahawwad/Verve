@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { NextRequest } from "next/server";
 import { getAllCliches, runBlocklistFilter } from "../lib/engine/blocklist-filter";
@@ -94,7 +94,7 @@ import { inferDesignStructure } from "../lib/engine/structural-fingerprint";
 import type { DirectionPortfolio } from "../lib/domain/design-direction";
 import { StaticReferenceLibraryRepository } from "../lib/adapters/storage/static-content-repositories";
 import { classifyReferenceDomain, selectReferencePatterns } from "../lib/engine/reference-retrieval";
-import { createDirectionCheckpoint, directionCheckpointMatches, generateDirectionBoard } from "../lib/engine/direction-board";
+import { createDirectionCheckpoint, directionCheckpointMatches, generateDirectionBoard, selectDirectionCells } from "../lib/engine/direction-board";
 import { calculateFirstViewportEffectiveness, firstViewportNeedsReview } from "../lib/domain/first-viewport";
 
 async function runPipeline(
@@ -238,6 +238,58 @@ test("material-commerce brief receives a task-bearing opening without banning a 
   assert.equal(validateVerveProjectSpec(spec).valid, true);
 });
 
+test("Visual Narrative compiles brief questions into connected scenes and functional richness", () => {
+  const analysis = analyzeBriefLocally("A Cairo print studio has five notebook lines. Wholesale bookshops compare paper weight, binding, batch size, price, and provenance before ordering. Avoid beige gift-shop styling.");
+  const plan = generateDesignPlanLocally(analysis);
+  const spec = buildVerveProjectSpec({
+    analysis,
+    plan,
+    framework: "nextjs",
+    mode: "creative",
+    assetBundle: {
+      photos: [], icons: [], extractedPalette: [], warnings: [], readinessWarnings: [],
+      font: { family: "Arial", weights: [400, 700], cssImport: "none", isGoogleFont: false, source: "fallback" },
+      mediaRequirement: { level: "recommended", minimumAssets: 0, reason: "Material evidence is useful when supplied.", suggestedSubjects: ["paper edge", "binding construction"] },
+      assetSummary: "No approved media.",
+    },
+  });
+
+  assert.equal(spec.narrative.scenes.length, spec.experience.regions.length);
+  assert.ok(spec.narrative.scenes.every((scene) => scene.audienceQuestion && scene.focalObject));
+  assert.ok(spec.narrative.scenes.some((scene) => scene.narrativeRole === "choice" && scene.medium === "interface"));
+  assert.ok(spec.narrative.scenes.some((scene) => scene.narrativeRole === "proof"));
+  assert.ok(spec.narrative.scenes.some((scene) => scene.nextSceneIds.length > 1));
+  assert.ok(spec.narrative.richness.requiredLayers.includes("type"));
+  assert.ok(spec.narrative.richness.requiredLayers.includes("interaction"));
+  assert.ok(spec.components.length > spec.experience.regions.length);
+  assert.equal(validateVerveProjectSpec(spec).valid, true);
+});
+
+test("systemic briefs can use five semantic routes without repeating one region sequence", () => {
+  const analysis = analyzeBriefLocally("An operations analytics workspace with a dashboard and supplier catalog. Teams compare suppliers, monitor a workflow, inspect evidence and provenance, then request a quote.");
+  const plan = generateDesignPlanLocally(analysis);
+  const spec = buildVerveProjectSpec({
+    analysis,
+    plan,
+    framework: "nextjs",
+    mode: "creative",
+    assetBundle: {
+      photos: [], icons: [], extractedPalette: [], warnings: [], readinessWarnings: [],
+      font: { family: "Arial", weights: [400, 700], cssImport: "none", isGoogleFont: false, source: "fallback" },
+      mediaRequirement: { level: "avoid", minimumAssets: 0, reason: "Operational evidence is primary.", suggestedSubjects: [] },
+      assetSummary: "No approved media.",
+    },
+  });
+
+  assert.equal(spec.complexity.profile, "systemic");
+  assert.equal(spec.experience.routes.length, 5);
+  assert.deepEqual(spec.experience.routes.map((route) => route.path), ["/", "/compare", "/collection", "/evidence", "/workflow"]);
+  const roleSequences = spec.experience.routes.map((route) => route.regionIds.map((id) => spec.narrative.scenes.find((scene) => scene.id === id)?.narrativeRole).join("/"));
+  assert.ok(new Set(roleSequences).size >= 4);
+  assert.ok(spec.interactions.reduce((sum, interaction) => sum + interaction.states.length, 0) >= spec.narrative.richness.minimumMeaningfulStates);
+  assert.equal(validateVerveProjectSpec(spec).valid, true);
+});
+
 test("Direction Portfolio balances quality and structural diversity without extra project generations", () => {
   const analysis = analyzeBriefLocally("An Arabic analytics product for operations teams that need a clear daily decision surface.");
   const plan = generateDesignPlanLocally(analysis);
@@ -286,7 +338,7 @@ test("estimated likelihood cannot influence quality-diversity selection", () => 
   assert.equal(assessDirectionPortfolio(highFirst).recommendedDirectionId, assessDirectionPortfolio(highLast).recommendedDirectionId);
 });
 
-test("Direction Board always exposes six fixed creative cells and binds its checkpoint to the exact input", async () => {
+test("Direction Board selects six brief-sensitive creative cells and binds its checkpoint to the exact input", async () => {
   const analysis = analyzeBriefLocally("A playful learning lab where students manipulate a visible physics model.");
   const repository = new StaticReferenceLibraryRepository();
   let directionCalls = 0;
@@ -299,6 +351,11 @@ test("Direction Board always exposes six fixed creative cells and binds its chec
   assert.equal(board.portfolio.candidates.filter((candidate) => candidate.descriptors.creativityClass === "combinational").length, 2);
   assert.equal(board.portfolio.candidates.filter((candidate) => candidate.descriptors.creativityClass === "exploratory").length, 2);
   assert.equal(board.portfolio.candidates.filter((candidate) => candidate.descriptors.creativityClass === "transformational").length, 2);
+  assert.equal(new Set(board.portfolio.candidates.map((candidate) => candidate.descriptors.experienceModel)).size, 6);
+  const operationsCells = selectDirectionCells(analyzeBriefLocally("A factory operations dashboard for monitoring workflow exceptions and analytics."));
+  const exhibitionCells = selectDirectionCells(analyzeBriefLocally("A cultural exhibition tells a documentary story through place, archive, and history."));
+  assert.notDeepEqual(operationsCells, exhibitionCells);
+  assert.equal(selectDirectionCells(analysis).length, 6);
   assert.equal(directionCheckpointMatches(checkpoint, { brief: analysis.rawBrief, framework: "html", mode: "creative" }), true);
   assert.equal(directionCheckpointMatches(checkpoint, { brief: `${analysis.rawBrief} changed`, framework: "html", mode: "creative" }), false);
 
@@ -378,7 +435,7 @@ test("a selected Direction Board is expanded once without regenerating the portf
   assert.equal(plan.directionPortfolio?.selectedDirectionId, portfolio.selectedDirectionId);
 });
 
-test("the fixed creative benchmark covers 24 bilingual briefs and every local board clears the structural floors", async () => {
+test("the creative benchmark covers 24 bilingual briefs and every rotating local board clears the structural floors", async () => {
   const corpus = JSON.parse(readFileSync(join(process.cwd(), "data", "creative-benchmark.json"), "utf8")) as { briefs: Array<{ brief: string; industry: string; language: string; expectedDepth: string; media: string }> };
   assert.equal(corpus.briefs.length, 24);
   assert.equal(new Set(corpus.briefs.map((brief) => brief.industry)).size, 12);
@@ -822,6 +879,7 @@ test("every public demo is a complete, runnable native project", () => {
     assert.equal(validation.failed, 0, `${demo.id}: ${JSON.stringify(validation.checks)}`);
     assert.equal(validation.checks.find((item) => item.id === "first-viewport-contract")?.status, "pass", demo.id);
     assert.match(buildHtmlPreviewDocument(demo.result.project, `${demo.id}-probe`), new RegExp(`${demo.id}-probe`));
+    assert.ok(statSync(join(process.cwd(), "public", "demo-assets", "screenshots", `${demo.id}.jpg`)).size > 20_000, `${demo.id} requires a real frozen gallery screenshot`);
   }
   assert.equal(structuralCells.size, 6);
   assert.ok(Math.min(...PUBLIC_DEMOS.map((demo) => demo.receipt.nearestExampleDistance)) >= 0.5);
