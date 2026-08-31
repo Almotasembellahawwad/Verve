@@ -8,6 +8,8 @@ Verve is an open-source project intelligence engine for generating distinctive w
 
 ## Verve Creative Engine v3 (beta)
 
+- **Scene Asset Director** — every story scene receives an explicit visual function, expected layers, approved source policy, asset assignment, responsive framing, alt intent, and honest fallback. Generated `ASSETS.md` records the exact scene/source/license relationship.
+- **Functional Visual Fulfillment (FVF)** — source and rendered DOM evidence check whether visuals serve the declared scene purpose. Rendered FVF uses harmonic aggregation, so one polished hero cannot hide weak scenes, and penalizes visual area that sits outside the Story Graph.
 - **Brief-sensitive six-direction board** — every new run selects six cells from an 18-cell experience/opening/navigation pool: two combinational, two exploratory, and two transformational, with all six experience models represented. Auto-selection applies a quality floor, then maximizes distance from recent Verve structures, then brief fit; statistical likelihood is never a reward.
 - **Executable ProjectSpec v2 + Visual Narrative** — the chosen direction compiles into semantic routes and connected story scenes. Every scene names the audience question, focal object, evidence, visual medium, action, and visible consequence; an art-direction contract and functional richness budget reach code generation with it.
 - **Fixation-resistant references** — `data/reference-library.json` defines a 12-domain × 6-experience matrix (72 abstract patterns). Retrieval supplies one near principle, two remote analogies, and one anti-reference without passing source palettes or brand identities to the model.
@@ -22,6 +24,16 @@ Verve is an open-source project intelligence engine for generating distinctive w
 Creative Engine v3 adapts established ideas rather than treating one numeric score as proof of creativity. The separate board and expansion phases are informed by the generative/exploratory distinction in [Creative Cognition](https://mitpress.mit.edu/9780262560962/creative-cognition/). Reference retrieval deliberately mixes near and remote principles because early examples can stimulate ideation but can also create design fixation, as reported by [Jansson and Smith](https://doi.org/10.1016/0142-694X(91)90003-F) and [Perttula and Sipilä](https://doi.org/10.1080/09544820600679679). Direction operators are structured variation prompts informed by the empirical [77 Design Heuristics](https://doi.org/10.1016/j.destud.2016.05.001).
 
 The selector is a small product-specific adaptation of [MAP-Elites](https://arxiv.org/abs/1504.04909) and [quality-diversity search](https://doi.org/10.3389/frobt.2016.00040): it keeps quality as a gate while comparing candidates across explicit behavioral descriptors. It is not a full evolutionary optimizer. Archive distance borrows the anti-convergence motivation of [novelty search](https://doi.org/10.1162/EVCO_a_00025). Norman's visceral, behavioral, and reflective levels from [Emotional Design](https://www.hachettebookgroup.com/titles/don-norman/emotional-design/9780465004171/) remain a descriptive review lens, never a creativity score.
+
+FVF is a Verve-specific engineering metric, not a validated creativity measure or a causal-inference claim. For each rendered scene, layer coverage is combined with a visible purpose link and required-asset fulfillment; scene scores are aggregated with a harmonic mean and multiplied by `(1 - 0.5 × orphanVisualAreaRatio)`. The harmonic mean is deliberate: a missing scene approaches zero and cannot be averaged away by an exceptional opening.
+
+## What changed in 0.10 Asset Intent Engine
+
+- **Directed assets, not a loose image bucket** — approved owned/Pexels assets form a licensed catalog, then deterministic relevance and reuse constraints assign them to evidence-bearing scenes.
+- **Responsive framing contracts** — environment, object, detail, and interface visuals declare aspect, focal anchor, crop behavior, alt intent, and fallback before code.
+- **Traceable generation hooks** — generated scenes, functional layers, purposes, and asset IDs receive neutral `data-verve-*` measurement hooks that are never styling selectors.
+- **Source + render verification** — source delivery reports scene/layer/purpose/asset coverage; Render Gate verifies visible fulfillment and required assets on the initial route at 360, 768, and 1440 pixels.
+- **Specific asset receipts** — exported `ASSETS.md` includes catalog ownership/license records, scene assignments, framing, and unused approved assets instead of a generic assurance paragraph.
 
 ## What changed in 0.9 Visual Narrative Engine
 

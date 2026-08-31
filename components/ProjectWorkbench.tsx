@@ -11,6 +11,7 @@ import {
   useSandpack,
 } from "@codesandbox/sandpack-react";
 import type { GeneratedProject } from "@/lib/project/types";
+import type { VerveProjectSpec } from "@/lib/domain/project-spec";
 import { downloadProjectArchive } from "@/lib/client/project-archive";
 import { validateGeneratedProject } from "@/lib/project/project-validator";
 import { mergeEditorFiles } from "@/lib/project/editor-project";
@@ -35,6 +36,7 @@ export type WorkbenchFocusMode = "preview" | "code" | "split";
 
 type ProjectWorkbenchProps = {
   project: GeneratedProject;
+  projectSpec?: VerveProjectSpec;
   onProjectChange?: (project: GeneratedProject) => void;
   readOnly?: boolean;
   focusMode?: WorkbenchFocusMode;
@@ -220,7 +222,7 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
     : validation.status === "review-required" || project.warnings.length > 0 || renderWarnings > 0 || visualReviewRequired
       ? "review-required"
       : "ready";
-  const renderGateStatus = `${renderEvidence.status.toUpperCase()} ${renderEvidence.covered}/3${renderEvidence.firstViewportScore == null ? "" : ` · FVE ${renderEvidence.firstViewportScore.toFixed(2)}`}`;
+  const renderGateStatus = `${renderEvidence.status.toUpperCase()} ${renderEvidence.covered}/3${renderEvidence.firstViewportScore == null ? "" : ` · FVE ${renderEvidence.firstViewportScore.toFixed(2)}`}${renderEvidence.functionalVisualScore == null ? "" : ` · FVF ${renderEvidence.functionalVisualScore.toFixed(2)}`}`;
 
   useEffect(() => {
     const receiveReport = (event: MessageEvent<unknown>) => {
@@ -368,14 +370,14 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
   );
 }
 
-export default function ProjectWorkbench({ project, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, onVisualDiversity }: ProjectWorkbenchProps) {
+export default function ProjectWorkbench({ project, projectSpec, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, onVisualDiversity }: ProjectWorkbenchProps) {
   const probeId = useId();
   const projectRevision = useMemo(() => sandboxFilesRevision(Object.fromEntries(
     project.files.map((file) => [file.path, { code: file.content }])
   )), [project.files]);
   const files = useMemo(
-    () => instrumentSandboxFiles(project, probeId),
-    [project, probeId]
+    () => instrumentSandboxFiles(project, probeId, projectSpec),
+    [project, probeId, projectSpec]
   );
 
   if (!supportsLiveSandbox(project.framework)) {
@@ -383,7 +385,7 @@ export default function ProjectWorkbench({ project, onProjectChange, readOnly = 
   }
 
   if (project.framework === "html") {
-    return <NativeHtmlWorkbench key={`${project.name}-${projectRevision}`} project={project} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} visualDiversityThreshold={visualDiversityThreshold} onVisualDiversity={onVisualDiversity} />;
+    return <NativeHtmlWorkbench key={`${project.name}-${projectRevision}`} project={project} projectSpec={projectSpec} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} visualDiversityThreshold={visualDiversityThreshold} onVisualDiversity={onVisualDiversity} />;
   }
 
   return (
@@ -420,7 +422,7 @@ export default function ProjectWorkbench({ project, onProjectChange, readOnly = 
       }}
       options={{ activeFile: `/${project.entryFile}`, visibleFiles: project.files.map((item) => `/${item.path}`) }}
     >
-      <ProjectWorkspaceBody project={project} probeId={probeId} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} visualDiversityThreshold={visualDiversityThreshold} onVisualDiversity={onVisualDiversity} />
+      <ProjectWorkspaceBody project={project} projectSpec={projectSpec} probeId={probeId} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} visualDiversityThreshold={visualDiversityThreshold} onVisualDiversity={onVisualDiversity} />
     </SandpackProvider>
   );
 }

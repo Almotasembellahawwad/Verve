@@ -31,6 +31,7 @@ import { findUnsupportedQuantifiedClaims } from "../lib/engine/content-safety";
 import { liveSandboxTemplate, supportsLiveSandbox } from "../lib/project/live-sandbox";
 import {
   createRenderEvidenceMatrix,
+  createRenderProbeSource,
   instrumentSandboxFiles,
   isRenderGateReport,
   recordRenderEvidence,
@@ -96,6 +97,8 @@ import { StaticReferenceLibraryRepository } from "../lib/adapters/storage/static
 import { classifyReferenceDomain, selectReferencePatterns } from "../lib/engine/reference-retrieval";
 import { createDirectionCheckpoint, directionCheckpointMatches, generateDirectionBoard, selectDirectionCells } from "../lib/engine/direction-board";
 import { calculateFirstViewportEffectiveness, firstViewportNeedsReview } from "../lib/domain/first-viewport";
+import { harmonicCoverage, inspectVisualIntentSource } from "../lib/engine/visual-intent";
+import { inspectAssetUsage } from "../lib/engine/asset-usage";
 
 async function runPipeline(
   input: PipelineInput & {
@@ -263,6 +266,65 @@ test("Visual Narrative compiles brief questions into connected scenes and functi
   assert.ok(spec.narrative.richness.requiredLayers.includes("interaction"));
   assert.ok(spec.components.length > spec.experience.regions.length);
   assert.equal(validateVerveProjectSpec(spec).valid, true);
+});
+
+test("Scene Asset Director assigns licensed evidence and the fulfillment metric cannot hide a missing scene", () => {
+  const analysis = analyzeBriefLocally("A Cairo print studio has five notebook lines. Wholesale bookshops compare paper weight, binding, batch size, price, and provenance before ordering.");
+  const plan = generateDesignPlanLocally(analysis);
+  const assetBundle = {
+    photos: [
+      { id: "owned:assets/paper.webp", url: "./assets/paper.webp", alt: "Notebook paper edge", photographer: "User supplied", credit: "User-owned asset", source: "owned" as const, dominant_hex: "#884422" },
+      { id: "owned:assets/binding.webp", url: "./assets/binding.webp", alt: "Notebook binding detail", photographer: "User supplied", credit: "User-owned asset", source: "owned" as const, dominant_hex: "#445533" },
+    ],
+    icons: [], extractedPalette: [], warnings: [], readinessWarnings: [],
+    font: { family: "Arial", weights: [400, 700], cssImport: "none", isGoogleFont: false, source: "fallback" as const },
+    mediaRequirement: { level: "required" as const, minimumAssets: 2, reason: "Material proof is essential.", suggestedSubjects: ["paper edge", "binding detail"] },
+    assetSummary: "Two approved owned photographs.",
+  };
+  const spec = buildVerveProjectSpec({ analysis, plan, framework: "html", mode: "creative", assetBundle });
+
+  assert.equal(spec.assetDirection.sceneDirections.length, spec.narrative.scenes.length);
+  assert.ok(spec.assetDirection.catalog.every((asset) => asset.license === "user-owned"));
+  const assigned = spec.assetDirection.sceneDirections.filter((direction) => direction.selectedAssetIds.length > 0);
+  assert.ok(assigned.length >= 2);
+  assert.equal(new Set(assigned.slice(0, 2).flatMap((direction) => direction.selectedAssetIds)).size, 2);
+  assert.equal(validateVerveProjectSpec(spec).valid, true);
+
+  const source = spec.assetDirection.sceneDirections.map((direction) => {
+    const layers = direction.expectedLayers.filter((layer) => layer !== "type")
+      .map((layer) => `<div data-verve-layer="${layer}" data-verve-visual-purpose="${direction.narrativeFunction}"></div>`)
+      .join("");
+    const assets = direction.selectedAssetIds.map((assetId) => {
+      const asset = spec.assetDirection.catalog.find((candidate) => candidate.id === assetId)!;
+      return `<img src="${asset.url}" alt="${asset.alt}" data-verve-asset-id="${asset.id}" data-verve-layer="media" data-verve-visual-purpose="${direction.narrativeFunction}">`;
+    }).join("");
+    return `<section data-verve-scene="${direction.sceneId}"><h2>${direction.narrativeFunction}</h2>${layers}${assets}</section>`;
+  }).join("\n");
+  const evidence = inspectVisualIntentSource(spec, source);
+  assert.equal(evidence.score, 100);
+  assert.equal(evidence.status, "pass");
+  const incomplete = inspectVisualIntentSource(spec, source.replace(`data-verve-scene="${spec.assetDirection.sceneDirections.at(-1)!.sceneId}"`, "data-scene-removed"));
+  assert.ok(incomplete.score < evidence.score);
+  assert.equal(harmonicCoverage([1, 1, 0.25]) < (1 + 1 + 0.25) / 3, true);
+
+  const usage = inspectAssetUsage(assetBundle, source, spec.assetDirection);
+  assert.equal(usage.plannedScenePlacements, usage.tracedScenePlacements);
+  const project = buildGeneratedProject(
+    { code: `<!doctype html><html><body>${source}</body></html>`, framework: "html", componentName: "AssetFixture", imports: [], setupNotes: "test" },
+    analysis,
+    plan,
+    [],
+    [],
+    spec.assetDirection
+  );
+  const manifest = project.files.find((file) => file.path === "ASSETS.md")?.content ?? "";
+  assert.match(manifest, /Directed asset catalog/);
+  assert.match(manifest, /Scene assignments/);
+  assert.match(manifest, /user-owned/);
+  const directedPreview = buildHtmlPreviewDocument(project, "asset-intent-probe", spec);
+  assert.match(directedPreview, /functional-visual-fulfillment/);
+  assert.match(directedPreview, new RegExp(spec.assetDirection.sceneDirections[0].sceneId));
+  assert.doesNotThrow(() => new Function(createRenderProbeSource("asset-intent-probe", spec)));
 });
 
 test("systemic briefs can use five semantic routes without repeating one region sequence", () => {
@@ -1444,6 +1506,7 @@ test("Render Gate instrumentation stays ephemeral and supports HTML and React pr
   assert.match(htmlFiles["/index.html"].code, /__verve_render_probe\.js/);
   assert.match(htmlFiles["/__verve_render_probe.js"].code, /parent\.postMessage/);
   assert.match(htmlFiles["/__verve_render_probe.js"].code, /data-verve-primary-action/);
+  assert.match(htmlFiles["/__verve_render_probe.js"].code, /functional-visual-fulfillment/);
   assert.match(htmlFiles["/__verve_render_probe.js"].code, /Opening size is not scored/);
   assert.equal(htmlProject.files[0].content, originalHtml);
 
@@ -1477,6 +1540,9 @@ test("Render Gate accepts only reports for the active probe", () => {
   const withFirstViewport = { ...report, firstViewport: { taskSignalCount: 2, taskCoverage: 1, informationSalience: 0.8, primaryActionVisible: true, actionClarity: 1, scrollCost: 0, score: 0.95 } };
   assert.equal(isRenderGateReport(withFirstViewport, "active"), true);
   assert.equal(isRenderGateReport({ ...withFirstViewport, firstViewport: { ...withFirstViewport.firstViewport, score: 4 } }, "active"), false);
+  const withFunctionalVisual = { ...withFirstViewport, functionalVisual: { score: 0.78, expectedScenes: 4, renderedScenes: 4, fulfilledScenes: 3, requiredLayers: ["type", "media"], observedLayers: ["type", "media"], missingLayers: [], orphanVisualRatio: 0.1, missingAssetSceneIds: [] } };
+  assert.equal(isRenderGateReport(withFunctionalVisual, "active"), true);
+  assert.equal(isRenderGateReport({ ...withFunctionalVisual, functionalVisual: { ...withFunctionalVisual.functionalVisual, score: 3 } }, "active"), false);
 });
 
 test("Render Gate requires evidence at 360, 768, and 1440 before passing", () => {
@@ -1489,6 +1555,7 @@ test("Render Gate requires evidence at 360, 768, and 1440 before passing", () =>
     checks: [{ id: "horizontal-overflow", title: "Responsive width", status, message: "Measured" }],
     fingerprint,
     firstViewport: { taskSignalCount: 2, taskCoverage: 1, informationSalience: 0.8, primaryActionVisible: true, actionClarity: 1, scrollCost: 0, score: width === 360 ? 0.72 : 0.95 },
+    functionalVisual: { score: width === 360 ? 0.68 : 0.9, expectedScenes: 4, renderedScenes: 4, fulfilledScenes: 3, requiredLayers: ["type", "interaction"], observedLayers: ["type", "interaction"], missingLayers: [], orphanVisualRatio: 0.1, missingAssetSceneIds: [] },
   });
   let matrix = createRenderEvidenceMatrix();
   matrix = recordRenderEvidence(matrix, report(360));
@@ -1499,6 +1566,7 @@ test("Render Gate requires evidence at 360, 768, and 1440 before passing", () =>
   assert.equal(matrix.complete, true);
   assert.equal(matrix.status, "pass");
   assert.equal(matrix.firstViewportScore, 0.72);
+  assert.equal(matrix.functionalVisualScore, 0.68);
   matrix = recordRenderEvidence(matrix, report(768, "fail"));
   assert.equal(matrix.status, "fail");
   assert.equal(matrix.failures, 1);

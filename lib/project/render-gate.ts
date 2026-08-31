@@ -1,14 +1,27 @@
 import type { GeneratedProject } from "./types";
 import { replaceOwnedAssetReferences } from "./brand-kit";
 import { FIRST_VIEWPORT_THRESHOLDS, type FirstViewportEvidence } from "../domain/first-viewport";
+import type { VerveProjectSpec, VisualLayer } from "../domain/project-spec";
 
 export type SandboxFileMap = Record<string, { code: string }>;
 
 export type RenderGateCheck = {
-  id: "horizontal-overflow" | "runtime-errors" | "tiny-text" | "image-alt" | "duplicate-ids" | "button-names" | "first-viewport-effectiveness";
+  id: "horizontal-overflow" | "runtime-errors" | "tiny-text" | "image-alt" | "duplicate-ids" | "button-names" | "first-viewport-effectiveness" | "functional-visual-fulfillment";
   title: string;
   status: "pass" | "warning" | "fail";
   message: string;
+};
+
+export type FunctionalVisualEvidence = {
+  score: number;
+  expectedScenes: number;
+  renderedScenes: number;
+  fulfilledScenes: number;
+  requiredLayers: VisualLayer[];
+  observedLayers: VisualLayer[];
+  missingLayers: VisualLayer[];
+  orphanVisualRatio: number;
+  missingAssetSceneIds: string[];
 };
 
 export type VisualFingerprint = {
@@ -30,6 +43,7 @@ export type RenderGateReport = {
   checks: RenderGateCheck[];
   fingerprint: VisualFingerprint;
   firstViewport?: FirstViewportEvidence;
+  functionalVisual?: FunctionalVisualEvidence;
 };
 
 function vectorDistance(left: number[], right: number[]): number {
@@ -74,6 +88,7 @@ export type RenderEvidenceMatrix = {
   failures: number;
   warnings: number;
   firstViewportScore: number | null;
+  functionalVisualScore: number | null;
 };
 
 export function createRenderEvidenceMatrix(): RenderEvidenceMatrix {
@@ -86,6 +101,7 @@ export function createRenderEvidenceMatrix(): RenderEvidenceMatrix {
     failures: 0,
     warnings: 0,
     firstViewportScore: null,
+    functionalVisualScore: null,
   };
 }
 
@@ -110,6 +126,7 @@ export function recordRenderEvidence(
   const covered = captured.length;
   const complete = covered === RENDER_EVIDENCE_WIDTHS.length;
   const firstViewportScores = captured.flatMap((item) => item.firstViewport ? [item.firstViewport.score] : []);
+  const functionalVisualScores = captured.flatMap((item) => item.functionalVisual ? [item.functionalVisual.score] : []);
   const status = failures > 0
     ? "fail"
     : warnings > 0
@@ -127,15 +144,31 @@ export function recordRenderEvidence(
     failures,
     warnings,
     firstViewportScore: firstViewportScores.length ? Math.min(...firstViewportScores) : null,
+    functionalVisualScore: functionalVisualScores.length ? Math.min(...functionalVisualScores) : null,
   };
 }
 
 const PROBE_FILE = "/__verve_render_probe.js";
 const REACT_PROBE_FILE = "/src/__verve_render_probe.js";
 
-export function createRenderProbeSource(probeId: string): string {
+function visualIntentExpectation(spec?: VerveProjectSpec) {
+  if (!spec) return null;
+  const initialRoute = spec.experience.routes.find((route) => route.path === spec.experience.route) ?? spec.experience.routes[0];
+  const initialSceneIds = new Set(initialRoute?.regionIds ?? []);
+  return {
+    scenes: spec.assetDirection.sceneDirections.filter((direction) => initialSceneIds.has(direction.sceneId)).map((direction) => ({
+      id: direction.sceneId,
+      layers: direction.expectedLayers,
+      assetIds: direction.selectedAssetIds,
+      assetRequired: direction.requirement === "required",
+    })),
+  };
+}
+
+export function createRenderProbeSource(probeId: string, projectSpec?: VerveProjectSpec): string {
   return `(() => {
   const PROBE_ID = ${JSON.stringify(probeId)};
+  const VISUAL_INTENT = ${JSON.stringify(visualIntentExpectation(projectSpec))};
   if (window.__verveRenderProbe === PROBE_ID) return;
   window.__verveRenderProbe = PROBE_ID;
   let sequence = 0;
@@ -308,6 +341,67 @@ export function createRenderProbeSource(probeId: string): string {
       sectionRhythm,
       routeCount
     };
+    let functionalVisual = null;
+    if (VISUAL_INTENT && Array.isArray(VISUAL_INTENT.scenes) && VISUAL_INTENT.scenes.length > 0) {
+      const sceneResults = VISUAL_INTENT.scenes.map((expected) => {
+        const root = document.querySelector('[data-verve-scene="' + CSS.escape(expected.id) + '"]');
+        if (!root || !visible(root)) return { id: expected.id, rendered: false, score: 0, layers: [], assetMissing: Boolean(expected.assetRequired) };
+        const descendants = [root, ...root.querySelectorAll('*')].filter(visible);
+        const layers = new Set();
+        if ((root.textContent || '').trim().length > 0) layers.add('type');
+        if (descendants.some((element) => element.matches('img,video'))) layers.add('media');
+        if (descendants.some((element) => element.matches('table,dl,[data-verve-layer="data"]'))) layers.add('data');
+        if (descendants.some((element) => element.matches('svg,canvas,[data-verve-layer="shape"]'))) layers.add('shape');
+        if (descendants.some((element) => element.matches('a,button,input,select,textarea,[role=button],[tabindex]'))) layers.add('interaction');
+        descendants.filter((element) => element.hasAttribute('data-verve-layer')).forEach((element) => {
+          const layer = element.getAttribute('data-verve-layer');
+          if (!['type','media','data','shape','motion','interaction'].includes(layer)) return;
+          if (layer === 'media' && !element.matches('img,video,picture,source') && !element.querySelector('img,video,picture,source')) return;
+          if (layer === 'interaction' && !element.matches('a,button,input,select,textarea,[role=button],[tabindex]') && !element.querySelector('a,button,input,select,textarea,[role=button],[tabindex]')) return;
+          if (layer === 'motion') {
+            const style = getComputedStyle(element);
+            const duration = style.animationDuration.split(',').some((value) => parseFloat(value) > 0) || style.transitionDuration.split(',').some((value) => parseFloat(value) > 0);
+            if (style.animationName === 'none' && !duration) return;
+          }
+          layers.add(layer);
+        });
+        const purposeLinked = expected.layers.every((layer) => layer === 'type') || descendants.some((element) => (element.getAttribute('data-verve-visual-purpose') || '').trim().length > 0);
+        const matchedLayers = expected.layers.filter((layer) => layers.has(layer)).length;
+        const layerCoverage = expected.layers.length ? matchedLayers / expected.layers.length : 1;
+        const assetMissing = Boolean(expected.assetRequired) && (!expected.assetIds.length || !expected.assetIds.some((id) => {
+          const asset = root.querySelector('[data-verve-asset-id="' + CSS.escape(id) + '"]');
+          return asset && visible(asset) && asset.matches('img,video,picture,source');
+        }));
+        let sceneScore = Math.sqrt(layerCoverage * (purposeLinked ? 1 : 0.45));
+        if (assetMissing) sceneScore *= 0.5;
+        return { id: expected.id, rendered: true, score: sceneScore, layers: [...layers], assetMissing };
+      });
+      const allScores = sceneResults.map((scene) => Math.max(0.001, scene.score));
+      const harmonic = allScores.length / allScores.reduce((sum, value) => sum + 1 / value, 0);
+      const visualCandidates = [...document.querySelectorAll('img,video,svg,canvas,[data-verve-layer]')].filter(visible);
+      const visibleArea = (element) => {
+        const rect = element.getBoundingClientRect();
+        const visibleWidth = Math.max(0, Math.min(width, rect.right) - Math.max(0, rect.left));
+        const visibleHeight = Math.max(0, rect.height);
+        return visibleWidth * visibleHeight;
+      };
+      const totalVisualArea = Math.max(1, visualCandidates.reduce((sum, element) => sum + visibleArea(element), 0));
+      const orphanVisualArea = visualCandidates.filter((element) => !element.closest('[data-verve-scene]')).reduce((sum, element) => sum + visibleArea(element), 0);
+      const orphanVisualRatio = Math.min(1, orphanVisualArea / totalVisualArea);
+      const requiredLayers = [...new Set(VISUAL_INTENT.scenes.flatMap((scene) => scene.layers))];
+      const observedLayers = [...new Set(sceneResults.flatMap((scene) => scene.layers))];
+      functionalVisual = {
+        score: Number(Math.max(0, harmonic * (1 - orphanVisualRatio * 0.5)).toFixed(3)),
+        expectedScenes: sceneResults.length,
+        renderedScenes: sceneResults.filter((scene) => scene.rendered).length,
+        fulfilledScenes: sceneResults.filter((scene) => scene.score >= 0.72).length,
+        requiredLayers,
+        observedLayers,
+        missingLayers: requiredLayers.filter((layer) => !observedLayers.includes(layer)),
+        orphanVisualRatio: Number(orphanVisualRatio.toFixed(3)),
+        missingAssetSceneIds: sceneResults.filter((scene) => scene.assetMissing).map((scene) => scene.id)
+      };
+    }
     const checks = [
       { id: "horizontal-overflow", title: "Rendered mobile width", status: documentWidth > width + 1 ? "fail" : "pass", message: documentWidth > width + 1 ? "Document is " + documentWidth + "px wide in a " + width + "px viewport. Offenders: " + (overflowElements.join(", ") || "unknown") : "No rendered horizontal overflow detected at " + width + "px." },
       { id: "runtime-errors", title: "Rendered runtime", status: runtimeErrors.length ? "fail" : "pass", message: runtimeErrors.length ? runtimeErrors.join(" | ") : "No runtime or console errors captured." },
@@ -315,9 +409,10 @@ export function createRenderProbeSource(probeId: string): string {
       { id: "image-alt", title: "Rendered image alternatives", status: missingAlt.length ? "warning" : "pass", message: missingAlt.length ? "Images without alt: " + missingAlt.join(", ") : "Every rendered image has an alt attribute." },
       { id: "duplicate-ids", title: "Rendered element identity", status: duplicateIds.length ? "warning" : "pass", message: duplicateIds.length ? "Duplicate ids: " + duplicateIds.join(", ") : "No duplicate rendered ids detected." },
       { id: "button-names", title: "Rendered button names", status: unnamedButtons.length ? "warning" : "pass", message: unnamedButtons.length ? "Unnamed buttons: " + unnamedButtons.join(", ") : "Every rendered button has an accessible name." },
-      { id: "first-viewport-effectiveness", title: "First viewport effectiveness", status: taskSignalCount < ${FIRST_VIEWPORT_THRESHOLDS.minimumTaskSignals} || !primaryActionVisible || firstViewportScore < ${FIRST_VIEWPORT_THRESHOLDS.reviewScore} ? "warning" : "pass", message: "FVE " + firstViewport.score.toFixed(2) + ": " + taskSignalCount + "/${FIRST_VIEWPORT_THRESHOLDS.minimumTaskSignals} task signals, information salience " + firstViewport.informationSalience.toFixed(2) + ", primary action " + (primaryActionVisible ? "visible" : "not visible") + ". Opening size is not scored." }
+      { id: "first-viewport-effectiveness", title: "First viewport effectiveness", status: taskSignalCount < ${FIRST_VIEWPORT_THRESHOLDS.minimumTaskSignals} || !primaryActionVisible || firstViewportScore < ${FIRST_VIEWPORT_THRESHOLDS.reviewScore} ? "warning" : "pass", message: "FVE " + firstViewport.score.toFixed(2) + ": " + taskSignalCount + "/${FIRST_VIEWPORT_THRESHOLDS.minimumTaskSignals} task signals, information salience " + firstViewport.informationSalience.toFixed(2) + ", primary action " + (primaryActionVisible ? "visible" : "not visible") + ". Opening size is not scored." },
+      ...(functionalVisual ? [{ id: "functional-visual-fulfillment", title: "Functional visual fulfillment", status: functionalVisual.missingAssetSceneIds.length || functionalVisual.renderedScenes < functionalVisual.expectedScenes ? "fail" : functionalVisual.score < 0.72 ? "warning" : "pass", message: "FVF " + functionalVisual.score.toFixed(2) + ": " + functionalVisual.fulfilledScenes + "/" + functionalVisual.expectedScenes + " scenes fulfilled, layers " + functionalVisual.observedLayers.join(", ") + ", orphan visual area " + functionalVisual.orphanVisualRatio.toFixed(2) + (functionalVisual.missingAssetSceneIds.length ? ", missing required assets in " + functionalVisual.missingAssetSceneIds.join(", ") : "") + ". Harmonic aggregation prevents one polished scene from hiding weak scenes." }] : [])
     ];
-    parent.postMessage({ source: "verve-render-gate", probeId: PROBE_ID, sequence: ++sequence, viewport: { width, height: window.innerHeight, documentWidth }, checks, fingerprint, firstViewport }, "*");
+    parent.postMessage({ source: "verve-render-gate", probeId: PROBE_ID, sequence: ++sequence, viewport: { width, height: window.innerHeight, documentWidth }, checks, fingerprint, firstViewport, functionalVisual }, "*");
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", schedule, { once: true });
   else schedule();
@@ -343,7 +438,7 @@ function injectReactProbe(main: string): string {
 }
 
 /** Add ephemeral probe files to Sandpack only. The canonical project and ZIP remain untouched. */
-export function instrumentSandboxFiles(project: GeneratedProject, probeId: string): SandboxFileMap {
+export function instrumentSandboxFiles(project: GeneratedProject, probeId: string, projectSpec?: VerveProjectSpec): SandboxFileMap {
   const files: SandboxFileMap = Object.fromEntries(
     project.files
       .filter((item) => item.encoding !== "base64")
@@ -351,11 +446,11 @@ export function instrumentSandboxFiles(project: GeneratedProject, probeId: strin
   );
   if (project.framework === "html" && files["/index.html"]) {
     files["/index.html"] = { code: injectHtmlProbe(files["/index.html"].code) };
-    files[PROBE_FILE] = { code: createRenderProbeSource(probeId) };
+    files[PROBE_FILE] = { code: createRenderProbeSource(probeId, projectSpec) };
   }
   if (project.framework === "react" && files["/src/main.tsx"]) {
     files["/src/main.tsx"] = { code: injectReactProbe(files["/src/main.tsx"].code) };
-    files[REACT_PROBE_FILE] = { code: createRenderProbeSource(probeId) };
+    files[REACT_PROBE_FILE] = { code: createRenderProbeSource(probeId, projectSpec) };
   }
   return files;
 }
@@ -396,9 +491,31 @@ export function isRenderGateReport(value: unknown, probeId: string): value is Re
       && boundedUnit(report.firstViewport.scrollCost)
       && boundedUnit(report.firstViewport.score)
     ))
+    && (!report.functionalVisual || (
+      boundedUnit(report.functionalVisual.score)
+      && Number.isInteger(report.functionalVisual.expectedScenes)
+      && report.functionalVisual.expectedScenes >= 1
+      && report.functionalVisual.expectedScenes <= 40
+      && Number.isInteger(report.functionalVisual.renderedScenes)
+      && report.functionalVisual.renderedScenes >= 0
+      && report.functionalVisual.renderedScenes <= report.functionalVisual.expectedScenes
+      && Number.isInteger(report.functionalVisual.fulfilledScenes)
+      && report.functionalVisual.fulfilledScenes >= 0
+      && report.functionalVisual.fulfilledScenes <= report.functionalVisual.expectedScenes
+      && Array.isArray(report.functionalVisual.requiredLayers)
+      && report.functionalVisual.requiredLayers.every((layer) => ["type", "media", "data", "shape", "motion", "interaction"].includes(layer))
+      && Array.isArray(report.functionalVisual.observedLayers)
+      && report.functionalVisual.observedLayers.every((layer) => ["type", "media", "data", "shape", "motion", "interaction"].includes(layer))
+      && Array.isArray(report.functionalVisual.missingLayers)
+      && report.functionalVisual.missingLayers.every((layer) => ["type", "media", "data", "shape", "motion", "interaction"].includes(layer))
+      && boundedUnit(report.functionalVisual.orphanVisualRatio)
+      && Array.isArray(report.functionalVisual.missingAssetSceneIds)
+      && report.functionalVisual.missingAssetSceneIds.length <= 40
+      && report.functionalVisual.missingAssetSceneIds.every((sceneId) => typeof sceneId === "string" && sceneId.length <= 160)
+    ))
     && report.checks.length <= 10
     && report.checks.every((item) => item
-      && ["horizontal-overflow", "runtime-errors", "tiny-text", "image-alt", "duplicate-ids", "button-names", "first-viewport-effectiveness"].includes(item.id)
+      && ["horizontal-overflow", "runtime-errors", "tiny-text", "image-alt", "duplicate-ids", "button-names", "first-viewport-effectiveness", "functional-visual-fulfillment"].includes(item.id)
       && ["pass", "warning", "fail"].includes(item.status)
       && typeof item.title === "string"
       && item.title.length <= 120

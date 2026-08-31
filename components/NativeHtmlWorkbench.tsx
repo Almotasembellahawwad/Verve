@@ -2,6 +2,7 @@
 
 import { useEffect, useEffectEvent, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { GeneratedProject } from "@/lib/project/types";
+import type { VerveProjectSpec } from "@/lib/domain/project-spec";
 import { downloadProjectArchive } from "@/lib/client/project-archive";
 import { validateGeneratedProject } from "@/lib/project/project-validator";
 import { buildHtmlPreviewDocument } from "@/lib/project/html-preview";
@@ -32,6 +33,7 @@ const serverHydrationSnapshot = () => false;
 
 type Props = {
   project: GeneratedProject;
+  projectSpec?: VerveProjectSpec;
   onProjectChange?: (project: GeneratedProject) => void;
   readOnly?: boolean;
   focusMode?: WorkbenchFocusMode;
@@ -40,7 +42,7 @@ type Props = {
   onVisualDiversity?: (distance: number | null) => void;
 };
 
-export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, onVisualDiversity }: Props) {
+export default function NativeHtmlWorkbench({ project, projectSpec, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, onVisualDiversity }: Props) {
   const baseProbeId = useId();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [files, setFiles] = useState(project.files);
@@ -57,7 +59,7 @@ export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly
   const selectedFile = files.find((item) => item.path === selectedPath) ?? files[0]!;
   const editedProject = useMemo<GeneratedProject>(() => ({ ...project, files }), [project, files]);
   const validation = useMemo(() => validateGeneratedProject(editedProject), [editedProject]);
-  const srcDoc = useMemo(() => buildHtmlPreviewDocument(editedProject, activeProbeId), [activeProbeId, editedProject]);
+  const srcDoc = useMemo(() => buildHtmlPreviewDocument(editedProject, activeProbeId, projectSpec), [activeProbeId, editedProject, projectSpec]);
   const selectedViewport = VIEWPORTS.find((item) => item.id === viewport)!;
   const staticProblems = validation.checks.filter((item) => item.status !== "pass");
   const renderProblems = RENDER_EVIDENCE_WIDTHS.flatMap((width) =>
@@ -80,7 +82,7 @@ export default function NativeHtmlWorkbench({ project, onProjectChange, readOnly
       : validation.status === "review-required" || project.warnings.length > 0 || renderWarnings > 0 || visualReviewRequired
         ? "review-required"
         : "ready";
-  const renderGateStatus = `${renderEvidence.status.toUpperCase()} ${renderEvidence.covered}/3${renderEvidence.firstViewportScore == null ? "" : ` · FVE ${renderEvidence.firstViewportScore.toFixed(2)}`}`;
+  const renderGateStatus = `${renderEvidence.status.toUpperCase()} ${renderEvidence.covered}/3${renderEvidence.firstViewportScore == null ? "" : ` · FVE ${renderEvidence.firstViewportScore.toFixed(2)}`}${renderEvidence.functionalVisualScore == null ? "" : ` · FVF ${renderEvidence.functionalVisualScore.toFixed(2)}`}`;
 
   const receiveReport = useEffectEvent((message: MessageEvent<unknown>) => {
     if (message.source !== iframeRef.current?.contentWindow) return;
