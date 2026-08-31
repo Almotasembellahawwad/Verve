@@ -51,6 +51,8 @@ import { createGenerationStrategy, type GenerationMode } from "./generation-stra
 import { DEFAULT_GENERATION_MODE } from "../domain/generation-mode";
 import type { LLMPort, Provider } from "../ports/llm";
 import type { AssetSourcePort } from "../ports/assets";
+import type { AssetDeliveryPort } from "../ports/assets";
+import { deliverGeneratedAssets, type AssetDeliveryReceipt } from "../engine/asset-delivery";
 import type { BlocklistRepositoryPort, ReferenceLibraryRepositoryPort } from "../ports/repositories";
 import { NullProgressPublisher, type ProgressPublisherPort } from "../ports/progress";
 import type { VerveProjectSpec } from "../domain/project-spec";
@@ -82,6 +84,7 @@ export type PipelineResult = {
   diversityResult:        DesignDiversityResult;  // Cross-industry house-template gate
   assetUsage:             AssetUsageEvidence;
   visualIntentSource:     VisualIntentSourceEvidence;
+  assetDelivery:          AssetDeliveryReceipt;
   execution:              ExecutionEvidence;
   codeQualityResult:      CodeQualityResult;      // Phase 3.5: post-gen repair
   contrastReport:         ContrastFixReport;
@@ -119,6 +122,7 @@ export type PipelineInput = {
 export type GenerationDependencies = {
   llm: LLMPort;
   assetSource: AssetSourcePort;
+  assetDelivery?: AssetDeliveryPort;
   blocklistRepository: BlocklistRepositoryPort;
   referenceLibraryRepository: ReferenceLibraryRepositoryPort;
   defaultModel: string;
@@ -443,7 +447,7 @@ export async function runGenerationUseCase(
     selectedDirectionLocked: Boolean(activeDirectionCheckpoint),
   }, progress);
   designPlan = foundation.designPlan;
-  const projectSpec = foundation.projectSpec;
+  let projectSpec = foundation.projectSpec;
   const directionDiversity = foundation.directionDiversity;
 
   // ── [05] Code Generation ─────────────────────────────────────────────────
@@ -624,24 +628,42 @@ export async function runGenerationUseCase(
   }, "06-done");
 
   emit("stage_start", { id: "07", name: "Project Assembly", module: "ProjectEngine" }, "07-start");
-  const assetUsage = inspectAssetUsage(assetBundle, deliveredSource, projectSpec.assetDirection);
-  const visualIntentSource = inspectVisualIntentSource(projectSpec, deliveredSource);
+  const delivery = await deliverGeneratedAssets({
+    generatedCode: finalCode,
+    projectSpec,
+    assetBundle,
+    sourceBeforeDelivery: deliveredSource,
+    deliveryPort: dependencies.assetDelivery,
+    signal,
+  });
+  const deliveredCode = delivery.generatedCode;
+  projectSpec = delivery.projectSpec;
+  const localizedSource = generatedSourceText(deliveredCode);
+  const assetUsage = inspectAssetUsage(assetBundle, deliveredSource, projectSpec.assetDirection, delivery.receipt);
+  const visualIntentSource = inspectVisualIntentSource(projectSpec, localizedSource);
   const diversityWarnings = diversityResult.warnings.map((warning) =>
     strategy.mode === "creative" ? `BLOCKING: ${warning}` : warning
   );
   const project = buildGeneratedProject(
-    finalCode,
+    deliveredCode,
     briefAnalysis,
     designPlan,
     codeQualityResult.wasRepaired ? [] : codeQualityResult.issues,
-    [...assetBundle.readinessWarnings, ...assetUsage.warnings, ...visualIntentSource.warnings, ...directionDiversity.warnings, ...diversityWarnings],
-    projectSpec.assetDirection
+    [...assetBundle.readinessWarnings, ...assetUsage.warnings, ...delivery.receipt.warnings, ...visualIntentSource.warnings, ...directionDiversity.warnings, ...diversityWarnings],
+    projectSpec.assetDirection,
+    delivery.receipt,
+    delivery.files
   );
   emit("stage_done", {
     id: "07",
     name: "Project Assembly",
     durationMs: 0,
-    extra: { files: project.files.length, readiness: project.readiness.score },
+    extra: {
+      files: project.files.length,
+      readiness: project.readiness.score,
+      assetDelivery: delivery.receipt.status,
+      assetsBundled: delivery.receipt.bundled,
+    },
   }, "07-done");
 
   const execution = buildExecutionEvidence({
@@ -667,7 +689,7 @@ export async function runGenerationUseCase(
     projectSpec,
     directionDiversity,
     finalCritique,
-    generatedCode:    finalCode,
+    generatedCode:    deliveredCode,
     codeQualityResult,
     contrastReport,
     distinctivenessReport,
@@ -675,6 +697,7 @@ export async function runGenerationUseCase(
     engineeringResult,
     diversityResult,
     assetUsage,
+    assetDelivery: delivery.receipt,
     visualIntentSource,
     execution,
     revisionCount,

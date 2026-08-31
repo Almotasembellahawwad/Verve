@@ -6,6 +6,8 @@ All notable changes to Verve are documented here.
 
 ### Added
 
+- Added Licensed Asset Delivery for used Pexels selections: exact-host allowlisting, redirect rejection, streamed size limits, JPEG/PNG/WebP signature verification, SHA-256 receipts, local project paths, and binary ZIP inclusion.
+- Added an explicit delivery receipt to the API, result plan, ProjectSpec-localized catalog, and generated `ASSETS.md`; unused search results are never downloaded and delivery failures block production readiness.
 - Added a task-bearing opening contract and First Viewport Effectiveness render evidence at 360, 768, and 1440 pixels. The metric evaluates task coverage, information salience, action clarity, and scroll cost without treating hero scale as a quality proxy.
 - Added a human-gated AI Development Studio to `/editor`: Fast stages one targeted model call, while Studio uses a bounded plan and implementation pass.
 - Added multi-file proposal preview, deterministic validation receipts, accept/reject decisions, automatic pre-AI rollback snapshots, and a browser-local iteration trail.

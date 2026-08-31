@@ -52,6 +52,7 @@ This document tracks shipped foundations and the next evidence-driven product wo
 - [x] Brief-sensitive Direction Board selected from an 18-cell structural pool
 - [x] Visual Narrative Story Graph with art-direction and functional-richness contracts
 - [x] Scene Asset Director with licensed catalog, scene assignment, responsive framing, alt intent, and generated asset receipts
+- [x] Licensed Asset Delivery with exact-host allowlisting, bounded binary copy, media-signature validation, SHA-256 receipts, local source rewriting, and ZIP inclusion
 - [x] Functional Visual Fulfillment source and rendered-DOM evidence with harmonic weak-scene aggregation
 - [x] Semantic route depth up to five Creative routes and three Fast routes
 - [ ] Rendered screenshot audit at 360, 768, and 1440 pixels

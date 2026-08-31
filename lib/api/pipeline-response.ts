@@ -3,7 +3,7 @@ import { buildQualityReport } from "@/lib/engine/quality-report";
 
 /** One public response contract shared by JSON, SSE, and background jobs. */
 export function serializePipelineResult(result: PipelineResult, requestId?: string) {
-  const qualityReport = buildQualityReport(result.project, result.assetUsage, result.finalCritique);
+  const qualityReport = buildQualityReport(result.project, result.assetUsage, result.finalCritique, result.assetDelivery);
   return {
     mode: result.mode,
     effectiveMode: result.execution.effectiveMode.startsWith("creative") ? "creative" : "fast",
@@ -37,6 +37,7 @@ export function serializePipelineResult(result: PipelineResult, requestId?: stri
     blocklistMatches: result.blocklistResult.matches,
     assetBundle: result.assetBundle,
     assetUsage: result.assetUsage,
+    assetDelivery: result.assetDelivery,
     visualIntentSource: result.visualIntentSource,
     execution: result.execution,
     competitiveField: {

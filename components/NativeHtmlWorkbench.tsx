@@ -198,7 +198,7 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
           {selectedFile.encoding === "base64" ? (
             <div className={styles.assetInspector}>
               {/* eslint-disable-next-line @next/next/no-img-element -- local user-owned preview */}
-              <img src={projectFileDataUrl(selectedFile) ?? ""} alt="User-owned project asset preview" />
+              <img src={projectFileDataUrl(selectedFile) ?? ""} alt="Bundled project asset preview" />
               <p>Binary asset · {selectedFile.mediaType} · included in preview and ZIP</p>
             </div>
           ) : (

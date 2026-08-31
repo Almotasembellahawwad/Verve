@@ -1,5 +1,6 @@
 import type { AssetBundle } from "./asset-sourcer";
 import type { AssetDirectionContract } from "../domain/project-spec";
+import type { AssetDeliveryReceipt } from "./asset-delivery";
 
 export type AssetUsageEvidence = {
   available: number;
@@ -16,14 +17,22 @@ export type AssetUsageEvidence = {
     attributionPresent: boolean;
     plannedSceneIds: string[];
     traced: boolean;
+    deliveryStatus?: "bundled" | "skipped-unused" | "failed";
   }>;
   warnings: string[];
 };
 
 /** Inspect the delivered code, rather than treating a successful search as use. */
-export function inspectAssetUsage(bundle: AssetBundle, code: string, direction?: AssetDirectionContract): AssetUsageEvidence {
+export function inspectAssetUsage(
+  bundle: AssetBundle,
+  code: string,
+  direction?: AssetDirectionContract,
+  delivery?: AssetDeliveryReceipt
+): AssetUsageEvidence {
+  const deliveryById = new Map(delivery?.items.map((item) => [item.assetId, item.status]) ?? []);
   const items = bundle.photos.map((photo) => {
-    const used = code.includes(photo.url);
+    const used = [photo.url, photo.url.replaceAll("&", "&amp;"), photo.url.replaceAll("&", "\\u0026")]
+      .some((reference) => code.includes(reference));
     const plannedSceneIds = direction?.sceneDirections
       .filter((scene) => scene.selectedAssetIds.includes(photo.id))
       .map((scene) => scene.sceneId) ?? [];
@@ -31,7 +40,16 @@ export function inspectAssetUsage(bundle: AssetBundle, code: string, direction?:
     const attributionPresent = photo.source === "owned"
       || !used
       || (code.includes(photo.photographer) && /https?:\/\/(?:www\.)?pexels\.com/i.test(code));
-    return { id: photo.id, url: photo.url, source: photo.source, used, attributionPresent, plannedSceneIds, traced };
+    return {
+      id: photo.id,
+      url: photo.url,
+      source: photo.source,
+      used,
+      attributionPresent,
+      plannedSceneIds,
+      traced,
+      ...(deliveryById.has(photo.id) ? { deliveryStatus: deliveryById.get(photo.id) } : {}),
+    };
   });
   const used = items.filter((item) => item.used).length;
   const attributed = items.filter((item) => item.used && item.attributionPresent).length;
@@ -47,7 +65,7 @@ export function inspectAssetUsage(bundle: AssetBundle, code: string, direction?:
   if (missingAttribution > 0) {
     warnings.push(`${missingAttribution} used Pexels asset(s) need a visible linked credit before launch.`);
   }
-  const remoteStockAssets = items.filter((item) => item.used && item.source === "pexels").length;
+  const remoteStockAssets = items.filter((item) => item.used && item.source === "pexels" && item.deliveryStatus !== "bundled").length;
   if (remoteStockAssets > 0) {
     warnings.push(`${remoteStockAssets} used Pexels asset(s) remain remote preview dependencies; copy them into the project and preserve the source record before production.`);
   }

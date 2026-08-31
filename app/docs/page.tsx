@@ -99,7 +99,8 @@ function DocsContent() {
               { id: "05", name: "Code Generation",       file: "code-generator.ts",  desc: "Generates full component code — responsive, accessible, prefers-reduced-motion aware. Output only produced after plan passes critique. Supports Next.js, React, and HTML+CSS." },
               { id: "05.5", name: "Syntax + Repair",     file: "code-quality-loop.ts", desc: "Parses TSX with TypeScript, verifies structure and the signature element, and performs one bounded repair pass." },
               { id: "06", name: "Proof Gates",           file: "scorer + diversity + render-gate + engineering", desc: "Scores the delivered code, detects Verve's own repeated house template, measures first-viewport effectiveness and Functional Visual Fulfillment, and keeps visual distinctiveness separate from engineering and production readiness." },
-              { id: "07", name: "Project Assembly",       file: "project-builder.ts", desc: "Creates the complete Next.js, React/Vite, or HTML project: source, runtime entry, package manifest, TypeScript configuration, gitignore, and project-specific README." },
+              { id: "06.5", name: "Licensed Asset Delivery", file: "asset-delivery.ts + pexels-asset-delivery.ts", desc: "Copies only used allowlisted Pexels bytes into framework-correct local paths, validates size, media type, and signature, records SHA-256 and provenance, and blocks readiness when a selected remote asset cannot be bundled." },
+              { id: "07", name: "Project Assembly",       file: "project-builder.ts", desc: "Creates the complete Next.js, React/Vite, or HTML project: source, local binary assets, runtime entry, package manifest, TypeScript configuration, gitignore, project-specific README, and a licensed asset receipt." },
             ].map((step, i, arr) => (
               <div key={step.id} className={styles.pipelineStep}>
                 <div className={styles.pipelineLeft}>

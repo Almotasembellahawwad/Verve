@@ -28,7 +28,7 @@ import { launchProjectEditor } from "@/lib/client/editor-workspace";
 import {
   attachOwnedAssets,
   ownedAssetManifest,
-  stripOwnedAssetContent,
+  stripBinaryAssetContent,
   type BrandProfile,
   type LocalOwnedAsset,
 } from "@/lib/project/brand-kit";
@@ -127,6 +127,24 @@ type PipelineResult = {
     attributed: number;
     plannedScenePlacements: number;
     tracedScenePlacements: number;
+    warnings: string[];
+  };
+  assetDelivery?: {
+    version: 1;
+    policy: "allowlisted-copy-with-integrity";
+    status: "not-required" | "complete" | "partial" | "failed";
+    requested: number;
+    bundled: number;
+    failed: number;
+    totalBytes: number;
+    items: {
+      assetId: string;
+      status: "bundled" | "skipped-unused" | "failed";
+      projectPath?: string;
+      byteSize?: number;
+      sha256?: string;
+      failureCode?: string;
+    }[];
     warnings: string[];
   };
   visualIntentSource?: {
@@ -635,9 +653,7 @@ export default function GeneratePanel() {
             setActiveView("project");
             // ── Save to history ──────────────────────────────────────────
             try {
-              const historyResult = ownedAssets.length > 0
-                ? { ...enriched, project: stripOwnedAssetContent(enriched.project) }
-                : enriched;
+              const historyResult = { ...enriched, project: stripBinaryAssetContent(enriched.project) };
               addHistory(entryFromResult(brief, historyResult));
             } catch {}
           } else if (eventType === "heartbeat") {
@@ -1284,6 +1300,35 @@ export default function GeneratePanel() {
                       );
                     })}
                   </div>
+                  {result.assetDelivery && (
+                    <>
+                      <div className={styles.narrativeHead}>
+                        <div>
+                          <span className={styles.metaKey}>Licensed Asset Delivery</span>
+                          <h3>Selected stock bytes are local, bounded, and integrity-addressed.</h3>
+                        </div>
+                        <b>{result.assetDelivery.status} · {result.assetDelivery.bundled}/{result.assetDelivery.requested} bundled</b>
+                      </div>
+                      <dl className={styles.richnessReceipt}>
+                        <div><dt>Policy</dt><dd>{result.assetDelivery.policy.replaceAll("-", " ")}</dd></div>
+                        <div><dt>Payload</dt><dd>{Math.round(result.assetDelivery.totalBytes / 1024)} KB local bytes</dd></div>
+                        <div><dt>Integrity</dt><dd>{result.assetDelivery.bundled ? "SHA-256 recorded per binary" : "No external binary copied"}</dd></div>
+                        <div><dt>Failures</dt><dd>{result.assetDelivery.failed || "none"}</dd></div>
+                      </dl>
+                      {result.assetDelivery.items.some((item) => item.status !== "skipped-unused") && (
+                        <div className={styles.sceneGrid}>
+                          {result.assetDelivery.items.filter((item) => item.status !== "skipped-unused").map((item) => (
+                            <article key={`delivery-${item.assetId}`}>
+                              <span>{item.status}</span>
+                              <strong>{item.assetId}</strong>
+                              <p>{item.projectPath ?? item.failureCode ?? "remote preview dependency"}</p>
+                              <small>{item.sha256 ? `sha256 ${item.sha256.slice(0, 16)}…` : "not integrity-addressed"}</small>
+                            </article>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
 
