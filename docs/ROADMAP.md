@@ -49,6 +49,9 @@ This document tracks shipped foundations and the next evidence-driven product wo
 - [x] Template Diversity Gate for Verve's own repeated cross-industry art-direction fingerprint
 - [x] Laptop-width workbench regression at 1366×768
 - [x] Motion Gate that blocks authored animation without a reduced-motion contract
+- [x] Brief-sensitive Direction Board selected from an 18-cell structural pool
+- [x] Visual Narrative Story Graph with art-direction and functional-richness contracts
+- [x] Semantic route depth up to five Creative routes and three Fast routes
 - [ ] Rendered screenshot audit at 360, 768, and 1440 pixels
 - [x] Browser console and deterministic broken-navigation evidence in the readiness report
 - [ ] Form-contract adapters for explicit email, webhook, or server-action behavior

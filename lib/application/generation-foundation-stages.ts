@@ -30,8 +30,8 @@ type GenerationFoundationContext = {
 
 const projectSpecStage: PipelineStage<GenerationFoundationContext> = {
   id: "04.2",
-  name: "Experience Contract",
-  module: "VerveProjectSpec",
+  name: "Visual Narrative Contract",
+  module: "VerveProjectSpec + StoryGraph",
   async execute(context) {
     return {
       projectSpec: buildVerveProjectSpec({

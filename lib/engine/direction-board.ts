@@ -62,14 +62,70 @@ const CandidateSchema = z.object({
   }),
 });
 
-const BLUEPRINTS = [
-  { creativityClass: "combinational", experienceModel: "guided-conversation", openingMode: "question-first", navigationModel: "stepper" },
-  { creativityClass: "combinational", experienceModel: "spatial-map", openingMode: "media-first", navigationModel: "spatial" },
-  { creativityClass: "exploratory", experienceModel: "task-workbench", openingMode: "task-first", navigationModel: "hub-and-spoke" },
-  { creativityClass: "exploratory", experienceModel: "collection-browser", openingMode: "index-first", navigationModel: "filter-and-inspect" },
-  { creativityClass: "transformational", experienceModel: "live-canvas", openingMode: "canvas-first", navigationModel: "direct-manipulation" },
-  { creativityClass: "transformational", experienceModel: "narrative-scroll", openingMode: "story-first", navigationModel: "linear" },
-] as const;
+type DirectionCell = Pick<DesignDirectionCandidate["descriptors"], "creativityClass" | "experienceModel" | "openingMode" | "navigationModel">;
+
+const CELL_POOL: Record<DirectionCell["creativityClass"], Record<DirectionCell["experienceModel"], Omit<DirectionCell, "creativityClass" | "experienceModel">>> = {
+  combinational: {
+    "guided-conversation": { openingMode: "question-first", navigationModel: "stepper" },
+    "spatial-map": { openingMode: "media-first", navigationModel: "spatial" },
+    "task-workbench": { openingMode: "question-first", navigationModel: "hub-and-spoke" },
+    "collection-browser": { openingMode: "media-first", navigationModel: "filter-and-inspect" },
+    "live-canvas": { openingMode: "task-first", navigationModel: "stepper" },
+    "narrative-scroll": { openingMode: "story-first", navigationModel: "linear" },
+  },
+  exploratory: {
+    "guided-conversation": { openingMode: "task-first", navigationModel: "hub-and-spoke" },
+    "spatial-map": { openingMode: "index-first", navigationModel: "hub-and-spoke" },
+    "task-workbench": { openingMode: "task-first", navigationModel: "hub-and-spoke" },
+    "collection-browser": { openingMode: "index-first", navigationModel: "filter-and-inspect" },
+    "live-canvas": { openingMode: "canvas-first", navigationModel: "direct-manipulation" },
+    "narrative-scroll": { openingMode: "question-first", navigationModel: "hub-and-spoke" },
+  },
+  transformational: {
+    "guided-conversation": { openingMode: "canvas-first", navigationModel: "direct-manipulation" },
+    "spatial-map": { openingMode: "canvas-first", navigationModel: "spatial" },
+    "task-workbench": { openingMode: "canvas-first", navigationModel: "direct-manipulation" },
+    "collection-browser": { openingMode: "story-first", navigationModel: "spatial" },
+    "live-canvas": { openingMode: "media-first", navigationModel: "spatial" },
+    "narrative-scroll": { openingMode: "media-first", navigationModel: "spatial" },
+  },
+};
+
+function stableCellHash(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index++) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function modelAffinity(model: DirectionCell["experienceModel"], text: string): number {
+  const patterns: Record<DirectionCell["experienceModel"], RegExp> = {
+    "guided-conversation": /decision|eligibility|legal|consult|question|guide|triage|قرار|أهلية|قانون|استشار|سؤال|إرشاد/i,
+    "spatial-map": /map|place|location|architecture|space|site|geography|خريطة|مكان|موقع|عمارة|مساحة/i,
+    "task-workbench": /dashboard|workspace|operations|manage|monitor|analytics|workflow|لوحة|مساحة عمل|عمليات|إدارة|مراقبة|تحليلات/i,
+    "collection-browser": /collection|catalog|portfolio|products?|inventory|fashion|مجموعة|كتالوج|منتجات|مخزون|أزياء/i,
+    "live-canvas": /manipulate|simulation|play|experiment|model|lab|configure|محاكاة|تجربة|مختبر|تكوين/i,
+    "narrative-scroll": /story|campaign|documentary|history|culture|exhibition|قصة|حملة|تاريخ|ثقافة|معرض/i,
+  };
+  const match = text.match(patterns[model]);
+  return match ? 100 + Math.max(0, 30 - (match.index ?? 30)) : 0;
+}
+
+/** Select six brief-sensitive cells from an 18-cell pool without sacrificing class or structural coverage. */
+export function selectDirectionCells(analysis: BriefAnalysis): DirectionCell[] {
+  const text = `${analysis.subject} ${analysis.primaryJob} ${analysis.industry} ${analysis.tone} ${analysis.rawBrief}`;
+  const orderedModels = [...EXPERIENCE_MODELS].sort((left, right) =>
+    modelAffinity(right, text) - modelAffinity(left, text)
+    || stableCellHash(`${text}:${left}`) - stableCellHash(`${text}:${right}`)
+  );
+  const classes: DirectionCell["creativityClass"][] = ["combinational", "combinational", "exploratory", "exploratory", "transformational", "transformational"];
+  return orderedModels.map((experienceModel, index) => {
+    const creativityClass = classes[index];
+    return { creativityClass, experienceModel, ...CELL_POOL[creativityClass][experienceModel] };
+  });
+}
 
 function candidateJsonSchema(count: number): Record<string, unknown> {
   return {
@@ -138,13 +194,13 @@ function scoreQuality(candidate: z.infer<typeof CandidateSchema>, analysis: Brie
   };
 }
 
-function enforceBlueprints(candidates: DesignDirectionCandidate[], fallback: DesignDirectionCandidate[]): DesignDirectionCandidate[] {
-  return BLUEPRINTS.map((blueprint, index) => {
-    const candidate = candidates[index] ?? fallback[index];
+function enforceCells(candidates: DesignDirectionCandidate[], fallback: DesignDirectionCandidate[], cells: DirectionCell[]): DesignDirectionCandidate[] {
+  return cells.map((cell, index) => {
+    const candidate = candidates[index] ?? fallback.find((entry) => entry.descriptors.experienceModel === cell.experienceModel) ?? fallback[index];
     return {
       ...candidate,
-      id: `${blueprint.creativityClass}-${blueprint.experienceModel}`,
-      descriptors: { ...candidate.descriptors, ...blueprint },
+      id: `${cell.creativityClass}-${cell.experienceModel}`,
+      descriptors: { ...candidate.descriptors, ...cell },
     };
   });
 }
@@ -153,11 +209,11 @@ async function requestCandidates(
   llm: LLMPort,
   analysis: BriefAnalysis,
   referenceContext: string,
-  count: 3 | 6,
+  cells: DirectionCell[],
   batch: "all" | "independent-a" | "independent-b",
   effectiveMode: EffectiveGenerationMode
 ): Promise<z.infer<typeof CandidateSchema>[]> {
-  const blueprintSlice = count === 6 ? BLUEPRINTS : batch === "independent-a" ? BLUEPRINTS.slice(0, 3) : BLUEPRINTS.slice(3);
+  const count = cells.length as 3 | 6;
   const response = await llm.complete([{ role: "user", content: [
     `Create ${count} design directions for this brief.`,
     `Subject: ${analysis.subject}`,
@@ -166,7 +222,12 @@ async function requestCandidates(
     `Tone: ${analysis.tone}`,
     `Source brief (the only authority for factual claims): ${analysis.rawBrief}`,
     referenceContext,
-    `Required direction cells: ${JSON.stringify(blueprintSlice)}`,
+    `Required direction cells: ${JSON.stringify(cells)}`,
+    batch === "independent-a"
+      ? "Operator family: cross-domain combination, mechanism transfer, and evidence reframing."
+      : batch === "independent-b"
+        ? "Operator family: constraint inversion, state transformation, and topology mutation."
+        : "Use both mechanism-transfer and constraint-inversion operators across the board.",
   ].join("\n\n") }], {
     systemPrompt: [
       "You are the divergent ideation stage of Verve Creative Engine v3.",
@@ -210,24 +271,28 @@ export async function generateDirectionBoard(input: {
     rawPlan: "Direction Board fallback seed.",
   };
   const fallback = createFallbackDirectionPortfolio(fallbackPlan, input.analysis).candidates;
+  const selectedCells = selectDirectionCells(input.analysis);
+  const firstCells = [selectedCells[0], selectedCells[2], selectedCells[4]];
+  const secondCells = [selectedCells[1], selectedCells[3], selectedCells[5]];
+  const boardCells = effectiveMode === "creative" ? [...firstCells, ...secondCells] : selectedCells;
   let candidates: DesignDirectionCandidate[];
   let usedFallback = false;
   try {
     if (effectiveMode === "creative") {
       const [first, second] = await Promise.all([
-        requestCandidates(input.llm, input.analysis, referenceContext, 3, "independent-a", effectiveMode),
-        requestCandidates(input.llm, input.analysis, referenceContext, 3, "independent-b", effectiveMode),
+        requestCandidates(input.llm, input.analysis, referenceContext, firstCells, "independent-a", effectiveMode),
+        requestCandidates(input.llm, input.analysis, referenceContext, secondCells, "independent-b", effectiveMode),
       ]);
       candidates = [...first, ...second].map((candidate) => scoreQuality(candidate, input.analysis));
     } else {
-      candidates = (await requestCandidates(input.llm, input.analysis, referenceContext, 6, "all", effectiveMode))
+      candidates = (await requestCandidates(input.llm, input.analysis, referenceContext, selectedCells, "all", effectiveMode))
         .map((candidate) => scoreQuality(candidate, input.analysis));
     }
   } catch {
     candidates = fallback;
     usedFallback = true;
   }
-  candidates = enforceBlueprints(candidates, fallback);
+  candidates = enforceCells(candidates, fallback, boardCells);
   const portfolio: DirectionPortfolio = normalizeDirectionPortfolio({
     source: usedFallback ? "local-fallback" : effectiveMode === "creative" ? "provider-creative" : "provider",
     candidates,
