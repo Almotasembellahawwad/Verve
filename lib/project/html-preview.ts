@@ -1,4 +1,5 @@
 import type { GeneratedProject } from "./types";
+import type { VerveProjectSpec } from "../domain/project-spec";
 import { createRenderProbeSource } from "./render-gate";
 import { replaceOwnedAssetReferences } from "./brand-kit";
 import {
@@ -18,7 +19,7 @@ function normalizePath(path: string): string {
  * JavaScript files are inlined for preview only; the editable project and ZIP
  * keep their original multi-file structure.
  */
-export function buildHtmlPreviewDocument(project: GeneratedProject, probeId: string): string {
+export function buildHtmlPreviewDocument(project: GeneratedProject, probeId: string, projectSpec?: VerveProjectSpec): string {
   if (project.framework !== "html") {
     throw new Error("Native HTML preview only accepts HTML projects.");
   }
@@ -55,6 +56,6 @@ export function buildHtmlPreviewDocument(project: GeneratedProject, probeId: str
 
   html = replaceOwnedAssetReferences(html, project.files);
 
-  const probe = `<script data-verve-render-probe>${escapeRawTextEndTags(createRenderProbeSource(probeId), "script")}</script>`;
+  const probe = `<script data-verve-render-probe>${escapeRawTextEndTags(createRenderProbeSource(probeId, projectSpec), "script")}</script>`;
   return insertBeforeHtmlEndTag(html, "body", probe);
 }

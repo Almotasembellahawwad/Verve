@@ -1,30 +1,42 @@
 import type { AssetBundle } from "./asset-sourcer";
+import type { AssetDirectionContract } from "../domain/project-spec";
 
 export type AssetUsageEvidence = {
   available: number;
   required: number;
   used: number;
   attributed: number;
+  plannedScenePlacements: number;
+  tracedScenePlacements: number;
   items: Array<{
+    id: string;
     url: string;
     source: "owned" | "pexels";
     used: boolean;
     attributionPresent: boolean;
+    plannedSceneIds: string[];
+    traced: boolean;
   }>;
   warnings: string[];
 };
 
 /** Inspect the delivered code, rather than treating a successful search as use. */
-export function inspectAssetUsage(bundle: AssetBundle, code: string): AssetUsageEvidence {
+export function inspectAssetUsage(bundle: AssetBundle, code: string, direction?: AssetDirectionContract): AssetUsageEvidence {
   const items = bundle.photos.map((photo) => {
     const used = code.includes(photo.url);
+    const plannedSceneIds = direction?.sceneDirections
+      .filter((scene) => scene.selectedAssetIds.includes(photo.id))
+      .map((scene) => scene.sceneId) ?? [];
+    const traced = used && new RegExp(`data-verve-asset-id\\s*=\\s*["']${photo.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["']`, "i").test(code);
     const attributionPresent = photo.source === "owned"
       || !used
       || (code.includes(photo.photographer) && /https?:\/\/(?:www\.)?pexels\.com/i.test(code));
-    return { url: photo.url, source: photo.source, used, attributionPresent };
+    return { id: photo.id, url: photo.url, source: photo.source, used, attributionPresent, plannedSceneIds, traced };
   });
   const used = items.filter((item) => item.used).length;
   const attributed = items.filter((item) => item.used && item.attributionPresent).length;
+  const plannedScenePlacements = direction?.sceneDirections.filter((scene) => scene.selectedAssetIds.length > 0).length ?? 0;
+  const tracedScenePlacements = direction?.sceneDirections.filter((scene) => scene.selectedAssetIds.some((assetId) => items.some((item) => item.id === assetId && item.traced))).length ?? 0;
   const warnings: string[] = [];
 
   if (used < bundle.mediaRequirement.minimumAssets) {
@@ -35,12 +47,21 @@ export function inspectAssetUsage(bundle: AssetBundle, code: string): AssetUsage
   if (missingAttribution > 0) {
     warnings.push(`${missingAttribution} used Pexels asset(s) need a visible linked credit before launch.`);
   }
+  const remoteStockAssets = items.filter((item) => item.used && item.source === "pexels").length;
+  if (remoteStockAssets > 0) {
+    warnings.push(`${remoteStockAssets} used Pexels asset(s) remain remote preview dependencies; copy them into the project and preserve the source record before production.`);
+  }
+  if (plannedScenePlacements > tracedScenePlacements) {
+    warnings.push(`Asset direction trace: ${tracedScenePlacements}/${plannedScenePlacements} planned scene placements use the assigned asset ID marker.`);
+  }
 
   return {
     available: bundle.photos.length,
     required: bundle.mediaRequirement.minimumAssets,
     used,
     attributed,
+    plannedScenePlacements,
+    tracedScenePlacements,
     items,
     warnings,
   };

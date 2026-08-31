@@ -1,5 +1,6 @@
 export const VERVE_PROJECT_SPEC_VERSION = 2 as const;
 export const VISUAL_NARRATIVE_VERSION = 1 as const;
+export const ASSET_DIRECTION_VERSION = 1 as const;
 
 export type VerveProjectFramework = "nextjs" | "react" | "html";
 export type ComplexityProfile = "focused" | "balanced" | "systemic";
@@ -27,6 +28,49 @@ export type NarrativeRole = "hook" | "tension" | "discovery" | "proof" | "choice
 export type NarrativeStructure = "linear" | "branching" | "spatial" | "cyclical";
 export type VisualMedium = "typography" | "photography" | "illustration" | "data" | "diagram" | "interface" | "spatial" | "generative";
 export type VisualLayer = "type" | "media" | "data" | "shape" | "motion" | "interaction";
+
+export type AssetLicense = "user-owned" | "pexels-license" | "programmatic-original" | "not-applicable";
+export type AssetRequirement = "required" | "supporting" | "avoid";
+export type AssetSourcePolicy = "approved-only" | "programmatic-only" | "approved-or-programmatic" | "no-visual-asset";
+export type AssetNarrativeFunction = "orientation" | "material-context" | "exploration" | "evidence" | "comparison" | "state-feedback";
+
+export type DirectedAsset = {
+  id: string;
+  url: string;
+  alt: string;
+  source: "owned" | "pexels";
+  license: AssetLicense;
+  credit: string;
+  sourcePageUrl?: string;
+};
+
+export type SceneAssetDirection = {
+  sceneId: string;
+  requirement: AssetRequirement;
+  narrativeFunction: AssetNarrativeFunction;
+  expectedLayers: VisualLayer[];
+  preferredMedium: VisualMedium;
+  sourcePolicy: AssetSourcePolicy;
+  selectedAssetIds: string[];
+  framing: {
+    scale: "environment" | "object" | "detail" | "interface";
+    aspectRatio: "adaptive" | "3:2" | "4:3" | "1:1";
+    focalAnchor: "center" | "leading" | "trailing" | "subject-led";
+    cropBehavior: string;
+  };
+  visualPurpose: string;
+  altIntent: string;
+  fallback: string;
+};
+
+export type AssetDirectionContract = {
+  version: typeof ASSET_DIRECTION_VERSION;
+  catalog: DirectedAsset[];
+  identityAssetIds: string[];
+  sceneDirections: SceneAssetDirection[];
+  unusedAssetIds: string[];
+  globalRules: string[];
+};
 
 export type StoryScene = {
   id: string;
@@ -161,6 +205,7 @@ export type VerveProjectSpec = {
     items: ProjectFact[];
   };
   narrative: VisualNarrativeContract;
+  assetDirection: AssetDirectionContract;
   experience: {
     model: ExperienceModel;
     route: string;
@@ -224,6 +269,33 @@ export function validateVisualNarrativeContract(contract: VisualNarrativeContrac
   return issues;
 }
 
+export function validateAssetDirectionContract(contract: AssetDirectionContract, narrative: VisualNarrativeContract): string[] {
+  const issues: string[] = [];
+  const sceneIds = new Set(narrative.scenes.map((scene) => scene.id));
+  const directedSceneIds = new Set(contract.sceneDirections.map((direction) => direction.sceneId));
+  const assetIds = new Set(contract.catalog.map((asset) => asset.id));
+  if (contract.version !== ASSET_DIRECTION_VERSION) issues.push("Unsupported asset direction version.");
+  if (directedSceneIds.size !== contract.sceneDirections.length) issues.push("Scene asset directions must be unique.");
+  if (contract.sceneDirections.length !== narrative.scenes.length) issues.push("Every story scene requires one asset direction.");
+  for (const sceneId of sceneIds) if (!directedSceneIds.has(sceneId)) issues.push(`${sceneId} has no asset direction.`);
+  for (const asset of contract.catalog) {
+    if (!asset.url.trim()) issues.push(`${asset.id} has no approved asset URL.`);
+    if (asset.license === "not-applicable" || asset.license === "programmatic-original") issues.push(`${asset.id} has no external-asset license record.`);
+    if (!asset.credit.trim()) issues.push(`${asset.id} has no ownership or attribution record.`);
+  }
+  for (const direction of contract.sceneDirections) {
+    if (!sceneIds.has(direction.sceneId)) issues.push(`Asset direction references unknown scene ${direction.sceneId}.`);
+    if (!direction.expectedLayers.includes("type")) issues.push(`${direction.sceneId} must preserve the type layer.`);
+    if (new Set(direction.expectedLayers).size !== direction.expectedLayers.length) issues.push(`${direction.sceneId} repeats an expected visual layer.`);
+    if (!direction.visualPurpose.trim()) issues.push(`${direction.sceneId} has no visual purpose.`);
+    for (const assetId of direction.selectedAssetIds) if (!assetIds.has(assetId)) issues.push(`${direction.sceneId} references unknown asset ${assetId}.`);
+    if (direction.sourcePolicy === "programmatic-only" && direction.selectedAssetIds.length > 0) issues.push(`${direction.sceneId} assigns an external asset to a programmatic-only scene.`);
+    if (direction.requirement === "avoid" && direction.selectedAssetIds.length > 0) issues.push(`${direction.sceneId} assigns media even though its asset requirement is avoid.`);
+  }
+  for (const assetId of [...contract.identityAssetIds, ...contract.unusedAssetIds]) if (!assetIds.has(assetId)) issues.push(`Asset direction references unknown catalog asset ${assetId}.`);
+  return issues;
+}
+
 export function validateVerveProjectSpec(spec: VerveProjectSpec): ProjectSpecValidation {
   const issues: string[] = [];
   const routeIds = new Set(spec.experience.routes.map((route) => route.id));
@@ -243,6 +315,7 @@ export function validateVerveProjectSpec(spec: VerveProjectSpec): ProjectSpecVal
   if (spec.experience.firstViewport.minimumTaskSignals < 2) issues.push("The first viewport requires at least two task signals.");
   if (!spec.experience.firstViewport.requiredSignals.includes("primary-action")) issues.push("The first viewport must declare a primary action signal.");
   issues.push(...validateVisualNarrativeContract(spec.narrative));
+  issues.push(...validateAssetDirectionContract(spec.assetDirection, spec.narrative));
 
   const narrativeRouteIds = new Set(spec.narrative.scenes.map((scene) => scene.routeId));
   for (const routeId of narrativeRouteIds) if (!routeIds.has(routeId)) issues.push(`Visual narrative references unknown route ${routeId}.`);

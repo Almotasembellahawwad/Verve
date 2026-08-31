@@ -57,7 +57,7 @@ const PIPELINE_STAGES = [
   { id: "02.5", name: "BRAND ARCHETYPE",         module: "Module I",            status: "RESOLVING"   },
   { id: "02.6", name: "ANIMATION LANGUAGE",      module: "Module K",            status: "DERIVING"    },
   { id: "03",   name: "PLAN + ADVERSARIAL REVIEW", module: "PlanGenerator + G", status: "CRITIQUING"  },
-  { id: "04",   name: "DESIGN CONTRACT GATES",   module: "contrast + spec + QD", status: "VERIFYING"   },
+  { id: "04",   name: "DESIGN CONTRACT GATES",   module: "contrast + spec + QD + asset intent", status: "VERIFYING"   },
   { id: "05",   name: "CODE GENERATION",         module: "code-generator.ts",   status: "COMPILING"   },
   { id: "05.5", name: "CODE VALIDATION",         module: "CodeQualityLoop",     status: "REPAIRING"    },
   { id: "06",   name: "NORMAN 3-LEVEL SCORE",    module: "scorer.ts",           status: "SCORING"     },
@@ -125,6 +125,19 @@ type PipelineResult = {
     required: number;
     used: number;
     attributed: number;
+    plannedScenePlacements: number;
+    tracedScenePlacements: number;
+    warnings: string[];
+  };
+  visualIntentSource?: {
+    status: "pass" | "review" | "fail";
+    score: number;
+    expectedScenes: number;
+    markedScenes: number;
+    expectedLayers: string[];
+    markedLayers: string[];
+    requiredAssetPlacements: number;
+    tracedAssetPlacements: number;
     warnings: string[];
   };
   execution?: {
@@ -1122,6 +1135,7 @@ export default function GeneratePanel() {
               <div role="tabpanel" className={styles.projectView}>
                 <ProjectWorkbench
                   project={result.project}
+                  projectSpec={result.projectSpec}
                   visualDiversityThreshold={result.execution?.effectiveMode.startsWith("creative") ? 0.45 : 0.35}
                   onVisualDiversity={handleVisualDiversity}
                 />
@@ -1248,6 +1262,28 @@ export default function GeneratePanel() {
                     <div><dt>Detail strategy</dt><dd>{result.projectSpec.narrative.richness.strategy.replaceAll("-", " ")}</dd></div>
                     <div><dt>Art direction</dt><dd>{result.projectSpec.narrative.artDirection.detailDensity} · {result.projectSpec.narrative.artDirection.interactionMetaphor}</dd></div>
                   </dl>
+                  <div className={styles.narrativeHead}>
+                    <div>
+                      <span className={styles.metaKey}>Scene Asset Director</span>
+                      <h3>Every visual source has a task, framing rule, and fallback.</h3>
+                    </div>
+                    <b>{result.projectSpec.assetDirection.catalog.length} approved · {result.projectSpec.assetDirection.unusedAssetIds.length} intentionally unused</b>
+                  </div>
+                  <div className={styles.sceneGrid}>
+                    {result.projectSpec.assetDirection.sceneDirections.map((direction) => {
+                      const assigned = direction.selectedAssetIds
+                        .map((id) => result.projectSpec?.assetDirection.catalog.find((asset) => asset.id === id)?.source ?? id)
+                        .join(" · ");
+                      return (
+                        <article key={`asset-${direction.sceneId}`}>
+                          <span>{direction.narrativeFunction} / {direction.requirement}</span>
+                          <strong>{direction.visualPurpose}</strong>
+                          <p>{assigned || direction.sourcePolicy.replaceAll("-", " ")}</p>
+                          <small>{direction.framing.scale} · {direction.framing.aspectRatio} · {direction.preferredMedium}</small>
+                        </article>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -1560,6 +1596,20 @@ export default function GeneratePanel() {
                   )}
                   {result.assetUsage && result.assetUsage.warnings.length > 0 && (
                     <ul>{result.assetUsage.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+                  )}
+                </div>
+              )}
+
+              {result.visualIntentSource && (
+                <div className={styles.mediaGate} data-level={result.visualIntentSource.status === "pass" ? "optional" : "required"}>
+                  <div className={styles.mediaGateHead}>
+                    <div><span>FUNCTIONAL VISUAL FULFILLMENT / SOURCE</span><strong>{result.visualIntentSource.status}</strong></div>
+                    <b>{result.visualIntentSource.score}/100 · {result.visualIntentSource.markedScenes}/{result.visualIntentSource.expectedScenes} scenes traced</b>
+                  </div>
+                  <p>The score is a harmonic coverage measure: a polished hero cannot compensate for missing scene, layer, purpose, or required-asset evidence. The live Render Gate measures the same contract against the DOM at 360/768/1440.</p>
+                  <small>{result.visualIntentSource.markedLayers.join(" · ") || "No functional layer markers delivered"}</small>
+                  {result.visualIntentSource.warnings.length > 0 && (
+                    <ul>{result.visualIntentSource.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
                   )}
                 </div>
               )}

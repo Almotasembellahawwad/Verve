@@ -33,6 +33,7 @@ import { inspectDesignDiversity, type DesignDiversityResult } from "../engine/de
 import { buildGeneratedProject }                                      from "../project/project-builder";
 import type { GeneratedProject }                                      from "../project/types";
 import { inspectAssetUsage, type AssetUsageEvidence } from "../engine/asset-usage";
+import { inspectVisualIntentSource, type VisualIntentSourceEvidence } from "../engine/visual-intent";
 import {
   buildExecutionEvidence,
   type CritiqueEvidenceSource,
@@ -80,6 +81,7 @@ export type PipelineResult = {
   engineeringResult:      EngineeringResult;      // Dual Scoring — Engineering axis
   diversityResult:        DesignDiversityResult;  // Cross-industry house-template gate
   assetUsage:             AssetUsageEvidence;
+  visualIntentSource:     VisualIntentSourceEvidence;
   execution:              ExecutionEvidence;
   codeQualityResult:      CodeQualityResult;      // Phase 3.5: post-gen repair
   contrastReport:         ContrastFixReport;
@@ -622,7 +624,8 @@ export async function runGenerationUseCase(
   }, "06-done");
 
   emit("stage_start", { id: "07", name: "Project Assembly", module: "ProjectEngine" }, "07-start");
-  const assetUsage = inspectAssetUsage(assetBundle, deliveredSource);
+  const assetUsage = inspectAssetUsage(assetBundle, deliveredSource, projectSpec.assetDirection);
+  const visualIntentSource = inspectVisualIntentSource(projectSpec, deliveredSource);
   const diversityWarnings = diversityResult.warnings.map((warning) =>
     strategy.mode === "creative" ? `BLOCKING: ${warning}` : warning
   );
@@ -631,7 +634,8 @@ export async function runGenerationUseCase(
     briefAnalysis,
     designPlan,
     codeQualityResult.wasRepaired ? [] : codeQualityResult.issues,
-    [...assetBundle.readinessWarnings, ...assetUsage.warnings, ...directionDiversity.warnings, ...diversityWarnings]
+    [...assetBundle.readinessWarnings, ...assetUsage.warnings, ...visualIntentSource.warnings, ...directionDiversity.warnings, ...diversityWarnings],
+    projectSpec.assetDirection
   );
   emit("stage_done", {
     id: "07",
@@ -671,6 +675,7 @@ export async function runGenerationUseCase(
     engineeringResult,
     diversityResult,
     assetUsage,
+    visualIntentSource,
     execution,
     revisionCount,
     durationMs: Date.now() - start,

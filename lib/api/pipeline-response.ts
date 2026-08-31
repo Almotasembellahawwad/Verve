@@ -37,6 +37,7 @@ export function serializePipelineResult(result: PipelineResult, requestId?: stri
     blocklistMatches: result.blocklistResult.matches,
     assetBundle: result.assetBundle,
     assetUsage: result.assetUsage,
+    visualIntentSource: result.visualIntentSource,
     execution: result.execution,
     competitiveField: {
       industry: result.competitiveAnalysis.industry,

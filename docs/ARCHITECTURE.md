@@ -62,11 +62,12 @@ request
        [04] deterministic contrast correction
        [04.1] direction diversity and local novelty selection
        [04.2] ProjectSpec Visual Narrative: semantic routes, story scenes, art direction, richness budget
+       [04.3] Scene Asset Director: licensed catalog, scene purpose, framing, fallback, expected layers
        [05] code generation
        [05.5] syntax/quality + optional repair
        delivered-code quality, restraint, engineering, diversity checks
        [06] evidence-bounded scoring
-       [07] asset-use evidence + project assembly + validation/readiness
+       [07] source FVF + asset-use evidence + project assembly + validation/readiness
   -> JSON response OR observer events framed as SSE
   -> concurrent lease release
 ```
@@ -97,13 +98,13 @@ Optional analysis, planning, and critique fail open to deterministic fallbacks. 
 
 ## Asset boundary
 
-`AssetSourcePort` separates the application use case from Pexels. `PexelsAssetSourceAdapter` owns the key and a request-scoped circuit breaker (`lib/adapters/assets/pexels-asset-source.ts:6`). Owned binary assets remain browser-local; the server receives only a bounded manifest. A fetched asset is not counted as used until `asset-usage.ts` finds its URL in delivered code and verifies required attribution.
+`AssetSourcePort` separates the application use case from Pexels. `PexelsAssetSourceAdapter` owns the key and a request-scoped circuit breaker (`lib/adapters/assets/pexels-asset-source.ts:6`). Owned binary assets remain browser-local; the server receives only a bounded manifest. `asset-director.ts` turns approved sources into a licensed catalog and assigns them to Story Graph scenes with purpose, framing, alt intent, and fallback. A fetched asset is not counted as used until `asset-usage.ts` finds its URL, verifies required attribution, and traces its assigned asset ID in delivered code. Pexels URLs remain preview-only dependencies and produce a production-copy warning; automating the licensed binary copy remains separate asset-delivery work.
 
 ## Project and preview boundary
 
 `buildGeneratedProject()` creates Next.js, React/Vite, or HTML scaffolds, runs deterministic validation, and computes three-axis readiness. Static HTML is delivered as `index.html`, `styles.css`, and optional `script.js`. Browser ZIP packaging consumes the current edited project, not the original response.
 
-HTML and lightweight React run in isolated previews. Next.js output is inspected and exported rather than mounted into an incompatible browser runtime. Render probes are ephemeral and never enter history or ZIP files.
+HTML and lightweight React run in isolated previews. Next.js output is inspected and exported rather than mounted into an incompatible browser runtime. Render probes are ephemeral and never enter history or ZIP files. When a ProjectSpec is present, the probe computes rendered Functional Visual Fulfillment from visible scene roots, actual DOM layers, purpose links, required asset placements, and orphan visual area. It is readiness evidence, not a creativity score.
 
 ## Persistence
 

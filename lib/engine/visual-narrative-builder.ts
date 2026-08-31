@@ -148,12 +148,14 @@ function regionRoleFor(role: NarrativeRole, model: ExperienceModel): ExperienceR
 }
 
 function mediumFor(role: NarrativeRole, model: ExperienceModel, assetBundle: AssetBundle, signals: BriefSignals): VisualMedium {
-  if (role === "proof") return signals.comparison || signals.workflow ? "data" : assetBundle.photos.length > 0 ? "photography" : "diagram";
+  const photographyExpected = assetBundle.mediaRequirement.level === "required"
+    || (assetBundle.mediaRequirement.level !== "avoid" && assetBundle.photos.length > 0);
+  if (role === "proof") return signals.comparison || signals.workflow ? "data" : photographyExpected ? "photography" : "diagram";
   if (role === "choice") return model === "spatial-map" ? "spatial" : model === "live-canvas" ? "generative" : "interface";
-  if (role === "discovery") return model === "spatial-map" ? "spatial" : model === "live-canvas" ? "generative" : model === "collection-browser" ? "photography" : "diagram";
+  if (role === "discovery") return model === "spatial-map" ? "spatial" : model === "live-canvas" ? "generative" : model === "collection-browser" && photographyExpected ? "photography" : "diagram";
   if (role === "payoff") return "interface";
-  if (role === "tension") return assetBundle.photos.length > 0 ? "photography" : "illustration";
-  return assetBundle.photos.length > 0 ? "photography" : "typography";
+  if (role === "tension") return photographyExpected ? "photography" : "illustration";
+  return photographyExpected ? "photography" : "typography";
 }
 
 function sceneCopy(role: NarrativeRole, analysis: BriefAnalysis): Pick<StoryScene, "audienceQuestion" | "purpose" | "focalObject" | "evidence" | "action" | "visibleConsequence"> {
