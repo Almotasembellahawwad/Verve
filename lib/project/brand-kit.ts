@@ -94,8 +94,9 @@ export function attachOwnedAssets(project: GeneratedProject, assets: LocalOwnedA
   return { ...project, files: [...project.files, ...assetFiles] };
 }
 
-export function stripOwnedAssetContent(project: GeneratedProject): GeneratedProject {
-  const warning = "Owned image bytes stay in the current browser session and are not copied into localStorage history. Reattach them before previewing or exporting this restored result.";
+export function stripBinaryAssetContent(project: GeneratedProject): GeneratedProject {
+  if (!project.files.some((file) => file.encoding === "base64")) return project;
+  const warning = "Binary image bytes are omitted from lightweight localStorage history. Reopen the complete IndexedDB project or reattach/re-deliver the recorded assets before previewing or exporting this restored result.";
   return {
     ...project,
     files: project.files.filter((file) => file.encoding !== "base64"),
@@ -106,6 +107,9 @@ export function stripOwnedAssetContent(project: GeneratedProject): GeneratedProj
     },
   };
 }
+
+/** Compatibility alias for clients built before licensed stock delivery. */
+export const stripOwnedAssetContent = stripBinaryAssetContent;
 
 export function projectFileDataUrl(file: ProjectFile): string | null {
   if (file.encoding !== "base64" || !file.mediaType) return null;

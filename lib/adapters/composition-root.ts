@@ -3,6 +3,7 @@ import { DEFAULT_MODEL, type Provider } from "../llm-adapter/types";
 import type { GenerationDependencies } from "../application/run-generation-use-case";
 import type { ProgressPublisherPort } from "../ports/progress";
 import { PexelsAssetSourceAdapter } from "./assets/pexels-asset-source";
+import { PexelsAssetDeliveryAdapter } from "./assets/pexels-asset-delivery";
 import {
   staticBlocklistRepository,
   staticReferenceLibraryRepository,
@@ -38,6 +39,7 @@ export function createGenerationDependencies(config: GenerationCompositionConfig
   return {
     llm,
     assetSource: new PexelsAssetSourceAdapter(config.pexelsKey),
+    assetDelivery: new PexelsAssetDeliveryAdapter(config.signal),
     blocklistRepository: staticBlocklistRepository,
     referenceLibraryRepository: staticReferenceLibraryRepository,
     defaultModel: DEFAULT_MODEL[config.provider],

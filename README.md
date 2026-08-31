@@ -9,6 +9,7 @@ Verve is an open-source project intelligence engine for generating distinctive w
 ## Verve Creative Engine v3 (beta)
 
 - **Scene Asset Director** — every story scene receives an explicit visual function, expected layers, approved source policy, asset assignment, responsive framing, alt intent, and honest fallback. Generated `ASSETS.md` records the exact scene/source/license relationship.
+- **Licensed Asset Delivery** — a used Pexels image is copied only from the allowlisted image host, bounded to 1.2 MB per file and 2.4 MB per project, verified by media signature, hashed with SHA-256, written under the framework-correct local asset path, and recorded in `ASSETS.md`. Unused search results are never downloaded.
 - **Functional Visual Fulfillment (FVF)** — source and rendered DOM evidence check whether visuals serve the declared scene purpose. Rendered FVF uses harmonic aggregation, so one polished hero cannot hide weak scenes, and penalizes visual area that sits outside the Story Graph.
 - **Brief-sensitive six-direction board** — every new run selects six cells from an 18-cell experience/opening/navigation pool: two combinational, two exploratory, and two transformational, with all six experience models represented. Auto-selection applies a quality floor, then maximizes distance from recent Verve structures, then brief fit; statistical likelihood is never a reward.
 - **Executable ProjectSpec v2 + Visual Narrative** — the chosen direction compiles into semantic routes and connected story scenes. Every scene names the audience question, focal object, evidence, visual medium, action, and visible consequence; an art-direction contract and functional richness budget reach code generation with it.
@@ -26,6 +27,14 @@ Creative Engine v3 adapts established ideas rather than treating one numeric sco
 The selector is a small product-specific adaptation of [MAP-Elites](https://arxiv.org/abs/1504.04909) and [quality-diversity search](https://doi.org/10.3389/frobt.2016.00040): it keeps quality as a gate while comparing candidates across explicit behavioral descriptors. It is not a full evolutionary optimizer. Archive distance borrows the anti-convergence motivation of [novelty search](https://doi.org/10.1162/EVCO_a_00025). Norman's visceral, behavioral, and reflective levels from [Emotional Design](https://www.hachettebookgroup.com/titles/don-norman/emotional-design/9780465004171/) remain a descriptive review lens, never a creativity score.
 
 FVF is a Verve-specific engineering metric, not a validated creativity measure or a causal-inference claim. For each rendered scene, layer coverage is combined with a visible purpose link and required-asset fulfillment; scene scores are aggregated with a harmonic mean and multiplied by `(1 - 0.5 × orphanVisualAreaRatio)`. The harmonic mean is deliberate: a missing scene approaches zero and cannot be averaged away by an exceptional opening.
+
+## What changed in 0.11 Licensed Asset Delivery
+
+- **Preview URL to local binary** — used Pexels references are replaced in generated source with `assets/*` for HTML or `/assets/*` backed by `public/assets/*` for React and Next.js.
+- **SSRF-resistant origin policy** — delivery accepts HTTPS bytes only from the exact `images.pexels.com` host, rejects redirects, credentials, ports, spoofed sibling domains, unsupported media types, and mismatched file signatures.
+- **Bounded payloads** — each binary is capped at 1.2 MB and the generated project at 2.4 MB. This deliberately leaves response headroom after Base64 expansion and surrounding SSE project data; delivery failure remains a visible production blocker instead of silently falling back to an arbitrary image.
+- **Integrity and provenance** — every copied binary records SHA-256, byte size, media type, original source page, credit, and a link to the Pexels License. The generated experience retains the prominent Pexels link expected by the API guidelines. A checksum proves byte identity; it does not replace licensing or third-party-rights review.
+- **Private owned-media boundary preserved** — user-owned bytes still remain browser-local and are attached after generation; the new server delivery path applies only to already-approved Pexels selections.
 
 ## What changed in 0.10 Asset Intent Engine
 

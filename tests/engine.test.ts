@@ -50,7 +50,7 @@ import { CallbackProgressPublisher } from "../lib/adapters/progress/callback-pro
 import { assessMediaRequirement, buildMediaReadinessWarnings } from "../lib/engine/media-requirement";
 import { sourceAssets } from "../lib/engine/asset-sourcer";
 import { inspectDesignDiversity } from "../lib/engine/design-diversity";
-import { attachOwnedAssets, replaceOwnedAssetReferences, type LocalOwnedAsset } from "../lib/project/brand-kit";
+import { attachOwnedAssets, replaceOwnedAssetReferences, stripBinaryAssetContent, type LocalOwnedAsset } from "../lib/project/brand-kit";
 import { PUBLIC_DEMOS } from "../lib/demo/public-demo-gallery";
 import {
   checkpointMatchesInput,
@@ -99,6 +99,8 @@ import { createDirectionCheckpoint, directionCheckpointMatches, generateDirectio
 import { calculateFirstViewportEffectiveness, firstViewportNeedsReview } from "../lib/domain/first-viewport";
 import { harmonicCoverage, inspectVisualIntentSource } from "../lib/engine/visual-intent";
 import { inspectAssetUsage } from "../lib/engine/asset-usage";
+import { deliverGeneratedAssets } from "../lib/engine/asset-delivery";
+import { MAX_DELIVERED_ASSET_BYTES, PexelsAssetDeliveryAdapter } from "../lib/adapters/assets/pexels-asset-delivery";
 
 async function runPipeline(
   input: PipelineInput & {
@@ -325,6 +327,169 @@ test("Scene Asset Director assigns licensed evidence and the fulfillment metric 
   assert.match(directedPreview, /functional-visual-fulfillment/);
   assert.match(directedPreview, new RegExp(spec.assetDirection.sceneDirections[0].sceneId));
   assert.doesNotThrow(() => new Function(createRenderProbeSource("asset-intent-probe", spec)));
+});
+
+test("Licensed Asset Delivery allowlists origins, localizes used Pexels bytes, and records integrity", async () => {
+  const analysis = analyzeBriefLocally("Architecture portfolio with material photography and project evidence.");
+  const plan = generateDesignPlanLocally(analysis);
+  const remoteUrl = "https://images.pexels.com/photos/42/pexels-photo-42.jpeg?auto=compress&w=940";
+  const assetBundle = {
+    photos: [{
+      id: "pexels:42",
+      url: remoteUrl,
+      alt: "Reused brick facade",
+      photographer: "Example Photographer",
+      credit: "Photo by Example Photographer on Pexels",
+      source: "pexels" as const,
+      sourcePageUrl: "https://www.pexels.com/photo/42/",
+      photographerUrl: "https://www.pexels.com/@example/",
+      dominant_hex: "#67594d",
+    }],
+    icons: [], extractedPalette: [], warnings: [], readinessWarnings: [],
+    font: { family: "Arial", weights: [400, 700], cssImport: "none", isGoogleFont: false, source: "fallback" as const },
+    mediaRequirement: { level: "required" as const, minimumAssets: 1, reason: "Built work requires visual evidence.", suggestedSubjects: ["facade"] },
+    assetSummary: "One approved Pexels photograph.",
+  };
+  const spec = buildVerveProjectSpec({ analysis, plan, framework: "html", mode: "creative", assetBundle });
+  const htmlEncodedUrl = remoteUrl.replaceAll("&", "&amp;");
+  const source = `<!doctype html><html><body><section data-verve-scene="${spec.narrative.scenes[0].id}"><img src="${htmlEncodedUrl}" alt="Reused brick facade" data-verve-asset-id="pexels:42" data-verve-layer="media" data-verve-visual-purpose="evidence"><a href="https://www.pexels.com/photo/42/">Photo by Example Photographer on Pexels</a></section></body></html>`;
+  const generated = { code: source, framework: "html", componentName: "DeliveryFixture", imports: [], setupNotes: "test" };
+  const delivery = await deliverGeneratedAssets({
+    generatedCode: generated,
+    projectSpec: spec,
+    assetBundle,
+    sourceBeforeDelivery: source,
+    deliveryPort: {
+      async fetchApprovedAsset() {
+        return {
+          ok: true as const,
+          content: "/9j/",
+          encoding: "base64" as const,
+          mediaType: "image/jpeg" as const,
+          extension: "jpg" as const,
+          byteSize: 3,
+          sha256: "a".repeat(64),
+        };
+      },
+    },
+  });
+
+  assert.equal(delivery.receipt.status, "complete");
+  assert.equal(delivery.receipt.bundled, 1);
+  assert.equal(delivery.files[0]?.encoding, "base64");
+  assert.match(delivery.files[0]?.path ?? "", /^assets\/pexels-42-a{12}\.jpg$/);
+  assert.doesNotMatch(delivery.generatedCode.code, /images\.pexels\.com/);
+  assert.match(delivery.generatedCode.code, /\.\/assets\/pexels-42-a{12}\.jpg/);
+  assert.match(delivery.projectSpec.assetDirection.catalog[0]?.url ?? "", /\.\/assets\/pexels-42-a{12}\.jpg/);
+
+  const usage = inspectAssetUsage(assetBundle, source, spec.assetDirection, delivery.receipt);
+  assert.equal(usage.items[0]?.deliveryStatus, "bundled");
+  assert.equal(usage.warnings.some((warning) => /remote preview dependencies/i.test(warning)), false);
+  const project = buildGeneratedProject(
+    delivery.generatedCode,
+    analysis,
+    plan,
+    [],
+    [],
+    delivery.projectSpec.assetDirection,
+    delivery.receipt,
+    delivery.files
+  );
+  const manifest = project.files.find((file) => file.path === "ASSETS.md")?.content ?? "";
+  assert.match(manifest, /Licensed asset delivery receipt/);
+  assert.match(manifest, /SHA-256 `a{64}`/);
+  assert.match(manifest, /https:\/\/www\.pexels\.com\/license\//);
+  assert.match(manifest, /standalone basis/);
+  assert.ok(project.files.some((file) => file.path === delivery.files[0]?.path && file.role === "asset"));
+  const archive = await JSZip.loadAsync(await (await createProjectArchive(project)).arrayBuffer());
+  assert.ok(archive.file(delivery.files[0]!.path));
+  const lightweightHistoryProject = stripBinaryAssetContent(project);
+  assert.equal(lightweightHistoryProject.files.some((file) => file.encoding === "base64"), false);
+  assert.match(lightweightHistoryProject.warnings.at(-1) ?? "", /lightweight localStorage history/);
+
+  const rejected = await new PexelsAssetDeliveryAdapter().fetchApprovedAsset({
+    assetId: "pexels:evil",
+    url: "https://images.pexels.com.evil.example/photo.jpg",
+  });
+  assert.deepEqual(rejected, { ok: false, code: "origin-not-approved" });
+
+  const verified = await new PexelsAssetDeliveryAdapter(undefined, async (_url, init) => {
+    assert.equal(init.redirect, "manual");
+    return new Response(Uint8Array.from([0xff, 0xd8, 0xff, 0x00]), { headers: { "Content-Type": "image/jpeg" } });
+  }).fetchApprovedAsset({ assetId: "pexels:42", url: remoteUrl });
+  assert.equal(verified.ok, true);
+  if (verified.ok) {
+    assert.equal(verified.byteSize, 4);
+    assert.match(verified.sha256, /^[a-f0-9]{64}$/);
+  }
+
+  const spoofedMedia = await new PexelsAssetDeliveryAdapter(undefined, async () =>
+    new Response("not an image", { headers: { "Content-Type": "image/jpeg" } })
+  ).fetchApprovedAsset({ assetId: "pexels:42", url: remoteUrl });
+  assert.deepEqual(spoofedMedia, { ok: false, code: "signature-mismatch" });
+
+  const oversized = await new PexelsAssetDeliveryAdapter(undefined, async () =>
+    new Response(Uint8Array.from([0xff, 0xd8, 0xff]), { headers: { "Content-Type": "image/jpeg", "Content-Length": String(MAX_DELIVERED_ASSET_BYTES + 1) } })
+  ).fetchApprovedAsset({ assetId: "pexels:42", url: remoteUrl });
+  assert.deepEqual(oversized, { ok: false, code: "body-too-large" });
+
+  const cancellation = new AbortController();
+  const cancelledDelivery = new PexelsAssetDeliveryAdapter(undefined, async (_url, init) =>
+    new Promise<Response>((_resolve, reject) => init.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true }))
+  ).fetchApprovedAsset({ assetId: "pexels:42", url: remoteUrl, signal: cancellation.signal });
+  cancellation.abort(new Error("user cancelled asset delivery"));
+  await assert.rejects(cancelledDelivery, /user cancelled asset delivery/);
+});
+
+test("Licensed Asset Delivery enforces the aggregate response budget without hiding the remaining remote dependency", async () => {
+  const analysis = analyzeBriefLocally("Architecture collection with three photographed material studies.");
+  const plan = generateDesignPlanLocally(analysis);
+  const photos = [1, 2, 3].map((id) => ({
+    id: `pexels:${id}`,
+    url: `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&w=940`,
+    alt: `Material study ${id}`,
+    photographer: `Photographer ${id}`,
+    credit: `Photo by Photographer ${id} on Pexels`,
+    source: "pexels" as const,
+    sourcePageUrl: `https://www.pexels.com/photo/${id}/`,
+    dominant_hex: "#555555",
+  }));
+  const assetBundle = {
+    photos,
+    icons: [], extractedPalette: [], warnings: [], readinessWarnings: [],
+    font: { family: "Arial", weights: [400, 700], cssImport: "none", isGoogleFont: false, source: "fallback" as const },
+    mediaRequirement: { level: "required" as const, minimumAssets: 3, reason: "Three studies are required.", suggestedSubjects: ["materials"] },
+    assetSummary: "Three approved Pexels photographs.",
+  };
+  const spec = buildVerveProjectSpec({ analysis, plan, framework: "html", mode: "creative", assetBundle });
+  const source = photos.map((photo) => `<img src="${photo.url}" alt="${photo.alt}" data-verve-asset-id="${photo.id}">`).join("\n");
+  const delivery = await deliverGeneratedAssets({
+    generatedCode: { code: source, framework: "html", componentName: "BudgetFixture", imports: [], setupNotes: "test" },
+    projectSpec: spec,
+    assetBundle,
+    sourceBeforeDelivery: source,
+    deliveryPort: {
+      async fetchApprovedAsset({ assetId }) {
+        return {
+          ok: true as const,
+          content: "/9j/",
+          encoding: "base64" as const,
+          mediaType: "image/jpeg" as const,
+          extension: "jpg" as const,
+          byteSize: 1_000_000,
+          sha256: assetId.endsWith("1") ? "1".repeat(64) : assetId.endsWith("2") ? "2".repeat(64) : "3".repeat(64),
+        };
+      },
+    },
+  });
+
+  assert.equal(delivery.receipt.status, "partial");
+  assert.equal(delivery.receipt.bundled, 2);
+  assert.equal(delivery.receipt.failed, 1);
+  assert.equal(delivery.receipt.totalBytes, 2_000_000);
+  assert.equal(delivery.receipt.items[2]?.failureCode, "body-too-large");
+  assert.match(delivery.receipt.warnings[0] ?? "", /^BLOCKING:/);
+  assert.match(delivery.generatedCode.code, /images\.pexels\.com\/photos\/3/);
 });
 
 test("systemic briefs can use five semantic routes without repeating one region sequence", () => {
