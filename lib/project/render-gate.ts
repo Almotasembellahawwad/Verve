@@ -25,14 +25,32 @@ export type FunctionalVisualEvidence = {
 };
 
 export type VisualFingerprint = {
+  /** Missing on legacy local-memory entries. New probes always emit version 2. */
+  schemaVersion?: 2;
   occupancyGrid: number[];
   typographyScale: number[];
   colorHistogram: { color: string; weight: number }[];
+  /** Area-weighted surfaces, unlike colorHistogram's legacy DOM-frequency signal. */
+  colorAreaHistogram?: { color: string; weight: number }[];
+  /** Privacy-safe font family names weighted by visible text area. */
+  fontHistogram?: { family: string; weight: number }[];
+  visualLayerHistogram?: { layer: VisualLayer; weight: number }[];
   mediaCoverage: number;
   interactionDensity: number;
+  statefulControlDensity?: number;
   roundedness: number;
+  depthDensity?: number;
+  alignmentDiversity?: number;
   sectionRhythm: number[];
   routeCount: number;
+};
+
+export type RenderSurfaceIdentity = {
+  /** FNV-1a hashes only: no route names, labels, copy, or form values leave the preview. */
+  routeKey: string;
+  stateKey: string;
+  activeStateCount: number;
+  expectedStateCount: number;
 };
 
 export type RenderGateReport = {
@@ -40,6 +58,7 @@ export type RenderGateReport = {
   probeId: string;
   sequence: number;
   viewport: { width: number; height: number; documentWidth: number };
+  surface?: RenderSurfaceIdentity;
   checks: RenderGateCheck[];
   fingerprint: VisualFingerprint;
   firstViewport?: FirstViewportEvidence;
@@ -54,20 +73,47 @@ function vectorDistance(left: number[], right: number[]): number {
   return Math.min(1, total / size);
 }
 
-function histogramDistance(left: VisualFingerprint["colorHistogram"], right: VisualFingerprint["colorHistogram"]): number {
-  const colors = new Set([...left.map((entry) => entry.color), ...right.map((entry) => entry.color)]);
+function histogramDistance<T extends { weight: number }>(
+  left: T[],
+  right: T[],
+  key: (entry: T) => string
+): number {
+  const values = new Set([...left.map(key), ...right.map(key)]);
   let total = 0;
-  colors.forEach((color) => {
-    total += Math.abs((left.find((entry) => entry.color === color)?.weight ?? 0) - (right.find((entry) => entry.color === color)?.weight ?? 0));
+  values.forEach((value) => {
+    total += Math.abs((left.find((entry) => key(entry) === value)?.weight ?? 0) - (right.find((entry) => key(entry) === value)?.weight ?? 0));
   });
   return Math.min(1, total / 2);
 }
 
 export function visualFingerprintDistance(left: VisualFingerprint, right: VisualFingerprint): number {
   const routeDistance = Math.min(1, Math.abs(left.routeCount - right.routeCount) / Math.max(1, left.routeCount, right.routeCount));
+  const hasPerceptualV2 = left.schemaVersion === 2
+    && right.schemaVersion === 2
+    && left.colorAreaHistogram
+    && right.colorAreaHistogram
+    && left.fontHistogram
+    && right.fontHistogram
+    && left.visualLayerHistogram
+    && right.visualLayerHistogram;
+  if (hasPerceptualV2) {
+    const distance = vectorDistance(left.occupancyGrid, right.occupancyGrid) * 0.26
+      + vectorDistance(left.typographyScale, right.typographyScale) * 0.1
+      + histogramDistance(left.fontHistogram!, right.fontHistogram!, (entry) => entry.family.toLowerCase()) * 0.1
+      + histogramDistance(left.colorAreaHistogram!, right.colorAreaHistogram!, (entry) => entry.color) * 0.14
+      + Math.abs(left.mediaCoverage - right.mediaCoverage) * 0.08
+      + Math.abs(left.interactionDensity - right.interactionDensity) * 0.05
+      + Math.abs((left.statefulControlDensity ?? 0) - (right.statefulControlDensity ?? 0)) * 0.05
+      + histogramDistance(left.visualLayerHistogram!, right.visualLayerHistogram!, (entry) => entry.layer) * 0.09
+      + Math.abs((left.depthDensity ?? 0) - (right.depthDensity ?? 0)) * 0.04
+      + Math.abs((left.alignmentDiversity ?? 0) - (right.alignmentDiversity ?? 0)) * 0.03
+      + vectorDistance(left.sectionRhythm, right.sectionRhythm) * 0.03
+      + routeDistance * 0.03;
+    return Number(Math.min(1, distance).toFixed(3));
+  }
   const distance = vectorDistance(left.occupancyGrid, right.occupancyGrid) * 0.35
     + vectorDistance(left.typographyScale, right.typographyScale) * 0.2
-    + histogramDistance(left.colorHistogram, right.colorHistogram) * 0.15
+    + histogramDistance(left.colorHistogram, right.colorHistogram, (entry) => entry.color) * 0.15
     + Math.abs(left.mediaCoverage - right.mediaCoverage) * 0.1
     + Math.abs(left.interactionDensity - right.interactionDensity) * 0.05
     + Math.abs(left.roundedness - right.roundedness) * 0.05
@@ -151,24 +197,39 @@ export function recordRenderEvidence(
 const PROBE_FILE = "/__verve_render_probe.js";
 const REACT_PROBE_FILE = "/src/__verve_render_probe.js";
 
-function visualIntentExpectation(spec?: VerveProjectSpec) {
+export type RenderProbeContext = { routeId?: string; routePath?: string };
+
+function visualIntentExpectation(spec?: VerveProjectSpec, context?: RenderProbeContext) {
   if (!spec) return null;
-  const initialRoute = spec.experience.routes.find((route) => route.path === spec.experience.route) ?? spec.experience.routes[0];
-  const initialSceneIds = new Set(initialRoute?.regionIds ?? []);
+  const defaultRoute = spec.experience.routes.find((route) => context?.routeId === route.id || context?.routePath === route.path)
+    ?? spec.experience.routes.find((route) => route.path === spec.experience.route)
+    ?? spec.experience.routes[0];
   return {
-    scenes: spec.assetDirection.sceneDirections.filter((direction) => initialSceneIds.has(direction.sceneId)).map((direction) => ({
-      id: direction.sceneId,
-      layers: direction.expectedLayers,
-      assetIds: direction.selectedAssetIds,
-      assetRequired: direction.requirement === "required",
-    })),
+    defaultRouteIdentity: defaultRoute?.id ?? defaultRoute?.path ?? "root",
+    routes: spec.experience.routes.map((route) => {
+      const sceneIds = new Set(route.regionIds);
+      const componentIds = new Set(spec.components.filter((component) => component.routeId === route.id).map((component) => component.id));
+      return {
+        routeIdentity: route.id,
+        path: route.path,
+        expectedStateCount: Math.max(1, spec.interactions
+          .filter((interaction) => componentIds.has(interaction.componentId))
+          .reduce((total, interaction) => total + Math.max(1, interaction.states.length), 0)),
+        scenes: spec.assetDirection.sceneDirections.filter((direction) => sceneIds.has(direction.sceneId)).map((direction) => ({
+          id: direction.sceneId,
+          layers: direction.expectedLayers,
+          assetIds: direction.selectedAssetIds,
+          assetRequired: direction.requirement === "required",
+        })),
+      };
+    }),
   };
 }
 
-export function createRenderProbeSource(probeId: string, projectSpec?: VerveProjectSpec): string {
+export function createRenderProbeSource(probeId: string, projectSpec?: VerveProjectSpec, context?: RenderProbeContext): string {
   return `(() => {
   const PROBE_ID = ${JSON.stringify(probeId)};
-  const VISUAL_INTENT = ${JSON.stringify(visualIntentExpectation(projectSpec))};
+  const VISUAL_INTENT = ${JSON.stringify(visualIntentExpectation(projectSpec, context))};
   if (window.__verveRenderProbe === PROBE_ID) return;
   window.__verveRenderProbe = PROBE_ID;
   let sequence = 0;
@@ -181,6 +242,15 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
     const className = typeof element.className === "string" ? element.className.trim().split(/\\s+/)[0] : "";
     return element.tagName.toLowerCase() + (className ? "." + className : "");
   };
+  const privacyKey = (value) => {
+    const source = String(value || "root");
+    let hash = 2166136261;
+    for (let index = 0; index < source.length; index++) {
+      hash ^= source.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return "surface-" + (hash >>> 0).toString(36);
+  };
   const visible = (element) => {
     const style = getComputedStyle(element);
     return style.display !== "none" && style.visibility !== "hidden" && element.getClientRects().length > 0;
@@ -189,6 +259,19 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
     window.clearTimeout(timer);
     timer = window.setTimeout(report, 180);
   };
+  ["pushState", "replaceState"].forEach((method) => {
+    try {
+      const original = history[method].bind(history);
+      history[method] = (...args) => {
+        const outcome = original(...args);
+        schedule();
+        return outcome;
+      };
+    } catch {
+      // Some embedded runtimes expose immutable History methods. Popstate,
+      // hashchange, and mutation observation still collect useful evidence.
+    }
+  });
   const originalError = console.error.bind(console);
   console.error = (...args) => {
     runtimeErrors.push(args.map(text).join(" ").slice(0, 500));
@@ -210,6 +293,19 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
     if (!document.documentElement || !document.body) return;
     const width = document.documentElement.clientWidth;
     const documentWidth = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
+    const normalizedLocationPath = (location.pathname || "/").replace(/\\/+$/, "") || "/";
+    const activeVisualIntent = VISUAL_INTENT && Array.isArray(VISUAL_INTENT.routes)
+      ? VISUAL_INTENT.routes.find((route) => ((route.path || "/").replace(/\\/+$/, "") || "/") === normalizedLocationPath)
+        || VISUAL_INTENT.routes.find((route) => route.routeIdentity === VISUAL_INTENT.defaultRouteIdentity)
+        || VISUAL_INTENT.routes[0]
+      : null;
+    const viewportArea = Math.max(1, width * window.innerHeight);
+    const clippedArea = (element) => {
+      const rect = element.getBoundingClientRect();
+      const visibleWidth = Math.max(0, Math.min(width, rect.right) - Math.max(0, rect.left));
+      const visibleHeight = Math.max(0, Math.min(window.innerHeight, rect.bottom) - Math.max(0, rect.top));
+      return visibleWidth * visibleHeight;
+    };
     const overflowElements = [...document.body.querySelectorAll("*")]
       .filter((element) => {
         if (!visible(element)) return false;
@@ -265,17 +361,34 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
     });
     const textTotal = Math.max(1, typographyScale.reduce((sum, value) => sum + value, 0));
     typographyScale.forEach((value, index) => typographyScale[index] = Number((value / textTotal).toFixed(3)));
+    const directlyAuthoredText = textElements.filter((element) => [...element.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && (node.textContent || "").trim()));
+    const fonts = new Map();
+    directlyAuthoredText.forEach((element) => {
+      const family = (getComputedStyle(element).fontFamily.split(",")[0] || "unknown").replace(/["']/g, "").trim().slice(0, 80);
+      const weight = Math.min(viewportArea * 0.12, clippedArea(element));
+      if (weight > 0) fonts.set(family, (fonts.get(family) || 0) + weight);
+    });
+    const fontTotal = Math.max(1, [...fonts.values()].reduce((sum, value) => sum + value, 0));
+    const fontHistogram = [...fonts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8)
+      .map(([family, area]) => ({ family, weight: Number((area / fontTotal).toFixed(3)) }));
     const colors = new Map();
+    const colorAreas = new Map();
     visibleElements.forEach((element) => {
       const style = getComputedStyle(element);
       [style.backgroundColor, style.color].forEach((color) => {
         if (!color || color === "rgba(0, 0, 0, 0)") return;
         colors.set(color, (colors.get(color) || 0) + 1);
       });
+      if (style.backgroundColor && style.backgroundColor !== "rgba(0, 0, 0, 0)") {
+        const area = Math.min(viewportArea, clippedArea(element));
+        if (area > 0) colorAreas.set(style.backgroundColor, (colorAreas.get(style.backgroundColor) || 0) + area);
+      }
     });
     const colorTotal = Math.max(1, [...colors.values()].reduce((sum, value) => sum + value, 0));
     const colorHistogram = [...colors.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([color, count]) => ({ color, weight: Number((count / colorTotal).toFixed(3)) }));
-    const viewportArea = Math.max(1, width * window.innerHeight);
+    const colorAreaTotal = Math.max(1, [...colorAreas.values()].reduce((sum, value) => sum + value, 0));
+    const colorAreaHistogram = [...colorAreas.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8)
+      .map(([color, area]) => ({ color, weight: Number((area / colorAreaTotal).toFixed(3)) }));
     const inFirstViewport = (element) => {
       if (!visible(element)) return false;
       const rect = element.getBoundingClientRect();
@@ -324,7 +437,48 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
     };
     const mediaArea = [...document.querySelectorAll("img,video,canvas,svg")].filter(visible).reduce((sum, element) => { const rect = element.getBoundingClientRect(); return sum + Math.max(0, rect.width) * Math.max(0, Math.min(window.innerHeight, rect.bottom) - Math.max(0, rect.top)); }, 0);
     const interactionCount = visibleElements.filter((element) => element.matches("a,button,input,select,textarea,[role=button],[tabindex]")).length;
+    const statefulElements = visibleElements.filter((element) => element.matches("[aria-selected],[aria-pressed],[aria-expanded],[aria-current],[data-state],input:checked,option:checked"));
+    const stateTokens = statefulElements.map((element) => {
+      const state = ["aria-selected","aria-pressed","aria-expanded","aria-current","data-state"]
+        .map((name) => name + "=" + (element.getAttribute(name) || ""))
+        .filter((value) => !value.endsWith("="));
+      if (element.matches("input:checked,option:checked")) state.push("checked=true");
+      return selector(element) + ":" + state.join(",");
+    }).sort();
     const roundedCount = visibleElements.filter((element) => parseFloat(getComputedStyle(element).borderRadius) >= 8).length;
+    const depthCount = visibleElements.filter((element) => {
+      const style = getComputedStyle(element);
+      return style.boxShadow !== "none" || style.filter !== "none" || style.backdropFilter !== "none" || style.mixBlendMode !== "normal";
+    }).length;
+    const alignmentBuckets = new Set();
+    visualElements.forEach((element) => {
+      const rect = element.getBoundingClientRect();
+      if (clippedArea(element) <= 0) return;
+      [rect.left, rect.left + rect.width / 2, rect.right].forEach((position) => {
+        alignmentBuckets.add(Math.max(0, Math.min(17, Math.round((position / Math.max(1, width)) * 17))));
+      });
+    });
+    const layerAreas = new Map([["type", 0], ["media", 0], ["data", 0], ["shape", 0], ["motion", 0], ["interaction", 0]]);
+    visualElements.forEach((element) => {
+      const area = Math.min(viewportArea * 0.3, clippedArea(element));
+      if (area <= 0) return;
+      const style = getComputedStyle(element);
+      const directText = [...element.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && (node.textContent || "").trim());
+      const layers = [];
+      if (directText) layers.push("type");
+      if (element.matches("img,picture,video")) layers.push("media");
+      if (element.matches("table,dl,[data-verve-layer=data]")) layers.push("data");
+      if (element.matches("svg,canvas,[data-verve-layer=shape]") || style.clipPath !== "none") layers.push("shape");
+      if (element.matches("a,button,input,select,textarea,[role=button],[tabindex]")) layers.push("interaction");
+      const animated = style.animationName !== "none"
+        || style.animationDuration.split(",").some((value) => parseFloat(value) > 0)
+        || style.transitionDuration.split(",").some((value) => parseFloat(value) > 0);
+      if (animated) layers.push("motion");
+      layers.forEach((layer) => layerAreas.set(layer, (layerAreas.get(layer) || 0) + area));
+    });
+    const layerAreaTotal = Math.max(1, [...layerAreas.values()].reduce((sum, value) => sum + value, 0));
+    const visualLayerHistogram = [...layerAreas.entries()].filter((entry) => entry[1] > 0)
+      .map(([layer, area]) => ({ layer, weight: Number((area / layerAreaTotal).toFixed(3)) }));
     const sections = [...document.querySelectorAll("main > section, main > article, body > section")].filter(visible).slice(0, 12);
     const sectionRhythm = sections.map((element) => Number(Math.min(2, element.getBoundingClientRect().height / Math.max(1, window.innerHeight)).toFixed(3)));
     const routeCount = new Set([...document.querySelectorAll("a[href]")]
@@ -332,18 +486,31 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
       .filter((href) => href.startsWith("/") && !href.startsWith("/#"))
       .map((href) => href.split("#")[0])).size || 1;
     const fingerprint = {
+      schemaVersion: 2,
       occupancyGrid: occupancyGrid.map((value) => Number(value.toFixed(3))),
       typographyScale,
       colorHistogram,
+      colorAreaHistogram,
+      fontHistogram,
+      visualLayerHistogram,
       mediaCoverage: Number(Math.min(1, mediaArea / viewportArea).toFixed(3)),
       interactionDensity: Number(Math.min(1, interactionCount / Math.max(1, visibleElements.length)).toFixed(3)),
+      statefulControlDensity: Number(Math.min(1, statefulElements.length / Math.max(1, interactionCount)).toFixed(3)),
       roundedness: Number(Math.min(1, roundedCount / Math.max(1, visibleElements.length)).toFixed(3)),
+      depthDensity: Number(Math.min(1, depthCount / Math.max(1, visibleElements.length)).toFixed(3)),
+      alignmentDiversity: Number(Math.min(1, Math.max(0, alignmentBuckets.size - 1) / 17).toFixed(3)),
       sectionRhythm,
       routeCount
     };
+    const surface = {
+      routeKey: privacyKey(activeVisualIntent?.routeIdentity || location.pathname || "root"),
+      stateKey: privacyKey(stateTokens.length ? stateTokens.join("|") : "default"),
+      activeStateCount: stateTokens.length,
+      expectedStateCount: Math.max(1, Number(activeVisualIntent?.expectedStateCount || 1))
+    };
     let functionalVisual = null;
-    if (VISUAL_INTENT && Array.isArray(VISUAL_INTENT.scenes) && VISUAL_INTENT.scenes.length > 0) {
-      const sceneResults = VISUAL_INTENT.scenes.map((expected) => {
+    if (activeVisualIntent && Array.isArray(activeVisualIntent.scenes) && activeVisualIntent.scenes.length > 0) {
+      const sceneResults = activeVisualIntent.scenes.map((expected) => {
         const root = document.querySelector('[data-verve-scene="' + CSS.escape(expected.id) + '"]');
         if (!root || !visible(root)) return { id: expected.id, rendered: false, score: 0, layers: [], assetMissing: Boolean(expected.assetRequired) };
         const descendants = [root, ...root.querySelectorAll('*')].filter(visible);
@@ -388,7 +555,7 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
       const totalVisualArea = Math.max(1, visualCandidates.reduce((sum, element) => sum + visibleArea(element), 0));
       const orphanVisualArea = visualCandidates.filter((element) => !element.closest('[data-verve-scene]')).reduce((sum, element) => sum + visibleArea(element), 0);
       const orphanVisualRatio = Math.min(1, orphanVisualArea / totalVisualArea);
-      const requiredLayers = [...new Set(VISUAL_INTENT.scenes.flatMap((scene) => scene.layers))];
+      const requiredLayers = [...new Set(activeVisualIntent.scenes.flatMap((scene) => scene.layers))];
       const observedLayers = [...new Set(sceneResults.flatMap((scene) => scene.layers))];
       functionalVisual = {
         score: Number(Math.max(0, harmonic * (1 - orphanVisualRatio * 0.5)).toFixed(3)),
@@ -412,12 +579,14 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
       { id: "first-viewport-effectiveness", title: "First viewport effectiveness", status: taskSignalCount < ${FIRST_VIEWPORT_THRESHOLDS.minimumTaskSignals} || !primaryActionVisible || firstViewportScore < ${FIRST_VIEWPORT_THRESHOLDS.reviewScore} ? "warning" : "pass", message: "FVE " + firstViewport.score.toFixed(2) + ": " + taskSignalCount + "/${FIRST_VIEWPORT_THRESHOLDS.minimumTaskSignals} task signals, information salience " + firstViewport.informationSalience.toFixed(2) + ", primary action " + (primaryActionVisible ? "visible" : "not visible") + ". Opening size is not scored." },
       ...(functionalVisual ? [{ id: "functional-visual-fulfillment", title: "Functional visual fulfillment", status: functionalVisual.missingAssetSceneIds.length || functionalVisual.renderedScenes < functionalVisual.expectedScenes ? "fail" : functionalVisual.score < 0.72 ? "warning" : "pass", message: "FVF " + functionalVisual.score.toFixed(2) + ": " + functionalVisual.fulfilledScenes + "/" + functionalVisual.expectedScenes + " scenes fulfilled, layers " + functionalVisual.observedLayers.join(", ") + ", orphan visual area " + functionalVisual.orphanVisualRatio.toFixed(2) + (functionalVisual.missingAssetSceneIds.length ? ", missing required assets in " + functionalVisual.missingAssetSceneIds.join(", ") : "") + ". Harmonic aggregation prevents one polished scene from hiding weak scenes." }] : [])
     ];
-    parent.postMessage({ source: "verve-render-gate", probeId: PROBE_ID, sequence: ++sequence, viewport: { width, height: window.innerHeight, documentWidth }, checks, fingerprint, firstViewport, functionalVisual }, "*");
+    parent.postMessage({ source: "verve-render-gate", probeId: PROBE_ID, sequence: ++sequence, viewport: { width, height: window.innerHeight, documentWidth }, surface, checks, fingerprint, firstViewport, functionalVisual }, "*");
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", schedule, { once: true });
   else schedule();
   window.addEventListener("load", schedule);
   window.addEventListener("resize", schedule);
+  window.addEventListener("popstate", schedule);
+  window.addEventListener("hashchange", schedule);
   new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true });
   // A srcDoc iframe can finish before its React parent hydrates and subscribes.
   // Two bounded retries make the report delivery reliable without a polling interval.
@@ -438,7 +607,12 @@ function injectReactProbe(main: string): string {
 }
 
 /** Add ephemeral probe files to Sandpack only. The canonical project and ZIP remain untouched. */
-export function instrumentSandboxFiles(project: GeneratedProject, probeId: string, projectSpec?: VerveProjectSpec): SandboxFileMap {
+export function instrumentSandboxFiles(
+  project: GeneratedProject,
+  probeId: string,
+  projectSpec?: VerveProjectSpec,
+  context?: RenderProbeContext
+): SandboxFileMap {
   const files: SandboxFileMap = Object.fromEntries(
     project.files
       .filter((item) => item.encoding !== "base64")
@@ -446,11 +620,11 @@ export function instrumentSandboxFiles(project: GeneratedProject, probeId: strin
   );
   if (project.framework === "html" && files["/index.html"]) {
     files["/index.html"] = { code: injectHtmlProbe(files["/index.html"].code) };
-    files[PROBE_FILE] = { code: createRenderProbeSource(probeId, projectSpec) };
+    files[PROBE_FILE] = { code: createRenderProbeSource(probeId, projectSpec, context) };
   }
   if (project.framework === "react" && files["/src/main.tsx"]) {
     files["/src/main.tsx"] = { code: injectReactProbe(files["/src/main.tsx"].code) };
-    files[REACT_PROBE_FILE] = { code: createRenderProbeSource(probeId, projectSpec) };
+    files[REACT_PROBE_FILE] = { code: createRenderProbeSource(probeId, projectSpec, context) };
   }
   return files;
 }
@@ -468,6 +642,15 @@ export function isRenderGateReport(value: unknown, probeId: string): value is Re
     && typeof report.viewport?.documentWidth === "number"
     && Array.isArray(report.checks)
     && Boolean(report.fingerprint)
+    && (report.fingerprint?.schemaVersion === undefined || report.fingerprint.schemaVersion === 2)
+    && (report.fingerprint?.schemaVersion !== 2 || (
+      Array.isArray(report.fingerprint.colorAreaHistogram)
+      && Array.isArray(report.fingerprint.fontHistogram)
+      && Array.isArray(report.fingerprint.visualLayerHistogram)
+      && boundedUnit(report.fingerprint.statefulControlDensity)
+      && boundedUnit(report.fingerprint.depthDensity)
+      && boundedUnit(report.fingerprint.alignmentDiversity)
+    ))
     && Array.isArray(report.fingerprint?.occupancyGrid)
     && report.fingerprint.occupancyGrid.length === 144
     && Array.isArray(report.fingerprint?.typographyScale)
@@ -480,6 +663,34 @@ export function isRenderGateReport(value: unknown, probeId: string): value is Re
     && typeof report.fingerprint.interactionDensity === "number"
     && typeof report.fingerprint.roundedness === "number"
     && typeof report.fingerprint.routeCount === "number"
+    && (!report.fingerprint.colorAreaHistogram || (
+      Array.isArray(report.fingerprint.colorAreaHistogram)
+      && report.fingerprint.colorAreaHistogram.length <= 8
+      && report.fingerprint.colorAreaHistogram.every((entry) => entry && typeof entry.color === "string" && entry.color.length <= 80 && boundedUnit(entry.weight))
+    ))
+    && (!report.fingerprint.fontHistogram || (
+      Array.isArray(report.fingerprint.fontHistogram)
+      && report.fingerprint.fontHistogram.length <= 8
+      && report.fingerprint.fontHistogram.every((entry) => entry && typeof entry.family === "string" && entry.family.length <= 80 && boundedUnit(entry.weight))
+    ))
+    && (!report.fingerprint.visualLayerHistogram || (
+      Array.isArray(report.fingerprint.visualLayerHistogram)
+      && report.fingerprint.visualLayerHistogram.length <= 6
+      && report.fingerprint.visualLayerHistogram.every((entry) => entry && ["type", "media", "data", "shape", "motion", "interaction"].includes(entry.layer) && boundedUnit(entry.weight))
+    ))
+    && (report.fingerprint.statefulControlDensity === undefined || boundedUnit(report.fingerprint.statefulControlDensity))
+    && (report.fingerprint.depthDensity === undefined || boundedUnit(report.fingerprint.depthDensity))
+    && (report.fingerprint.alignmentDiversity === undefined || boundedUnit(report.fingerprint.alignmentDiversity))
+    && (!report.surface || (
+      /^surface-[a-z0-9]+$/.test(report.surface.routeKey)
+      && /^surface-[a-z0-9]+$/.test(report.surface.stateKey)
+      && Number.isInteger(report.surface.activeStateCount)
+      && report.surface.activeStateCount >= 0
+      && report.surface.activeStateCount <= 500
+      && Number.isInteger(report.surface.expectedStateCount)
+      && report.surface.expectedStateCount >= 1
+      && report.surface.expectedStateCount <= 500
+    ))
     && (!report.firstViewport || (
       Number.isInteger(report.firstViewport.taskSignalCount)
       && report.firstViewport.taskSignalCount >= 0

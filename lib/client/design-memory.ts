@@ -96,7 +96,8 @@ function visualKey(fingerprint: VisualFingerprint): string {
 function validVisualFingerprint(value: unknown): value is VisualFingerprint {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<VisualFingerprint>;
-  return Array.isArray(candidate.occupancyGrid) && candidate.occupancyGrid.length === 144
+  const boundedUnit = (entry: unknown) => typeof entry === "number" && Number.isFinite(entry) && entry >= 0 && entry <= 1;
+  const baseValid = Array.isArray(candidate.occupancyGrid) && candidate.occupancyGrid.length === 144
     && Array.isArray(candidate.typographyScale) && candidate.typographyScale.length === 6
     && Array.isArray(candidate.colorHistogram) && candidate.colorHistogram.length <= 8
     && Array.isArray(candidate.sectionRhythm) && candidate.sectionRhythm.length <= 12
@@ -104,6 +105,17 @@ function validVisualFingerprint(value: unknown): value is VisualFingerprint {
     && typeof candidate.interactionDensity === "number"
     && typeof candidate.roundedness === "number"
     && typeof candidate.routeCount === "number";
+  if (!baseValid || candidate.schemaVersion === undefined) return baseValid;
+  return candidate.schemaVersion === 2
+    && Array.isArray(candidate.colorAreaHistogram) && candidate.colorAreaHistogram.length <= 8
+    && candidate.colorAreaHistogram.every((entry) => typeof entry.color === "string" && boundedUnit(entry.weight))
+    && Array.isArray(candidate.fontHistogram) && candidate.fontHistogram.length <= 8
+    && candidate.fontHistogram.every((entry) => typeof entry.family === "string" && boundedUnit(entry.weight))
+    && Array.isArray(candidate.visualLayerHistogram) && candidate.visualLayerHistogram.length <= 6
+    && candidate.visualLayerHistogram.every((entry) => ["type", "media", "data", "shape", "motion", "interaction"].includes(entry.layer) && boundedUnit(entry.weight))
+    && boundedUnit(candidate.statefulControlDensity)
+    && boundedUnit(candidate.depthDensity)
+    && boundedUnit(candidate.alignmentDiversity);
 }
 
 export function getRecentVisualFingerprints(limit = 24): VisualFingerprint[] {

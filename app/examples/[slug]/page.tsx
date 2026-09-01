@@ -52,13 +52,13 @@ export default async function ExamplePage({ params }: { params: Promise<{ slug: 
             <dl>
               <div><dt>Class</dt><dd>{receipt.direction.creativityClass}</dd></div><div><dt>Experience</dt><dd>{receipt.direction.experienceModel}</dd></div>
               <div><dt>Topology</dt><dd>{receipt.direction.topology}</dd></div><div><dt>Opening</dt><dd>{receipt.direction.opening}</dd></div>
-              <div><dt>Navigation</dt><dd>{receipt.direction.navigation}</dd></div><div><dt>Nearest distance</dt><dd>{receipt.nearestExampleDistance.toFixed(2)}</dd></div>
+              <div><dt>Navigation</dt><dd>{receipt.direction.navigation}</dd></div><div><dt>Nearest measured</dt><dd>{receipt.nearestExampleDistance.toFixed(3)}</dd></div>
             </dl>
             <div className={styles.fingerprint}>
-              <div><span>VISUAL FINGERPRINT</span><p>{receipt.fingerprint.occupancy}</p><p>{receipt.fingerprint.colorRhythm}</p></div>
+              <div><span>VISUAL FINGERPRINT / V{receipt.measurement.fingerprintVersion}</span><p>{receipt.fingerprint.occupancy}</p><p>{receipt.fingerprint.colorRhythm}</p><p>Fonts: {receipt.measurement.fontFamilies.join(" + ")}</p><p>Layers: {receipt.measurement.observedLayers.join(" + ")}</p></div>
               <div><span>ABSTRACT RETRIEVAL</span><p>Near: {receipt.abstractReferences.near}</p><p>Remote: {receipt.abstractReferences.remote.join(" + ")}</p><p>Avoid: {receipt.abstractReferences.antiReference}</p></div>
             </div>
-            <div className={styles.checks}><span>360 / 768 / 1440 verified</span><span>0 critical accessibility issues</span><span>0 horizontal overflow</span><span>{receipt.assets.manifest}</span></div>
+            <div className={styles.checks}><span>360 / 768 / 1440 measured</span><span>{receipt.measurement.failures} render failures</span><span>{receipt.measurement.warnings} render warnings</span><span>Measured diversity: {demo.meetsMeasuredDiversityFloor ? "pass" : "review"}</span><span>{receipt.assets.manifest}</span></div>
             <div className={styles.palette}>{demo.result.plan.colorPalette.slice(0, 4).map((color) => <i key={color.hex} style={{ background: color.hex }} title={`${color.name} · ${color.role}`} />)}</div>
           </section>
         </div>

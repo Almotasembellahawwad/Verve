@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "test:e2e": "playwright test",
+    "test:visual": "playwright test tests/e2e/public-demos.spec.ts --project=desktop-chrome",
     "test:e2e:ui": "playwright test --ui",
     "capture:demos": "node scripts/capture-demo-screenshots.mjs",
     "test:load": "node scripts/load-smoke.mjs"

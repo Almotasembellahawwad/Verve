@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "measuredBy": "playwright-render-gate-v2",
+  "releaseDistanceThreshold": 0.5,
+  "viewports": [360, 768, 1440],
+  "examples": {
+    "architecture": {
+      "fingerprintVersion": 2,
+      "nearestMeasuredExampleDistance": 0.235,
+      "failures": 0,
+      "warnings": 0,
+      "fontFamilies": ["Arial", "Georgia"],
+      "observedLayers": ["type", "media", "interaction"]
+    },
+    "cairo": {
+      "fingerprintVersion": 2,
+      "nearestMeasuredExampleDistance": 0.212,
+      "failures": 0,
+      "warnings": 0,
+      "fontFamilies": ["Arial", "Georgia"],
+      "observedLayers": ["type", "interaction"]
+    },
+    "carbon": {
+      "fingerprintVersion": 2,
+      "nearestMeasuredExampleDistance": 0.212,
+      "failures": 0,
+      "warnings": 0,
+      "fontFamilies": ["Arial"],
+      "observedLayers": ["type", "interaction"]
+    },
+    "learning": {
+      "fingerprintVersion": 2,
+      "nearestMeasuredExampleDistance": 0.285,
+      "failures": 0,
+      "warnings": 0,
+      "fontFamilies": ["Arial"],
+      "observedLayers": ["type", "shape", "motion", "interaction"]
+    },
+    "fashion": {
+      "fingerprintVersion": 2,
+      "nearestMeasuredExampleDistance": 0.267,
+      "failures": 0,
+      "warnings": 0,
+      "fontFamilies": ["Arial"],
+      "observedLayers": ["type", "shape", "interaction"]
+    },
+    "civic": {
+      "fingerprintVersion": 2,
+      "nearestMeasuredExampleDistance": 0.225,
+      "failures": 0,
+      "warnings": 0,
+      "fontFamilies": ["Arial"],
+      "observedLayers": ["type", "interaction"]
+    }
+  }
+}
