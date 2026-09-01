@@ -2,7 +2,7 @@ import type { BriefEvidenceContract } from "../domain/brief-evidence";
 
 export type BriefEvidenceRealizationCheck = {
   id: string;
-  kind: "record" | "attribute" | "comparison-dimension" | "gap-disclosure" | "prohibited-pattern";
+  kind: "record" | "attribute" | "comparison-dimension" | "gap-disclosure" | "prohibited-pattern" | "evidence-marker";
   label: string;
   matched: boolean;
 };
@@ -117,7 +117,8 @@ function gapIsDisclosed(source: string, contract: BriefEvidenceContract, gap: Br
  */
 export function inspectBriefEvidenceRealization(
   source: string,
-  contract?: BriefEvidenceContract
+  contract?: BriefEvidenceContract,
+  requiredEvidenceIds: string[] = []
 ): BriefEvidenceRealization {
   if (!contract) return { passed: true, coverage: 1, positiveCoverage: 1, checks: [], issues: [] };
 
@@ -164,6 +165,18 @@ export function inspectBriefEvidenceRealization(
       matched: !match,
     });
   }
+  const boundedEvidenceIds = [...new Set(requiredEvidenceIds)].filter((id) => /^evidence-\d+$/.test(id)).slice(0, 64);
+  if (boundedEvidenceIds.length) {
+    const hasMarkerContract = /data-verve-evidence-id/i.test(source);
+    for (const evidenceId of boundedEvidenceIds) {
+      checks.push({
+        id: `marker:${evidenceId}`,
+        kind: "evidence-marker",
+        label: evidenceId,
+        matched: hasMarkerContract && source.includes(evidenceId),
+      });
+    }
+  }
 
   const positiveChecks = checks.filter((check) => check.kind !== "prohibited-pattern");
   const matchedPositive = positiveChecks.filter((check) => check.matched).length;
@@ -175,6 +188,7 @@ export function inspectBriefEvidenceRealization(
   const missingDimensions = checks.filter((check) => check.kind === "comparison-dimension" && !check.matched);
   const missingGapDisclosures = checks.filter((check) => check.kind === "gap-disclosure" && !check.matched);
   const prohibitedMatches = checks.filter((check) => check.kind === "prohibited-pattern" && !check.matched);
+  const missingMarkers = checks.filter((check) => check.kind === "evidence-marker" && !check.matched);
   const attributeChecks = checks.filter((check) => check.kind === "attribute");
   const attributeCoverage = attributeChecks.length
     ? attributeChecks.filter((check) => check.matched).length / attributeChecks.length
@@ -200,11 +214,15 @@ export function inspectBriefEvidenceRealization(
   if (prohibitedMatches.length) {
     issues.push(`Brief Evidence Gate: generated source repeats explicitly prohibited language or styling (${prohibitedMatches.slice(0, 3).map((check) => `"${check.label}"`).join(", ")})`);
   }
+  if (missingMarkers.length) {
+    issues.push(`Brief Evidence Gate: ${missingMarkers.length} scene-bound evidence marker${missingMarkers.length === 1 ? " is" : "s are"} missing; put data-verve-evidence-id on the smallest visible group that renders each supplied evidence item`);
+  }
 
   const passed = missingRecords.length === 0
     && attributeCoverage >= 0.7
     && dimensionCoverage >= 0.75
     && missingGapDisclosures.length === 0
-    && prohibitedMatches.length === 0;
+    && prohibitedMatches.length === 0
+    && missingMarkers.length === 0;
   return { passed, coverage, positiveCoverage, checks, issues };
 }

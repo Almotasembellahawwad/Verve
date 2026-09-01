@@ -2,11 +2,12 @@ import type { GeneratedProject } from "./types";
 import { replaceOwnedAssetReferences } from "./brand-kit";
 import { FIRST_VIEWPORT_THRESHOLDS, type FirstViewportEvidence } from "../domain/first-viewport";
 import type { VerveProjectSpec, VisualLayer } from "../domain/project-spec";
+import type { BriefEvidenceKind } from "../domain/brief-evidence";
 
 export type SandboxFileMap = Record<string, { code: string }>;
 
 export type RenderGateCheck = {
-  id: "horizontal-overflow" | "runtime-errors" | "tiny-text" | "image-alt" | "duplicate-ids" | "button-names" | "first-viewport-effectiveness" | "functional-visual-fulfillment";
+  id: "horizontal-overflow" | "runtime-errors" | "tiny-text" | "image-alt" | "duplicate-ids" | "button-names" | "first-viewport-effectiveness" | "functional-visual-fulfillment" | "rendered-evidence-salience";
   title: string;
   status: "pass" | "warning" | "fail";
   message: string;
@@ -22,6 +23,20 @@ export type FunctionalVisualEvidence = {
   missingLayers: VisualLayer[];
   orphanVisualRatio: number;
   missingAssetSceneIds: string[];
+};
+
+export type RenderedEvidenceSalience = {
+  /** Experimental evidence-realization measure, not a creativity or taste score. */
+  score: number;
+  coverage: number;
+  prominence: number;
+  firstViewportCoverage: number;
+  expected: number;
+  observed: number;
+  prominent: number;
+  missingEvidenceKeys: string[];
+  missingCriticalKeys: string[];
+  privacy: "numeric-and-hashed-evidence-only";
 };
 
 export type VisualFingerprint = {
@@ -63,6 +78,7 @@ export type RenderGateReport = {
   fingerprint: VisualFingerprint;
   firstViewport?: FirstViewportEvidence;
   functionalVisual?: FunctionalVisualEvidence;
+  renderedEvidence?: RenderedEvidenceSalience;
 };
 
 function vectorDistance(left: number[], right: number[]): number {
@@ -135,6 +151,7 @@ export type RenderEvidenceMatrix = {
   warnings: number;
   firstViewportScore: number | null;
   functionalVisualScore: number | null;
+  renderedEvidenceScore: number | null;
 };
 
 export function createRenderEvidenceMatrix(): RenderEvidenceMatrix {
@@ -148,6 +165,7 @@ export function createRenderEvidenceMatrix(): RenderEvidenceMatrix {
     warnings: 0,
     firstViewportScore: null,
     functionalVisualScore: null,
+    renderedEvidenceScore: null,
   };
 }
 
@@ -173,6 +191,7 @@ export function recordRenderEvidence(
   const complete = covered === RENDER_EVIDENCE_WIDTHS.length;
   const firstViewportScores = captured.flatMap((item) => item.firstViewport ? [item.firstViewport.score] : []);
   const functionalVisualScores = captured.flatMap((item) => item.functionalVisual ? [item.functionalVisual.score] : []);
+  const renderedEvidenceScores = captured.flatMap((item) => item.renderedEvidence ? [item.renderedEvidence.score] : []);
   const status = failures > 0
     ? "fail"
     : warnings > 0
@@ -191,6 +210,7 @@ export function recordRenderEvidence(
     warnings,
     firstViewportScore: firstViewportScores.length ? Math.min(...firstViewportScores) : null,
     functionalVisualScore: functionalVisualScores.length ? Math.min(...functionalVisualScores) : null,
+    renderedEvidenceScore: renderedEvidenceScores.length ? Math.min(...renderedEvidenceScores) : null,
   };
 }
 
@@ -204,18 +224,30 @@ function visualIntentExpectation(spec?: VerveProjectSpec, context?: RenderProbeC
   const defaultRoute = spec.experience.routes.find((route) => context?.routeId === route.id || context?.routePath === route.path)
     ?? spec.experience.routes.find((route) => route.path === spec.experience.route)
     ?? spec.experience.routes[0];
+  const evidenceKinds = new Map<string, BriefEvidenceKind>((spec.briefEvidence?.items ?? []).map((item) => [item.id, item.kind]));
+  const narrativeScenes = spec.narrative?.scenes ?? [];
+  const sceneDirections = spec.assetDirection?.sceneDirections ?? [];
   return {
     defaultRouteIdentity: defaultRoute?.id ?? defaultRoute?.path ?? "root",
     routes: spec.experience.routes.map((route) => {
       const sceneIds = new Set(route.regionIds);
+      const routeScenes = narrativeScenes.filter((scene) => scene.routeId === route.id);
       const componentIds = new Set(spec.components.filter((component) => component.routeId === route.id).map((component) => component.id));
+      const evidence = [...new Set(routeScenes.flatMap((scene) => scene.evidenceIds ?? []))]
+        .flatMap((id) => {
+          const kind = evidenceKinds.get(id);
+          return kind && kind !== "prohibited-pattern" ? [{ id, kind }] : [];
+        });
+      const firstScene = routeScenes[0];
       return {
         routeIdentity: route.id,
         path: route.path,
         expectedStateCount: Math.max(1, spec.interactions
           .filter((interaction) => componentIds.has(interaction.componentId))
           .reduce((total, interaction) => total + Math.max(1, interaction.states.length), 0)),
-        scenes: spec.assetDirection.sceneDirections.filter((direction) => sceneIds.has(direction.sceneId)).map((direction) => ({
+        evidence,
+        firstViewportEvidenceIds: (firstScene?.evidenceIds ?? []).filter((id) => evidence.some((item) => item.id === id)),
+        scenes: sceneDirections.filter((direction) => sceneIds.has(direction.sceneId)).map((direction) => ({
           id: direction.sceneId,
           layers: direction.expectedLayers,
           assetIds: direction.selectedAssetIds,
@@ -252,8 +284,13 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
     return "surface-" + (hash >>> 0).toString(36);
   };
   const visible = (element) => {
-    const style = getComputedStyle(element);
-    return style.display !== "none" && style.visibility !== "hidden" && element.getClientRects().length > 0;
+    let current = element;
+    while (current instanceof Element) {
+      const style = getComputedStyle(current);
+      if (style.display === "none" || style.visibility === "hidden" || Number.parseFloat(style.opacity || "1") <= 0.01) return false;
+      current = current.parentElement;
+    }
+    return element.getClientRects().length > 0;
   };
   const schedule = () => {
     window.clearTimeout(timer);
@@ -569,6 +606,67 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
         missingAssetSceneIds: sceneResults.filter((scene) => scene.assetMissing).map((scene) => scene.id)
       };
     }
+    let renderedEvidence = null;
+    if (activeVisualIntent && Array.isArray(activeVisualIntent.evidence) && activeVisualIntent.evidence.length > 0) {
+      const weightOf = (kind) => kind === 'record' || kind === 'collection-expectation' ? 3 : kind === 'comparison-dimension' ? 2 : 1;
+      const firstViewportIds = new Set(activeVisualIntent.firstViewportEvidenceIds || []);
+      const evidenceResults = activeVisualIntent.evidence.map((expected) => {
+        const candidates = [...document.querySelectorAll('[data-verve-evidence-id="' + CSS.escape(expected.id) + '"]')]
+          .filter((element) => {
+            if (!visible(element)) return false;
+            const content = (element.textContent || '').trim();
+            return content.length >= 2 || element.matches('img,video,table,dl,input,select,button,a[href]') || Boolean(element.querySelector('img,video,table,dl,input,select,button,a[href]'));
+          });
+        const measured = candidates.map((element) => {
+          const rect = element.getBoundingClientRect();
+          const horizontalWidth = Math.max(0, Math.min(width, rect.right) - Math.max(0, rect.left));
+          const elementArea = Math.max(0, horizontalWidth * Math.max(0, rect.height));
+          const areaRatio = elementArea / viewportArea;
+          // A page-sized proxy must remain below the pass threshold even when
+          // its type is large. Evidence hooks belong on the rendered datum,
+          // comparison row, or record group rather than a scene shell.
+          const specificity = areaRatio > 0.35 ? 0.16 : areaRatio > 0.2 ? 0.55 : 1;
+          const areaScore = Math.min(1, areaRatio / 0.06) * specificity;
+          const fontScore = Math.min(1, (parseFloat(getComputedStyle(element).fontSize) || 0) / 24);
+          const structured = element.matches('tr,td,th,table,dl,dt,dd,[data-verve-layer="data"]') || Boolean(element.closest('table,dl,[data-verve-layer="data"]')) ? 1 : 0.65;
+          const prominence = Math.sqrt(Math.max(0, areaScore) * (fontScore * 0.55 + structured * 0.45));
+          return { prominence, firstViewport: clippedArea(element) > 0 };
+        }).sort((left, right) => right.prominence - left.prominence);
+        const best = measured[0];
+        return {
+          id: expected.id,
+          key: privacyKey('evidence:' + expected.id),
+          kind: expected.kind,
+          weight: weightOf(expected.kind),
+          observed: Boolean(best),
+          prominence: best ? Math.min(1, best.prominence) : 0,
+          firstViewport: Boolean(best?.firstViewport)
+        };
+      });
+      const expectedWeight = Math.max(1, evidenceResults.reduce((sum, item) => sum + item.weight, 0));
+      const observedWeight = evidenceResults.filter((item) => item.observed).reduce((sum, item) => sum + item.weight, 0);
+      const coverage = Math.min(1, observedWeight / expectedWeight);
+      const prominence = observedWeight > 0
+        ? evidenceResults.reduce((sum, item) => sum + item.prominence * item.weight, 0) / observedWeight
+        : 0;
+      const firstViewportExpected = evidenceResults.filter((item) => firstViewportIds.has(item.id));
+      const firstViewportWeight = firstViewportExpected.reduce((sum, item) => sum + item.weight, 0);
+      const firstViewportCovered = firstViewportExpected.filter((item) => item.firstViewport).reduce((sum, item) => sum + item.weight, 0);
+      const missing = evidenceResults.filter((item) => !item.observed);
+      const criticalKinds = new Set(['record', 'collection-expectation']);
+      renderedEvidence = {
+        score: Number(Math.sqrt(Math.max(0, coverage * prominence)).toFixed(3)),
+        coverage: Number(coverage.toFixed(3)),
+        prominence: Number(Math.min(1, prominence).toFixed(3)),
+        firstViewportCoverage: Number((firstViewportWeight > 0 ? firstViewportCovered / firstViewportWeight : 1).toFixed(3)),
+        expected: evidenceResults.length,
+        observed: evidenceResults.filter((item) => item.observed).length,
+        prominent: evidenceResults.filter((item) => item.prominence >= 0.55).length,
+        missingEvidenceKeys: missing.map((item) => item.key),
+        missingCriticalKeys: missing.filter((item) => criticalKinds.has(item.kind)).map((item) => item.key),
+        privacy: 'numeric-and-hashed-evidence-only'
+      };
+    }
     const checks = [
       { id: "horizontal-overflow", title: "Rendered mobile width", status: documentWidth > width + 1 ? "fail" : "pass", message: documentWidth > width + 1 ? "Document is " + documentWidth + "px wide in a " + width + "px viewport. Offenders: " + (overflowElements.join(", ") || "unknown") : "No rendered horizontal overflow detected at " + width + "px." },
       { id: "runtime-errors", title: "Rendered runtime", status: runtimeErrors.length ? "fail" : "pass", message: runtimeErrors.length ? runtimeErrors.join(" | ") : "No runtime or console errors captured." },
@@ -577,9 +675,10 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
       { id: "duplicate-ids", title: "Rendered element identity", status: duplicateIds.length ? "warning" : "pass", message: duplicateIds.length ? "Duplicate ids: " + duplicateIds.join(", ") : "No duplicate rendered ids detected." },
       { id: "button-names", title: "Rendered button names", status: unnamedButtons.length ? "warning" : "pass", message: unnamedButtons.length ? "Unnamed buttons: " + unnamedButtons.join(", ") : "Every rendered button has an accessible name." },
       { id: "first-viewport-effectiveness", title: "First viewport effectiveness", status: taskSignalCount < ${FIRST_VIEWPORT_THRESHOLDS.minimumTaskSignals} || !primaryActionVisible || firstViewportScore < ${FIRST_VIEWPORT_THRESHOLDS.reviewScore} ? "warning" : "pass", message: "FVE " + firstViewport.score.toFixed(2) + ": " + taskSignalCount + "/${FIRST_VIEWPORT_THRESHOLDS.minimumTaskSignals} task signals, information salience " + firstViewport.informationSalience.toFixed(2) + ", primary action " + (primaryActionVisible ? "visible" : "not visible") + ". Opening size is not scored." },
-      ...(functionalVisual ? [{ id: "functional-visual-fulfillment", title: "Functional visual fulfillment", status: functionalVisual.missingAssetSceneIds.length || functionalVisual.renderedScenes < functionalVisual.expectedScenes ? "fail" : functionalVisual.score < 0.72 ? "warning" : "pass", message: "FVF " + functionalVisual.score.toFixed(2) + ": " + functionalVisual.fulfilledScenes + "/" + functionalVisual.expectedScenes + " scenes fulfilled, layers " + functionalVisual.observedLayers.join(", ") + ", orphan visual area " + functionalVisual.orphanVisualRatio.toFixed(2) + (functionalVisual.missingAssetSceneIds.length ? ", missing required assets in " + functionalVisual.missingAssetSceneIds.join(", ") : "") + ". Harmonic aggregation prevents one polished scene from hiding weak scenes." }] : [])
+      ...(functionalVisual ? [{ id: "functional-visual-fulfillment", title: "Functional visual fulfillment", status: functionalVisual.missingAssetSceneIds.length || functionalVisual.renderedScenes < functionalVisual.expectedScenes ? "fail" : functionalVisual.score < 0.72 ? "warning" : "pass", message: "FVF " + functionalVisual.score.toFixed(2) + ": " + functionalVisual.fulfilledScenes + "/" + functionalVisual.expectedScenes + " scenes fulfilled, layers " + functionalVisual.observedLayers.join(", ") + ", orphan visual area " + functionalVisual.orphanVisualRatio.toFixed(2) + (functionalVisual.missingAssetSceneIds.length ? ", missing required assets in " + functionalVisual.missingAssetSceneIds.join(", ") : "") + ". Harmonic aggregation prevents one polished scene from hiding weak scenes." }] : []),
+      ...(renderedEvidence ? [{ id: "rendered-evidence-salience", title: "Rendered evidence salience", status: renderedEvidence.missingCriticalKeys.length ? "fail" : renderedEvidence.score < 0.65 || renderedEvidence.firstViewportCoverage < 1 ? "warning" : "pass", message: "RES " + renderedEvidence.score.toFixed(2) + ": " + renderedEvidence.observed + "/" + renderedEvidence.expected + " scene-bound evidence items rendered, prominence " + renderedEvidence.prominence.toFixed(2) + ", first-viewport evidence " + renderedEvidence.firstViewportCoverage.toFixed(2) + ". The report contains hashes and numeric measurements only." }] : [])
     ];
-    parent.postMessage({ source: "verve-render-gate", probeId: PROBE_ID, sequence: ++sequence, viewport: { width, height: window.innerHeight, documentWidth }, surface, checks, fingerprint, firstViewport, functionalVisual }, "*");
+    parent.postMessage({ source: "verve-render-gate", probeId: PROBE_ID, sequence: ++sequence, viewport: { width, height: window.innerHeight, documentWidth }, surface, checks, fingerprint, firstViewport, functionalVisual, renderedEvidence }, "*");
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", schedule, { once: true });
   else schedule();
@@ -724,9 +823,31 @@ export function isRenderGateReport(value: unknown, probeId: string): value is Re
       && report.functionalVisual.missingAssetSceneIds.length <= 40
       && report.functionalVisual.missingAssetSceneIds.every((sceneId) => typeof sceneId === "string" && sceneId.length <= 160)
     ))
-    && report.checks.length <= 10
+    && (!report.renderedEvidence || (
+      boundedUnit(report.renderedEvidence.score)
+      && boundedUnit(report.renderedEvidence.coverage)
+      && boundedUnit(report.renderedEvidence.prominence)
+      && boundedUnit(report.renderedEvidence.firstViewportCoverage)
+      && Number.isInteger(report.renderedEvidence.expected)
+      && report.renderedEvidence.expected >= 1
+      && report.renderedEvidence.expected <= 64
+      && Number.isInteger(report.renderedEvidence.observed)
+      && report.renderedEvidence.observed >= 0
+      && report.renderedEvidence.observed <= report.renderedEvidence.expected
+      && Number.isInteger(report.renderedEvidence.prominent)
+      && report.renderedEvidence.prominent >= 0
+      && report.renderedEvidence.prominent <= report.renderedEvidence.observed
+      && Array.isArray(report.renderedEvidence.missingEvidenceKeys)
+      && report.renderedEvidence.missingEvidenceKeys.length <= 64
+      && report.renderedEvidence.missingEvidenceKeys.every((key) => /^surface-[a-z0-9]+$/.test(key))
+      && Array.isArray(report.renderedEvidence.missingCriticalKeys)
+      && report.renderedEvidence.missingCriticalKeys.length <= 64
+      && report.renderedEvidence.missingCriticalKeys.every((key) => /^surface-[a-z0-9]+$/.test(key))
+      && report.renderedEvidence.privacy === "numeric-and-hashed-evidence-only"
+    ))
+    && report.checks.length <= 11
     && report.checks.every((item) => item
-      && ["horizontal-overflow", "runtime-errors", "tiny-text", "image-alt", "duplicate-ids", "button-names", "first-viewport-effectiveness", "functional-visual-fulfillment"].includes(item.id)
+      && ["horizontal-overflow", "runtime-errors", "tiny-text", "image-alt", "duplicate-ids", "button-names", "first-viewport-effectiveness", "functional-visual-fulfillment", "rendered-evidence-salience"].includes(item.id)
       && ["pass", "warning", "fail"].includes(item.status)
       && typeof item.title === "string"
       && item.title.length <= 120

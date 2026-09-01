@@ -27,6 +27,7 @@ export interface CodeQualityResult {
 
 export type CodeQualityContext = {
   briefEvidence?: BriefEvidenceContract;
+  requiredEvidenceIds?: string[];
   /** Generated files other than the entry file, used for whole-project evidence checks. */
   supportingSource?: string;
 };
@@ -212,7 +213,8 @@ export async function runCodeQualityLoop(
   ];
   const evidenceRealization = inspectBriefEvidenceRealization(
     `${stripped}\n${context.supportingSource ?? ""}`,
-    context.briefEvidence
+    context.briefEvidence,
+    context.requiredEvidenceIds
   );
   issues.push(...evidenceRealization.issues);
 
@@ -263,7 +265,8 @@ export async function runCodeQualityLoop(
     ];
     const repairedEvidenceRealization = inspectBriefEvidenceRealization(
       `${repairedStripped}\n${context.supportingSource ?? ""}`,
-      context.briefEvidence
+      context.briefEvidence,
+      context.requiredEvidenceIds
     );
     repairedIssues.push(...repairedEvidenceRealization.issues);
 

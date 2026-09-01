@@ -302,6 +302,13 @@ test("Brief Evidence Realization Gate distinguishes a specification experience f
   assert.ok(generic.issues.some((issue) => /known record/i.test(issue)));
   assert.ok(generic.issues.some((issue) => /comparison dimensions/i.test(issue)));
   assert.ok(generic.issues.some((issue) => /does not disclose/i.test(issue)));
+  const requiredEvidenceId = ledger.records[0].evidenceId;
+  const unmarked = inspectBriefEvidenceRealization(`
+    <main><h1>Riso Notebook</h1><p>A5 · 80 pages · 3 available cover colors: terracotta, olive, charcoal · 120gsm recycled paper · EGP 450</p>
+    <p>Paper weight · Binding type · Batch size · Price</p><p>Four product-line specifications are pending; comparison values are not provided.</p></main>
+  `, ledger, [requiredEvidenceId]);
+  assert.equal(unmarked.passed, false);
+  assert.ok(unmarked.issues.some((issue) => /evidence marker/i.test(issue)));
 
   const fakeAdapter: LLMAdapter = { async complete() { throw new Error("repair must remain disabled"); } };
   const quality = await runCodeQualityLoop(
@@ -312,7 +319,7 @@ test("Brief Evidence Realization Gate distinguishes a specification experience f
     false,
     brief,
     [],
-    { briefEvidence: ledger }
+    { briefEvidence: ledger, requiredEvidenceIds: [requiredEvidenceId] }
   );
   assert.equal(quality.evidenceRealization?.passed, false);
   assert.ok(quality.issues.some((issue) => /Brief Evidence Gate/i.test(issue)));
@@ -324,7 +331,7 @@ test("Brief Evidence Realization Gate distinguishes a specification experience f
       return `<!doctype html><html><head><meta charset="utf-8"><style>
         body{margin:0;font:16px Arial,sans-serif}.spec{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
         @media(max-width:700px){.spec{grid-template-columns:1fr}}
-      </style></head><body><main><h1>Riso Notebook</h1><section class="spec"><p>A5</p><p>80 pages</p><p>3 available cover colors: terracotta, olive, charcoal</p><p>120gsm recycled paper</p><p>EGP 450</p></section><table><thead><tr><th>Paper weight</th><th>Binding type</th><th>Batch size</th><th>Price</th></tr></thead></table><p>Four remaining product-line specifications are pending; comparison values are not provided.</p></main></body></html>`;
+      </style></head><body><main><h1>Riso Notebook</h1><section class="spec" data-verve-evidence-id="${requiredEvidenceId}"><p>A5</p><p>80 pages</p><p>3 available cover colors: terracotta, olive, charcoal</p><p>120gsm recycled paper</p><p>EGP 450</p></section><table><thead><tr><th>Paper weight</th><th>Binding type</th><th>Batch size</th><th>Price</th></tr></thead></table><p>Four remaining product-line specifications are pending; comparison values are not provided.</p></main></body></html>`;
     },
   };
   const repaired = await runCodeQualityLoop(
@@ -335,7 +342,7 @@ test("Brief Evidence Realization Gate distinguishes a specification experience f
     true,
     brief,
     [],
-    { briefEvidence: ledger }
+    { briefEvidence: ledger, requiredEvidenceIds: [requiredEvidenceId] }
   );
   assert.match(repairPrompt, /Brief Evidence Gate/i);
   assert.equal(repaired.wasRepaired, true);
@@ -1947,6 +1954,10 @@ test("Render Gate accepts only reports for the active probe", () => {
   const withFunctionalVisual = { ...withFirstViewport, functionalVisual: { score: 0.78, expectedScenes: 4, renderedScenes: 4, fulfilledScenes: 3, requiredLayers: ["type", "media"], observedLayers: ["type", "media"], missingLayers: [], orphanVisualRatio: 0.1, missingAssetSceneIds: [] } };
   assert.equal(isRenderGateReport(withFunctionalVisual, "active"), true);
   assert.equal(isRenderGateReport({ ...withFunctionalVisual, functionalVisual: { ...withFunctionalVisual.functionalVisual, score: 3 } }, "active"), false);
+  const withRenderedEvidence = { ...withFunctionalVisual, renderedEvidence: { score: 0.82, coverage: 1, prominence: 0.68, firstViewportCoverage: 1, expected: 4, observed: 4, prominent: 3, missingEvidenceKeys: [], missingCriticalKeys: [], privacy: "numeric-and-hashed-evidence-only" } };
+  assert.equal(isRenderGateReport(withRenderedEvidence, "active"), true);
+  assert.equal(isRenderGateReport({ ...withRenderedEvidence, renderedEvidence: { ...withRenderedEvidence.renderedEvidence, score: 2 } }, "active"), false);
+  assert.equal(isRenderGateReport({ ...withRenderedEvidence, renderedEvidence: { ...withRenderedEvidence.renderedEvidence, missingEvidenceKeys: ["evidence-1"] } }, "active"), false);
 });
 
 test("Render Gate requires evidence at 360, 768, and 1440 before passing", () => {
@@ -1960,6 +1971,7 @@ test("Render Gate requires evidence at 360, 768, and 1440 before passing", () =>
     fingerprint,
     firstViewport: { taskSignalCount: 2, taskCoverage: 1, informationSalience: 0.8, primaryActionVisible: true, actionClarity: 1, scrollCost: 0, score: width === 360 ? 0.72 : 0.95 },
     functionalVisual: { score: width === 360 ? 0.68 : 0.9, expectedScenes: 4, renderedScenes: 4, fulfilledScenes: 3, requiredLayers: ["type", "interaction"], observedLayers: ["type", "interaction"], missingLayers: [], orphanVisualRatio: 0.1, missingAssetSceneIds: [] },
+    renderedEvidence: { score: width === 360 ? 0.66 : 0.88, coverage: 1, prominence: width === 360 ? 0.44 : 0.78, firstViewportCoverage: 1, expected: 3, observed: 3, prominent: 2, missingEvidenceKeys: [], missingCriticalKeys: [], privacy: "numeric-and-hashed-evidence-only" },
   });
   let matrix = createRenderEvidenceMatrix();
   matrix = recordRenderEvidence(matrix, report(360));
@@ -1971,6 +1983,7 @@ test("Render Gate requires evidence at 360, 768, and 1440 before passing", () =>
   assert.equal(matrix.status, "pass");
   assert.equal(matrix.firstViewportScore, 0.72);
   assert.equal(matrix.functionalVisualScore, 0.68);
+  assert.equal(matrix.renderedEvidenceScore, 0.66);
   matrix = recordRenderEvidence(matrix, report(768, "fail"));
   assert.equal(matrix.status, "fail");
   assert.equal(matrix.failures, 1);
