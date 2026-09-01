@@ -494,6 +494,7 @@ export async function runGenerationUseCase(
   const qualityContextFor = (generated: GeneratedCode) => ({
     briefEvidence: projectSpec.briefEvidence,
     requiredEvidenceIds: projectSpec.narrative.scenes.flatMap((scene) => scene.evidenceIds ?? []),
+    compositionGenome: projectSpec.narrative.compositionGenome,
     supportingSource: (generated.files ?? [])
       .filter((file) => file.path !== generated.entryPath)
       .map((file) => file.content)

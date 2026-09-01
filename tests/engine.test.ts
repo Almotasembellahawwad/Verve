@@ -105,6 +105,8 @@ import { classifyReferenceDomain, selectReferencePatterns } from "../lib/engine/
 import { createDirectionCheckpoint, directionCheckpointMatches, generateDirectionBoard, selectDirectionCells } from "../lib/engine/direction-board";
 import { calculateFirstViewportEffectiveness, firstViewportNeedsReview } from "../lib/domain/first-viewport";
 import { harmonicCoverage, inspectVisualIntentSource } from "../lib/engine/visual-intent";
+import { buildCompositionGenome, compositionGenomeDistance, inspectCompositionGenomeSource } from "../lib/engine/composition-genome";
+import type { StoryScene } from "../lib/domain/project-spec";
 import { inspectAssetUsage } from "../lib/engine/asset-usage";
 import { deliverGeneratedAssets } from "../lib/engine/asset-delivery";
 import { MAX_DELIVERED_ASSET_BYTES, PexelsAssetDeliveryAdapter } from "../lib/adapters/assets/pexels-asset-delivery";
@@ -201,7 +203,43 @@ test("VerveProjectSpec creates a bounded, executable experience contract before 
   assert.deepEqual(spec.experience.firstViewport.requiredSignals, ["primary-object", "decision-evidence", "primary-action"]);
   assert.ok(spec.experience.sections.length >= 3);
   assert.ok(spec.interactions.some((interaction) => interaction.requiresExternalAdapter));
+  assert.ok((spec.narrative.compositionGenome?.distinctStructures ?? 0) >= 3);
+  assert.ok((spec.narrative.compositionGenome?.minimumAdjacentDistance ?? 0) >= 0.3);
   assert.doesNotMatch(JSON.stringify(spec), /rawBrief|apiKey/);
+  const falsifiedGenome = structuredClone(spec);
+  falsifiedGenome.narrative.compositionGenome!.distinctStructures += 1;
+  assert.equal(validateVerveProjectSpec(falsifiedGenome).valid, false);
+  const falsifiedWeights = structuredClone(spec);
+  const runtimeWeights = falsifiedWeights.narrative.compositionGenome!.axisWeights as unknown as Record<string, number>;
+  runtimeWeights.notARealAxis = runtimeWeights.structure;
+  delete runtimeWeights.structure;
+  assert.equal(validateVerveProjectSpec(falsifiedWeights).valid, false);
+});
+
+test("Composition Genome deterministically maximizes local spatial distance without ignoring scene fit", () => {
+  const scenes: StoryScene[] = [
+    { id: "opening", routeId: "primary", narrativeRole: "hook", regionRole: "orientation", audienceQuestion: "What is this?", purpose: "Orient", focalObject: "Collection", evidence: [], informationShape: "orientation-signal", medium: "photography", nextSceneIds: ["browse"] },
+    { id: "browse", routeId: "primary", narrativeRole: "discovery", regionRole: "collection", audienceQuestion: "What is available?", purpose: "Browse", focalObject: "Records", evidence: [], informationShape: "record-browser", medium: "photography", nextSceneIds: ["compare"] },
+    { id: "compare", routeId: "primary", narrativeRole: "choice", regionRole: "comparison", audienceQuestion: "How do they differ?", purpose: "Compare", focalObject: "Matrix", evidence: [], informationShape: "comparison-matrix", medium: "data", nextSceneIds: ["proof"] },
+    { id: "proof", routeId: "primary", narrativeRole: "proof", regionRole: "evidence", audienceQuestion: "What supports this?", purpose: "Prove", focalObject: "Ledger", evidence: [], informationShape: "evidence-ledger", medium: "diagram", nextSceneIds: ["finish"] },
+    { id: "finish", routeId: "primary", narrativeRole: "payoff", regionRole: "action", audienceQuestion: "What next?", purpose: "Act", focalObject: "Outcome", evidence: [], informationShape: "action-outcome", medium: "interface", action: "Choose", visibleConsequence: "Selection appears", nextSceneIds: [] },
+  ];
+  const first = buildCompositionGenome({ scenes, model: "collection-browser", density: "dense", seed: "cairo-print" });
+  const repeated = buildCompositionGenome({ scenes, model: "collection-browser", density: "dense", seed: "cairo-print" });
+  const spatial = buildCompositionGenome({ scenes, model: "spatial-map", density: "dense", seed: "cairo-print" });
+
+  assert.deepEqual(first, repeated);
+  assert.ok(first.distinctStructures >= 4);
+  assert.ok(first.minimumAdjacentDistance >= 0.3);
+  assert.ok(first.meanPairDistance >= 0.35);
+  assert.notDeepEqual(first.assignments.map((assignment) => assignment.genes.structure), spatial.assignments.map((assignment) => assignment.genes.structure));
+  for (let index = 1; index < first.assignments.length; index++) {
+    assert.equal(first.assignments[index].distanceFromPrevious, compositionGenomeDistance(first.assignments[index - 1].genes, first.assignments[index].genes));
+  }
+  const traced = first.assignments.map((assignment) => `<section data-verve-scene="${assignment.sceneId}" data-verve-composition="${assignment.genes.structure}" data-verve-flow="${assignment.genes.flow}" data-verve-depth="${assignment.genes.depth}"></section>`).join("\n");
+  assert.equal(inspectCompositionGenomeSource(traced, first).passed, true);
+  const partiallySwitched = traced.replace(`data-verve-depth="${first.assignments[1].genes.depth}"`, "data-verve-depth=\"flat-wrong\"");
+  assert.equal(inspectCompositionGenomeSource(partiallySwitched, first).passed, false);
 });
 
 test("First Viewport Effectiveness rewards task utility without using hero scale", () => {
@@ -451,6 +489,7 @@ test("Scene Asset Director assigns licensed evidence and the fulfillment metric 
   assert.equal(validateVerveProjectSpec(spec).valid, true);
 
   const source = spec.assetDirection.sceneDirections.map((direction) => {
+    const composition = spec.narrative.compositionGenome!.assignments.find((assignment) => assignment.sceneId === direction.sceneId)!;
     const layers = direction.expectedLayers.filter((layer) => layer !== "type")
       .map((layer) => `<div data-verve-layer="${layer}" data-verve-visual-purpose="${direction.narrativeFunction}"></div>`)
       .join("");
@@ -458,13 +497,16 @@ test("Scene Asset Director assigns licensed evidence and the fulfillment metric 
       const asset = spec.assetDirection.catalog.find((candidate) => candidate.id === assetId)!;
       return `<img src="${asset.url}" alt="${asset.alt}" data-verve-asset-id="${asset.id}" data-verve-layer="media" data-verve-visual-purpose="${direction.narrativeFunction}">`;
     }).join("");
-    return `<section data-verve-scene="${direction.sceneId}"><h2>${direction.narrativeFunction}</h2>${layers}${assets}</section>`;
+    return `<section data-verve-scene="${direction.sceneId}" data-verve-composition="${composition.genes.structure}" data-verve-flow="${composition.genes.flow}" data-verve-depth="${composition.genes.depth}"><h2>${direction.narrativeFunction}</h2>${layers}${assets}</section>`;
   }).join("\n");
   const evidence = inspectVisualIntentSource(spec, source);
   assert.equal(evidence.score, 100);
   assert.equal(evidence.status, "pass");
+  assert.equal(evidence.coverage.compositions, 1);
   const incomplete = inspectVisualIntentSource(spec, source.replace(`data-verve-scene="${spec.assetDirection.sceneDirections.at(-1)!.sceneId}"`, "data-scene-removed"));
   assert.ok(incomplete.score < evidence.score);
+  const wrongFlow = inspectVisualIntentSource(spec, source.replace(`data-verve-flow="${spec.narrative.compositionGenome!.assignments[0].genes.flow}"`, "data-verve-flow=\"wrong\""));
+  assert.ok(wrongFlow.markedCompositions < wrongFlow.expectedCompositions);
   assert.equal(harmonicCoverage([1, 1, 0.25]) < (1 + 1 + 0.25) / 3, true);
 
   const usage = inspectAssetUsage(assetBundle, source, spec.assetDirection);
@@ -929,6 +971,26 @@ test("the creative benchmark covers 24 bilingual briefs and every rotating local
   assert.ok(boards.every((board) => board.diversity.distinctStructureCount >= 5));
   assert.ok(boards.every((board) => board.diversity.medianPairDistance >= 0.55));
   assert.ok(boards.every((board) => board.diversity.minimumPairDistance >= 0.3));
+
+  const specs = corpus.briefs.map((fixture) => {
+    const analysis = analyzeBriefLocally(fixture.brief);
+    return buildVerveProjectSpec({
+      analysis,
+      plan: generateDesignPlanLocally(analysis),
+      framework: "html",
+      mode: "creative",
+      assetBundle: {
+        photos: [], icons: [], extractedPalette: [], warnings: [], readinessWarnings: [],
+        font: { family: "Arial", weights: [400, 700], cssImport: "none", isGoogleFont: false, source: "fallback" },
+        mediaRequirement: { level: fixture.media === "required" ? "required" : fixture.media === "avoid" ? "avoid" : "optional", minimumAssets: fixture.media === "required" ? 1 : 0, reason: "Benchmark fixture", suggestedSubjects: [] },
+        assetSummary: "No benchmark media bytes.",
+      },
+    });
+  });
+  assert.ok(specs.every((spec) => validateVerveProjectSpec(spec).valid));
+  assert.ok(specs.every((spec) => (spec.narrative.compositionGenome?.distinctStructures ?? 0) >= 3));
+  assert.ok(specs.every((spec) => (spec.narrative.compositionGenome?.minimumAdjacentDistance ?? 0) >= 0.3));
+  assert.ok(specs.every((spec) => (spec.narrative.compositionGenome?.meanPairDistance ?? 0) >= 0.35));
 });
 
 test("quality-diversity selection overrides a renamed editorial-register house direction", () => {

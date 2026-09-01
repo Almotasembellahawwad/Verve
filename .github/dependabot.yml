@@ -20,6 +20,10 @@ updates:
       # eslint-config-next does not yet support ESLint 10's rule-context API.
       - dependency-name: "eslint"
         update-types: ["version-update:semver-major"]
+      # Verve consumes the TypeScript Compiler API. TypeScript 7 intentionally
+      # ships without it, so migration requires the official side-by-side TS6/7 setup.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
