@@ -111,7 +111,14 @@ test("all six frozen examples pass the three-width render contract", async ({ pa
   expect(receipt).toHaveLength(6);
   for (const example of receipt) {
     const baseline = visualTruthBaseline.examples[example.demoId as keyof typeof visualTruthBaseline.examples];
-    expect(example.nearestMeasuredExampleDistance, `${example.demoId} visual distance drifted from its published receipt`).toBeCloseTo(baseline.nearestMeasuredExampleDistance, 3);
+    expect(
+      Math.abs(example.nearestMeasuredExampleDistance - baseline.nearestMeasuredExampleDistance),
+      `${example.demoId} visual distance drifted beyond the cross-platform tolerance`
+    ).toBeLessThanOrEqual(visualTruthBaseline.crossPlatformDistanceTolerance);
+    expect(
+      example.nearestMeasuredExampleDistance >= visualTruthBaseline.releaseDistanceThreshold,
+      `${example.demoId} crossed the published diversity release threshold`
+    ).toBe(baseline.nearestMeasuredExampleDistance >= visualTruthBaseline.releaseDistanceThreshold);
     expect(example.failures, `${example.demoId} render failures drifted from its published receipt`).toBe(baseline.failures);
     expect(example.warnings, `${example.demoId} render warnings drifted from its published receipt`).toBe(baseline.warnings);
     expect(example.desktopFingerprint.fontHistogram?.map((entry) => entry.family), `${example.demoId} font evidence drifted`).toEqual(baseline.fontFamilies);

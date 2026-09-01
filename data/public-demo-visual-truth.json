@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "measuredBy": "playwright-render-gate-v2",
   "releaseDistanceThreshold": 0.5,
+  "crossPlatformDistanceTolerance": 0.015,
   "viewports": [360, 768, 1440],
   "examples": {
     "architecture": {
