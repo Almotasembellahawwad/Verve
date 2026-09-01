@@ -60,6 +60,13 @@ import type { DesignDirectionFingerprint, DirectionDiversityAssessment } from ".
 import { runGenerationFoundationStages } from "./generation-foundation-stages";
 import type { DirectionBoard, DirectionCheckpoint } from "../domain/design-direction";
 import { buildPlanFromDirectionBoard, createDirectionCheckpoint, directionCheckpointMatches, generateDirectionBoard } from "../engine/direction-board";
+import type { TypographyContract, TypographyDeliveryReceipt } from "../domain/typography";
+import {
+  formatTypographyForCodegen,
+  generatedTypographyUsesContract,
+  typographyContractFamilies,
+} from "../engine/typography-contract";
+import { deliverTypographyContract } from "../engine/typography-delivery";
 
 
 // ── Result type ───────────────────────────────────────────────────────────────
@@ -85,6 +92,8 @@ export type PipelineResult = {
   assetUsage:             AssetUsageEvidence;
   visualIntentSource:     VisualIntentSourceEvidence;
   assetDelivery:          AssetDeliveryReceipt;
+  typographyContract:     TypographyContract;
+  typographyDelivery:     TypographyDeliveryReceipt;
   execution:              ExecutionEvidence;
   codeQualityResult:      CodeQualityResult;      // Phase 3.5: post-gen repair
   contrastReport:         ContrastFixReport;
@@ -449,6 +458,7 @@ export async function runGenerationUseCase(
   designPlan = foundation.designPlan;
   let projectSpec = foundation.projectSpec;
   const directionDiversity = foundation.directionDiversity;
+  const typographyContract = foundation.typographyContract;
 
   // ── [05] Code Generation ─────────────────────────────────────────────────
   const fullCodeContext = [
@@ -456,6 +466,7 @@ export async function runGenerationUseCase(
     assetBundle.assetSummary,
     archetypeContext,
     animationContext,
+    formatTypographyForCodegen(typographyContract, framework === "react" || framework === "html" ? framework : "nextjs"),
   ].filter(Boolean).join("\n\n");
 
   emit("stage_start", { id: "05", name: "Code Generation", module: "CodeGenerator" }, "05-start");
@@ -488,7 +499,8 @@ export async function runGenerationUseCase(
     signatureStr,
     framework,
     strategy.allowsCodeRepair(provider),
-    briefAnalysis.rawBrief
+    briefAnalysis.rawBrief,
+    typographyContractFamilies(typographyContract)
   );
   emit("stage_done", {
     id: "05.5",
@@ -539,7 +551,8 @@ export async function runGenerationUseCase(
         signatureStr,
         framework,
         false,
-        briefAnalysis.rawBrief
+        briefAnalysis.rawBrief,
+        typographyContractFamilies(typographyContract)
       );
       generatedCode = retryGenerated;
       codeQualityResult = retryQuality;
@@ -566,7 +579,7 @@ export async function runGenerationUseCase(
   }
   const supportingIssues = (finalCode.files ?? [])
     .filter((file) => file.path !== finalCode.entryPath)
-    .flatMap((file) => inspectSupportingSource(file.content, file.path, framework, briefAnalysis.rawBrief));
+    .flatMap((file) => inspectSupportingSource(file.content, file.path, framework, briefAnalysis.rawBrief, typographyContractFamilies(typographyContract)));
   if (supportingIssues.length > 0) {
     codeQualityResult = { ...codeQualityResult, issues: [...codeQualityResult.issues, ...supportingIssues] };
   }
@@ -628,14 +641,17 @@ export async function runGenerationUseCase(
   }, "06-done");
 
   emit("stage_start", { id: "07", name: "Project Assembly", module: "ProjectEngine" }, "07-start");
-  const delivery = await deliverGeneratedAssets({
-    generatedCode: finalCode,
-    projectSpec,
-    assetBundle,
-    sourceBeforeDelivery: deliveredSource,
-    deliveryPort: dependencies.assetDelivery,
-    signal,
-  });
+  const [delivery, typographyDelivery] = await Promise.all([
+    deliverGeneratedAssets({
+      generatedCode: finalCode,
+      projectSpec,
+      assetBundle,
+      sourceBeforeDelivery: deliveredSource,
+      deliveryPort: dependencies.assetDelivery,
+      signal,
+    }),
+    deliverTypographyContract(typographyContract, framework === "react" || framework === "html" ? framework : "nextjs"),
+  ]);
   const deliveredCode = delivery.generatedCode;
   projectSpec = delivery.projectSpec;
   const localizedSource = generatedSourceText(deliveredCode);
@@ -644,15 +660,26 @@ export async function runGenerationUseCase(
   const diversityWarnings = diversityResult.warnings.map((warning) =>
     strategy.mode === "creative" ? `BLOCKING: ${warning}` : warning
   );
+  const typographyWarnings = [
+    ...typographyDelivery.receipt.warnings,
+    ...(generatedTypographyUsesContract(deliveredCode, typographyContract)
+      ? []
+      : [`BLOCKING: Generated source does not apply any contracted font family (${typographyContractFamilies(typographyContract).join(", ")}).`]),
+  ];
   const project = buildGeneratedProject(
     deliveredCode,
     briefAnalysis,
     designPlan,
     codeQualityResult.wasRepaired ? [] : codeQualityResult.issues,
-    [...assetBundle.readinessWarnings, ...assetUsage.warnings, ...delivery.receipt.warnings, ...visualIntentSource.warnings, ...directionDiversity.warnings, ...diversityWarnings],
+    [...assetBundle.readinessWarnings, ...assetUsage.warnings, ...delivery.receipt.warnings, ...visualIntentSource.warnings, ...directionDiversity.warnings, ...diversityWarnings, ...typographyWarnings],
     projectSpec.assetDirection,
     delivery.receipt,
-    delivery.files
+    delivery.files,
+    typographyContract,
+    typographyDelivery.receipt,
+    typographyDelivery.files,
+    typographyDelivery.css,
+    typographyDelivery.licenseFile
   );
   emit("stage_done", {
     id: "07",
@@ -698,6 +725,8 @@ export async function runGenerationUseCase(
     diversityResult,
     assetUsage,
     assetDelivery: delivery.receipt,
+    typographyContract,
+    typographyDelivery: typographyDelivery.receipt,
     visualIntentSource,
     execution,
     revisionCount,

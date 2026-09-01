@@ -8,6 +8,7 @@ Verve is an open-source project intelligence engine for generating distinctive w
 
 ## Verve Creative Engine v3 (beta)
 
+- **Executable Typography Contract** — after the final direction is selected, Verve assigns a brief- and script-sensitive display/body/mono profile, bundles exact Latin or Arabic+Latin WOFF2 subsets locally, injects deterministic `@font-face` rules, and ships OFL text plus SHA-256 receipts. Runtime font CDNs and undocumented system-font defaults are rejected.
 - **Scene Asset Director** — every story scene receives an explicit visual function, expected layers, approved source policy, asset assignment, responsive framing, alt intent, and honest fallback. Generated `ASSETS.md` records the exact scene/source/license relationship.
 - **Licensed Asset Delivery** — a used Pexels image is copied only from the allowlisted image host, bounded to 1.2 MB per file and 2.4 MB per project, verified by media signature, hashed with SHA-256, written under the framework-correct local asset path, and recorded in `ASSETS.md`. Unused search results are never downloaded.
 - **Functional Visual Fulfillment (FVF)** — source and rendered DOM evidence check whether visuals serve the declared scene purpose. Rendered FVF uses harmonic aggregation, so one polished hero cannot hide weak scenes, and penalizes visual area that sits outside the Story Graph.
@@ -35,6 +36,14 @@ FVF is a Verve-specific engineering metric, not a validated creativity measure o
 - **Bounded payloads** — each binary is capped at 1.2 MB and the generated project at 2.4 MB. This deliberately leaves response headroom after Base64 expansion and surrounding SSE project data; delivery failure remains a visible production blocker instead of silently falling back to an arbitrary image.
 - **Integrity and provenance** — every copied binary records SHA-256, byte size, media type, original source page, credit, and a link to the Pexels License. The generated experience retains the prominent Pexels link expected by the API guidelines. A checksum proves byte identity; it does not replace licensing or third-party-rights review.
 - **Private owned-media boundary preserved** — user-owned bytes still remain browser-local and are attached after generation; the new server delivery path applies only to already-approved Pexels selections.
+
+## What changed in 0.12 Typography Contract
+
+- **Direction-coherent typography** — font selection happens after direction enforcement, so a layout is never combined with a type system chosen for a discarded direction.
+- **Local OFL delivery** — curated Latin and Arabic families are copied into framework-correct project paths under a 500 KB typography budget; generated projects never depend on a runtime font CDN.
+- **Executable guard** — generated CSS receives deterministic font-face declarations and role variables, while validation checks the files, CSS references, family application, license document, and integrity receipt.
+- **Honest media semantics** — a scene that needs no external photograph is `not-applicable`, not ambiguously `avoid`; the same scene must still fulfill its declared data, shape, interaction, or motion layers.
+- **Accessible composites** — the code contract and validator now require ARIA tabs to use roving focus and keep arrow-key focus, selection, and panel state synchronized.
 
 ## What changed in 0.10 Asset Intent Engine
 

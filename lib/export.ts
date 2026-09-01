@@ -129,11 +129,6 @@ export function exportREADME(plan: DesignPlan, brief: string): string {
     (c) => `| \`${c.hex}\` | ${c.name} | ${c.role} |`
   ).join("\n");
 
-  const googleFontsQuery = [plan.typePairing?.display, plan.typePairing?.body]
-    .filter(Boolean)
-    .map((f) => `family=${encodeURIComponent(f!)}:wght@300;400;500;600;700`)
-    .join("&");
-
   return `# Verve Design System — Setup Guide
 
 **Brief**: ${brief.slice(0, 200)}${brief.length > 200 ? "..." : ""}
@@ -144,14 +139,14 @@ export function exportREADME(plan: DesignPlan, brief: string): string {
 
 ## 1. Typography
 
-### Google Fonts import
+### Local font delivery
 \`\`\`html
-<link href="https://fonts.googleapis.com/css2?${googleFontsQuery}&display=swap" rel="stylesheet">
+<!-- Font files and @font-face rules ship inside the complete generated project. -->
 \`\`\`
 
-**Or** with Fontshare:
+**License and integrity receipt:**
 \`\`\`html
-<!-- Check https://api.fontshare.com for font availability -->
+<!-- See ASSETS.md and FONT-LICENSES.md. Do not add a runtime font CDN. -->
 \`\`\`
 
 | Role | Font | Rationale |
@@ -214,7 +209,7 @@ This design uses hardcoded content. To update:
 - **Hero headline**: Search for the main h1 element
 - **Navigation**: Update the \`<nav>\` links
 - **Color changes**: Edit \`design-tokens.css\` — all components use CSS custom properties
-- **Font changes**: Replace the Google Fonts URL in \`<head>\`
+- **Font changes**: Update the Typography Contract, local WOFF2 files, and \`FONT-LICENSES.md\` together
 
 ---
 

@@ -82,7 +82,7 @@ const LOCAL_VISUAL_DIRECTIONS: LocalVisualDirection[] = [
       { name: "Cairo Pepper", hex: "#E85D2A", role: "action and directional accent" },
       { name: "Olive Leaf", hex: "#87945B", role: "secondary material accent" },
     ],
-    display: "Georgia, 'Times New Roman', serif",
+    display: '"Fraunces Variable", Georgia, serif',
     signature: "The Table Route",
     topology: [
       "Open with a compact service bar and a seasonal menu index—not a viewport-filling headline.",
@@ -98,7 +98,7 @@ const LOCAL_VISUAL_DIRECTIONS: LocalVisualDirection[] = [
       { name: "Survey Red", hex: "#D84A38", role: "measured focal accent" },
       { name: "Concrete", hex: "#8C918D", role: "secondary annotation" },
     ],
-    display: "Arial Narrow, Arial, sans-serif",
+    display: '"Bricolage Grotesque Variable", "Arial Narrow", sans-serif',
     signature: "The Occupied Datum",
     topology: [
       "Use a plan-like canvas with a persistent retention register beside the project evidence.",
@@ -114,7 +114,7 @@ const LOCAL_VISUAL_DIRECTIONS: LocalVisualDirection[] = [
       { name: "Berry Proof", hex: "#A53B5B", role: "evidence and action accent" },
       { name: "Moss", hex: "#66705B", role: "secondary material accent" },
     ],
-    display: "Georgia, 'Times New Roman', serif",
+    display: '"Newsreader Variable", Georgia, serif',
     signature: "The Evidence Seam",
     topology: [
       "Build a product evidence catalog with ingredients, usage, and proof as sortable records.",
@@ -133,7 +133,7 @@ export function generateDesignPlanLocally(analysis: BriefAnalysis): DesignPlan {
       { name: "Signal", hex: "#F05A38", role: "single action accent" },
       { name: "Slate", hex: "#73808A", role: "secondary annotation" },
     ],
-    display: "Arial, Helvetica, sans-serif",
+    display: '"Manrope Variable", "Segoe UI", sans-serif',
     signature: "The Decision Line",
     topology: [
       "Make the opening task-bearing: its scale may be compact or cinematic, but the primary object, verified evidence, and immediate action must be visible without a marketing prelude.",
@@ -146,8 +146,8 @@ export function generateDesignPlanLocally(analysis: BriefAnalysis): DesignPlan {
     colorPalette: direction.palette,
     typePairing: {
       display: direction.display,
-      body: "Arial, Helvetica, sans-serif",
-      rationale: `System typography keeps delivery reliable while the hierarchy is shaped around ${analysis.primaryJob.toLowerCase()}.`,
+      body: '"Manrope Variable", "Segoe UI", sans-serif',
+      rationale: `A local typography profile keeps delivery reliable while the hierarchy is shaped around ${analysis.primaryJob.toLowerCase()}.`,
     },
     layoutConcept: direction.topology.join("\n"),
     signatureElement: {

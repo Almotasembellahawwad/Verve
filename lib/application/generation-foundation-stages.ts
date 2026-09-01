@@ -11,6 +11,8 @@ import type { BrandProfile, OwnedAssetManifest } from "../project/brand-kit";
 import type { DesignDirectionFingerprint, DirectionDiversityAssessment } from "../domain/design-direction";
 import type { VerveProjectSpec } from "../domain/project-spec";
 import type { GenerationMode } from "../domain/generation-mode";
+import type { TypographyContract } from "../domain/typography";
+import { applyTypographyContract, buildTypographyContract } from "../engine/typography-contract";
 import { NullProgressPublisher, type ProgressPublisherPort } from "../ports/progress";
 import { executePipelineStages, type PipelineStage } from "./pipeline-stage";
 
@@ -26,6 +28,7 @@ type GenerationFoundationContext = {
   selectedDirectionLocked?: boolean;
   projectSpec?: VerveProjectSpec;
   directionDiversity?: DirectionDiversityAssessment;
+  typographyContract?: TypographyContract;
 };
 
 const projectSpecStage: PipelineStage<GenerationFoundationContext> = {
@@ -42,6 +45,7 @@ const projectSpecStage: PipelineStage<GenerationFoundationContext> = {
         assetBundle: context.assetBundle,
         brandProfile: context.brandProfile,
         ownedAssets: context.ownedAssets,
+        typographyContract: context.typographyContract,
       }),
     };
   },
@@ -67,6 +71,19 @@ const directionDiversityStage: PipelineStage<GenerationFoundationContext> = {
   },
 };
 
+const typographyContractStage: PipelineStage<GenerationFoundationContext> = {
+  id: "04.15",
+  name: "Typography Contract",
+  module: "LocalOFLTypography",
+  async execute(context) {
+    const typographyContract = buildTypographyContract(context.analysis, context.designPlan);
+    return {
+      typographyContract,
+      designPlan: applyTypographyContract(context.designPlan, typographyContract),
+    };
+  },
+};
+
 export async function runGenerationFoundationStages(
   input: Omit<GenerationFoundationContext, "projectSpec" | "directionDiversity">,
   progress: ProgressPublisherPort = new NullProgressPublisher()
@@ -74,18 +91,20 @@ export async function runGenerationFoundationStages(
   designPlan: DesignPlan;
   projectSpec: VerveProjectSpec;
   directionDiversity: DirectionDiversityAssessment;
+  typographyContract: TypographyContract;
 }> {
   const context = await executePipelineStages<GenerationFoundationContext>(
-    [directionDiversityStage, projectSpecStage],
+    [directionDiversityStage, typographyContractStage, projectSpecStage],
     input,
     progress
   );
-  if (!context.projectSpec || !context.directionDiversity) {
+  if (!context.projectSpec || !context.directionDiversity || !context.typographyContract) {
     throw new Error("Generation foundation stages did not produce their required contracts.");
   }
   return {
     designPlan: context.designPlan,
     projectSpec: context.projectSpec,
     directionDiversity: context.directionDiversity,
+    typographyContract: context.typographyContract,
   };
 }

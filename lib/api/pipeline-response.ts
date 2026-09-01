@@ -38,6 +38,8 @@ export function serializePipelineResult(result: PipelineResult, requestId?: stri
     assetBundle: result.assetBundle,
     assetUsage: result.assetUsage,
     assetDelivery: result.assetDelivery,
+    typographyContract: result.typographyContract,
+    typographyDelivery: result.typographyDelivery,
     visualIntentSource: result.visualIntentSource,
     execution: result.execution,
     competitiveField: {

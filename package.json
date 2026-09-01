@@ -20,7 +20,13 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
     "@codesandbox/sandpack-react": "^2.20.0",
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource-variable/fraunces": "^5.3.0",
     "@fontsource-variable/manrope": "^5.3.0",
+    "@fontsource-variable/newsreader": "^5.3.0",
+    "@fontsource-variable/noto-kufi-arabic": "^5.3.0",
+    "@fontsource-variable/noto-sans-arabic": "^5.3.0",
+    "@fontsource-variable/readex-pro": "^5.3.0",
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "@fontsource/instrument-serif": "^5.3.0",
     "@google/generative-ai": "^0.24.1",
