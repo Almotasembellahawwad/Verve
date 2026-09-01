@@ -62,10 +62,11 @@ request
        [04] deterministic contrast correction
        [04.1] direction diversity and local novelty selection
        [04.15] executable Typography Contract: script-aware profile + local OFL file manifest
-       [04.2] ProjectSpec Visual Narrative: semantic routes, story scenes, art direction, richness budget
+       [04.18] source-bound Brief Evidence Ledger: records, attributes, comparisons, exclusions, gaps
+       [04.2] ProjectSpec Visual Narrative: semantic routes, evidence-shaped story scenes, art direction, richness budget
        [04.3] Scene Asset Director: licensed catalog, scene purpose, framing, fallback, expected layers
        [05] code generation
-       [05.5] syntax/quality + optional repair
+       [05.5] syntax/quality + whole-project Brief Evidence Realization + optional repair
        delivered-code quality, restraint, engineering, diversity checks
        [06] evidence-bounded scoring
        [07] source FVF + asset-use evidence + project assembly + validation/readiness
@@ -106,6 +107,12 @@ Optional analysis, planning, and critique fail open to deterministic fallbacks. 
 ## Typography boundary
 
 Typography has an independent delivery boundary. `typography-contract.ts` selects from a curated local OFL catalog only after the final direction and script are known. It emits role assignments, exact package files, Unicode coverage, fallback policy, and deterministic CSS. The delivery step copies WOFF2 bytes into the generated project under a 500 KB cap, records SHA-256 and provenance, includes complete license text in `FONT-LICENSES.md`, and injects the contract after authored CSS so an accidental Georgia, Times, Verdana, or generic system default cannot win the cascade. Validation checks that declared binaries exist, CSS URLs resolve, contracted families are applied, and the license file ships. No browser-time Google Fonts request or font API key is part of generation.
+
+## Brief evidence boundary
+
+`brief-evidence.ts` performs bounded deterministic extraction from the original English or Arabic brief. Every evidence item stores a verbatim span, source length, and digest; validation fails if a checkpoint is rebound to changed input. Quoted and list-form records are kept separate from collection totals, while comparison dimensions, explicit exclusions, and missing-record/missing-value gaps remain first-class data. The extractor does not call a provider and does not infer absent item-level facts.
+
+ProjectSpec maps those evidence IDs into Story Graph scenes and information shapes. After generation, `brief-evidence-realization.ts` inspects entry plus supporting source files for known record labels, supplied attributes, requested dimensions, explicit gap disclosure, and prohibited patterns. This is source realization evidence, not proof that content is visually prominent; Render Gate remains responsible for rendered visibility and responsive truth. Creative can spend its already-bounded repair pass on a failed realization check. Fast returns the same measured warning without adding a provider call.
 
 ## Project and preview boundary
 

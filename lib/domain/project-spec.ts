@@ -28,6 +28,7 @@ export type NarrativeRole = "hook" | "tension" | "discovery" | "proof" | "choice
 export type NarrativeStructure = "linear" | "branching" | "spatial" | "cyclical";
 export type VisualMedium = "typography" | "photography" | "illustration" | "data" | "diagram" | "interface" | "spatial" | "generative";
 export type VisualLayer = "type" | "media" | "data" | "shape" | "motion" | "interaction";
+export type SceneInformationShape = "orientation-signal" | "record-browser" | "comparison-matrix" | "evidence-ledger" | "guided-decision" | "action-outcome";
 
 export type AssetLicense = "user-owned" | "pexels-license" | "programmatic-original" | "not-applicable";
 /** External-media need. `not-applicable` means the scene is fulfilled programmatically, not visually empty. */
@@ -82,6 +83,9 @@ export type StoryScene = {
   purpose: string;
   focalObject: string;
   evidence: string[];
+  /** Exact references into briefEvidence; absent on older ProjectSpec v2 checkpoints. */
+  evidenceIds?: string[];
+  informationShape?: SceneInformationShape;
   action?: string;
   visibleConsequence?: string;
   medium: VisualMedium;
@@ -205,6 +209,8 @@ export type VerveProjectSpec = {
     policy: "brief-is-source-of-truth";
     items: ProjectFact[];
   };
+  /** Deterministic, source-bound content inventory; absent on older ProjectSpec v2 checkpoints. */
+  briefEvidence?: import("./brief-evidence").BriefEvidenceContract;
   narrative: VisualNarrativeContract;
   assetDirection: AssetDirectionContract;
   /** Added compatibly in ProjectSpec v2; older checkpoints may omit it. */
@@ -311,6 +317,15 @@ export function validateVerveProjectSpec(spec: VerveProjectSpec): ProjectSpecVal
   if (routeIds.size !== spec.experience.routes.length) issues.push("Experience route IDs must be unique.");
   if (regionIds.size !== spec.experience.regions.length) issues.push("Experience region IDs must be unique.");
   if (componentIds.size !== spec.components.length) issues.push("Component IDs must be unique.");
+  if (spec.briefEvidence) {
+    if (spec.briefEvidence.version !== 1 || spec.briefEvidence.sourcePolicy !== "verbatim-brief-spans-only") issues.push("Unsupported brief evidence contract.");
+    const evidenceIds = new Set(spec.briefEvidence.items.map((item) => item.id));
+    if (evidenceIds.size !== spec.briefEvidence.items.length) issues.push("Brief evidence item IDs must be unique.");
+    for (const record of spec.briefEvidence.records) if (!evidenceIds.has(record.evidenceId)) issues.push(`${record.id} references unknown brief evidence.`);
+    for (const dimension of spec.briefEvidence.comparisonDimensions) if (!evidenceIds.has(dimension.evidenceId)) issues.push(`${dimension.id} references unknown brief evidence.`);
+    for (const pattern of spec.briefEvidence.prohibitedPatterns) if (!evidenceIds.has(pattern.evidenceId)) issues.push(`${pattern.id} references unknown brief evidence.`);
+    for (const scene of spec.narrative.scenes) for (const evidenceId of scene.evidenceIds ?? []) if (!evidenceIds.has(evidenceId)) issues.push(`${scene.id} references unknown brief evidence ${evidenceId}.`);
+  }
   if (spec.visualSystem.colors.length < 3) issues.push("The visual system requires at least three color tokens.");
   if (spec.typographyContract) {
     if (spec.typographyContract.version !== 1) issues.push("Unsupported typography contract version.");

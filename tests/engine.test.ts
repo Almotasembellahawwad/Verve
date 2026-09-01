@@ -74,8 +74,10 @@ import JSZip from "jszip";
 import { createProjectArchive, referencedLocalAssetPaths } from "../lib/client/project-archive";
 import { runProjectPatchUseCase } from "../lib/application/run-project-patch-use-case";
 import { applyProjectPatchProposal, projectPatchContext } from "../lib/project/ai-patch";
-import { buildVerveProjectSpec } from "../lib/engine/project-spec-builder";
+import { buildVerveProjectSpec, formatVerveProjectSpecForGeneration } from "../lib/engine/project-spec-builder";
 import { validateVerveProjectSpec } from "../lib/domain/project-spec";
+import { buildBriefEvidenceContract, validateBriefEvidenceContract } from "../lib/engine/brief-evidence";
+import { inspectBriefEvidenceRealization } from "../lib/engine/brief-evidence-realization";
 import {
   applyTypographyContract,
   buildTypographyContract,
@@ -246,6 +248,150 @@ test("material-commerce brief receives a task-bearing opening without banning a 
   assert.match(spec.experience.firstViewport.primaryAction, /compare/i);
   assert.match(spec.experience.firstViewport.rationale, /scale is unrestricted/i);
   assert.equal(validateVerveProjectSpec(spec).valid, true);
+});
+
+test("Brief Evidence Ledger preserves product specifications, exclusions, and missing records without invention", () => {
+  const brief = `A small independent print studio in Cairo that hand-binds notebooks and letterpress-prints stationery in batches of 50-100 units. The studio currently has 5 finished product lines in active production, each with a real specification: "Riso Notebook — A5, 80 pages, 3 available cover colors (terracotta, olive, charcoal), 120gsm recycled paper, EGP 450." Audience: independent bookshops in Cairo/Alexandria considering wholesale stocking, and individual buyers who care about paper weight, binding method, and batch size. Primary job: let a wholesale buyer compare the 5 product lines by real spec (paper weight, binding type, batch size, price). Explicitly avoid: kraft-paper and twine aesthetics, "made with love" or "handcrafted" language, Pinterest-style flat-lay photography, and beige/cream default palettes.`;
+  const ledger = buildBriefEvidenceContract(brief);
+
+  assert.equal(validateBriefEvidenceContract(ledger, brief).valid, true);
+  assert.equal(ledger.density, "rich");
+  assert.equal(ledger.collectionExpectation?.expectedCount, 5);
+  assert.equal(ledger.collectionExpectation?.knownRecordCount, 1);
+  assert.equal(ledger.records[0]?.label, "Riso Notebook");
+  assert.deepEqual(ledger.records[0]?.attributes.map((attribute) => attribute.value), [
+    "A5",
+    "80 pages",
+    "3 available cover colors (terracotta, olive, charcoal)",
+    "120gsm recycled paper",
+    "EGP 450.",
+  ]);
+  assert.deepEqual(ledger.comparisonDimensions.map((dimension) => dimension.label), ["Paper weight", "Binding type", "Batch size", "Price"]);
+  assert.ok(ledger.prohibitedPatterns.some((pattern) => /made with love/i.test(pattern.text)));
+  assert.ok(ledger.prohibitedPatterns.some((pattern) => /beige\/cream/i.test(pattern.text)));
+  assert.deepEqual(ledger.gaps.map((gap) => [gap.kind, gap.expected, gap.known]), [
+    ["missing-records", 5, 1],
+    ["missing-comparison-values", 4, 2],
+  ]);
+  assert.doesNotMatch(JSON.stringify(ledger), /Notebook 2|Notebook 3|Notebook 4|Notebook 5/);
+
+  const changedSource = brief.replace("EGP 450", "EGP 900");
+  assert.equal(validateBriefEvidenceContract(ledger, changedSource).valid, false);
+});
+
+test("Brief Evidence Realization Gate distinguishes a specification experience from generic marketing copy", async () => {
+  const brief = `A Cairo print studio has 5 product lines. "Riso Notebook — A5, 80 pages, 3 available cover colors (terracotta, olive, charcoal), 120gsm recycled paper, EGP 450." Wholesale buyers compare paper weight, binding type, batch size, and price. Explicitly avoid: "made with love" or "handcrafted" language, beige/cream default palettes.`;
+  const ledger = buildBriefEvidenceContract(brief);
+  const realized = inspectBriefEvidenceRealization(`
+    <main><h1>Riso Notebook</h1>
+      <dl><dt>Format</dt><dd>A5</dd><dt>Page count</dt><dd>80 pages</dd>
+      <dt>Cover colors</dt><dd>3 available: terracotta, olive, charcoal</dd>
+      <dt>Paper weight</dt><dd>120gsm recycled paper</dd><dt>Price</dt><dd>EGP 450</dd></dl>
+      <table><thead><tr><th>Paper weight</th><th>Binding type</th><th>Batch size</th><th>Price</th></tr></thead></table>
+      <p>Four remaining product-line specifications are pending and are not invented here.</p>
+    </main>
+  `, ledger);
+  assert.equal(realized.passed, true);
+  assert.equal(realized.positiveCoverage, 1);
+
+  const generic = inspectBriefEvidenceRealization(
+    "<main><h1>Objects made slowly</h1><p>Beautiful stationery for meaningful moments.</p></main>",
+    ledger
+  );
+  assert.equal(generic.passed, false);
+  assert.ok(generic.issues.some((issue) => /known record/i.test(issue)));
+  assert.ok(generic.issues.some((issue) => /comparison dimensions/i.test(issue)));
+  assert.ok(generic.issues.some((issue) => /does not disclose/i.test(issue)));
+
+  const fakeAdapter: LLMAdapter = { async complete() { throw new Error("repair must remain disabled"); } };
+  const quality = await runCodeQualityLoop(
+    fakeAdapter,
+    "<!doctype html><html><body><main><h1>Objects made slowly</h1></main></body></html>",
+    "",
+    "html",
+    false,
+    brief,
+    [],
+    { briefEvidence: ledger }
+  );
+  assert.equal(quality.evidenceRealization?.passed, false);
+  assert.ok(quality.issues.some((issue) => /Brief Evidence Gate/i.test(issue)));
+
+  let repairPrompt = "";
+  const repairAdapter: LLMAdapter = {
+    async complete(messages) {
+      repairPrompt = messages[0]?.content ?? "";
+      return `<!doctype html><html><head><meta charset="utf-8"><style>
+        body{margin:0;font:16px Arial,sans-serif}.spec{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
+        @media(max-width:700px){.spec{grid-template-columns:1fr}}
+      </style></head><body><main><h1>Riso Notebook</h1><section class="spec"><p>A5</p><p>80 pages</p><p>3 available cover colors: terracotta, olive, charcoal</p><p>120gsm recycled paper</p><p>EGP 450</p></section><table><thead><tr><th>Paper weight</th><th>Binding type</th><th>Batch size</th><th>Price</th></tr></thead></table><p>Four remaining product-line specifications are pending; comparison values are not provided.</p></main></body></html>`;
+    },
+  };
+  const repaired = await runCodeQualityLoop(
+    repairAdapter,
+    "<!doctype html><html><body><main><h1>Objects made slowly</h1></main></body></html>",
+    "",
+    "html",
+    true,
+    brief,
+    [],
+    { briefEvidence: ledger }
+  );
+  assert.match(repairPrompt, /Brief Evidence Gate/i);
+  assert.equal(repaired.wasRepaired, true);
+  assert.equal(repaired.evidenceRealization?.passed, true);
+});
+
+test("Brief Evidence Ledger extracts unquoted bilingual product rows without treating the declared total as invented records", () => {
+  const brief = `لدى الاستوديو 3 منتجات بمواصفات حقيقية. يجب مقارنة وزن الورق، نوع التجليد، حجم الدفعة، والسعر.
+- دفتر ريزو — A5، 80 صفحات، 120gsm ورق معاد التدوير، EGP 450
+- دفتر جيب — A6، 48 صفحات، 100gsm، EGP 250
+تجنب: اللغة الدعائية العامة، واللوحات البيج.`;
+  const ledger = buildBriefEvidenceContract(brief);
+
+  assert.equal(validateBriefEvidenceContract(ledger, brief).valid, true);
+  assert.equal(ledger.collectionExpectation?.expectedCount, 3);
+  assert.equal(ledger.collectionExpectation?.knownRecordCount, 2);
+  assert.deepEqual(ledger.records.map((record) => record.label), ["دفتر ريزو", "دفتر جيب"]);
+  assert.ok(ledger.records[0].attributes.some((attribute) => attribute.value === "120gsm ورق معاد التدوير"));
+  assert.deepEqual(ledger.comparisonDimensions.map((dimension) => dimension.label), ["Paper weight", "Binding type", "Batch size", "Price"]);
+  assert.deepEqual(ledger.gaps.find((gap) => gap.kind === "missing-records"), {
+    id: "gap-missing-records",
+    kind: "missing-records",
+    message: "ينقص البريف مواصفات موثقة على مستوى السجل لعدد 1 من منتجات.",
+    expected: 3,
+    known: 2,
+  });
+});
+
+test("ProjectSpec turns exact brief evidence into scene information shapes and code-generation constraints", () => {
+  const brief = `A Cairo print studio has 5 product lines. "Riso Notebook — A5, 80 pages, 120gsm recycled paper, EGP 450". Wholesale buyers compare paper weight, binding type, batch size, and price. Explicitly avoid: gift-shop language, beige craft styling.`;
+  const analysis = analyzeBriefLocally(brief);
+  const plan = generateDesignPlanLocally(analysis);
+  const spec = buildVerveProjectSpec({
+    analysis,
+    plan,
+    framework: "html",
+    mode: "creative",
+    assetBundle: {
+      photos: [], icons: [], extractedPalette: [], warnings: [], readinessWarnings: [],
+      font: { family: "Arial", weights: [400, 700], cssImport: "none", isGoogleFont: false, source: "fallback" },
+      mediaRequirement: { level: "recommended", minimumAssets: 0, reason: "Material evidence is useful when supplied.", suggestedSubjects: ["paper edge"] },
+      assetSummary: "No approved media.",
+    },
+  });
+
+  assert.equal(validateVerveProjectSpec(spec).valid, true);
+  assert.equal(spec.briefEvidence?.records[0]?.label, "Riso Notebook");
+  assert.ok(spec.facts.items.some((fact) => /120gsm recycled paper/i.test(fact.value)));
+  assert.ok(spec.narrative.scenes.some((scene) => scene.informationShape === "comparison-matrix" && scene.evidence.some((value) => /Paper weight/i.test(value))));
+  assert.ok(spec.narrative.artDirection.materialVocabulary.some((value) => /120gsm recycled paper/i.test(value)));
+  assert.ok(spec.narrative.artDirection.forbiddenFallbacks.some((value) => /gift-shop language/i.test(value)));
+  const generationContract = formatVerveProjectSpecForGeneration(spec);
+  assert.match(generationContract, /Riso Notebook/);
+  assert.match(generationContract, /knownRecordCount/);
+  assert.match(generationContract, /informationShape/);
+  assert.match(generationContract, /not permission to invent missing records/i);
 });
 
 test("Visual Narrative compiles brief questions into connected scenes and functional richness", () => {

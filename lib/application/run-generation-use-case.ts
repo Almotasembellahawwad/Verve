@@ -491,6 +491,13 @@ export async function runGenerationUseCase(
   const signatureStr = designPlan.signatureElement
     ? `${designPlan.signatureElement.name} ${designPlan.signatureElement.description ?? ""}`
     : "";
+  const qualityContextFor = (generated: GeneratedCode) => ({
+    briefEvidence: projectSpec.briefEvidence,
+    supportingSource: (generated.files ?? [])
+      .filter((file) => file.path !== generated.entryPath)
+      .map((file) => file.content)
+      .join("\n\n"),
+  });
   emit("stage_start", { id: "05.5", name: "Code Validation & Repair", module: "CodeQualityLoop" }, "055-start");
   elapsed = timer();
   let codeQualityResult = await runCodeQualityLoop(
@@ -500,7 +507,8 @@ export async function runGenerationUseCase(
     framework,
     strategy.allowsCodeRepair(provider),
     briefAnalysis.rawBrief,
-    typographyContractFamilies(typographyContract)
+    typographyContractFamilies(typographyContract),
+    qualityContextFor(generatedCode)
   );
   emit("stage_done", {
     id: "05.5",
@@ -552,7 +560,8 @@ export async function runGenerationUseCase(
         framework,
         false,
         briefAnalysis.rawBrief,
-        typographyContractFamilies(typographyContract)
+        typographyContractFamilies(typographyContract),
+        qualityContextFor(retryGenerated)
       );
       generatedCode = retryGenerated;
       codeQualityResult = retryQuality;

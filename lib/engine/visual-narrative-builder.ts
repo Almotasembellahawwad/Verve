@@ -4,12 +4,14 @@ import type {
   ExperienceRegionRole,
   NarrativeRole,
   NarrativeStructure,
+  SceneInformationShape,
   StoryScene,
   VisualLayer,
   VisualMedium,
   VisualNarrativeContract,
 } from "../domain/project-spec";
 import { VISUAL_NARRATIVE_VERSION } from "../domain/project-spec";
+import type { BriefEvidenceContract, BriefEvidenceItem } from "../domain/brief-evidence";
 import type { BriefAnalysis } from "./brief-analyzer";
 import type { AssetBundle } from "./asset-sourcer";
 import type { DesignPlan } from "./plan-generator";
@@ -158,25 +160,72 @@ function mediumFor(role: NarrativeRole, model: ExperienceModel, assetBundle: Ass
   return photographyExpected ? "photography" : "typography";
 }
 
-function sceneCopy(role: NarrativeRole, analysis: BriefAnalysis): Pick<StoryScene, "audienceQuestion" | "purpose" | "focalObject" | "evidence" | "action" | "visibleConsequence"> {
+function evidenceOf(
+  contract: BriefEvidenceContract,
+  kinds: BriefEvidenceItem["kind"][],
+  limit: number
+): BriefEvidenceItem[] {
+  return contract.items.filter((item) => kinds.includes(item.kind)).slice(0, limit);
+}
+
+function recordSummaries(contract: BriefEvidenceContract, limit = 3): string[] {
+  return contract.records.slice(0, limit).map((record) => {
+    const attributes = record.attributes.map((attribute) => `${attribute.label}: ${attribute.value}`).join("; ");
+    return attributes ? `${record.label} — ${attributes}` : record.label;
+  });
+}
+
+function informationShape(role: NarrativeRole, contract: BriefEvidenceContract): SceneInformationShape {
+  if (role === "hook" || role === "tension") return "orientation-signal";
+  if (role === "discovery") return contract.records.length ? "record-browser" : "evidence-ledger";
+  if (role === "proof") return "evidence-ledger";
+  if (role === "choice") return contract.comparisonDimensions.length ? "comparison-matrix" : "guided-decision";
+  return "action-outcome";
+}
+
+function sceneCopy(
+  role: NarrativeRole,
+  analysis: BriefAnalysis,
+  contract: BriefEvidenceContract
+): Pick<StoryScene, "audienceQuestion" | "purpose" | "focalObject" | "evidence" | "evidenceIds" | "informationShape" | "action" | "visibleConsequence"> {
+  const records = recordSummaries(contract);
+  const facts = evidenceOf(contract, ["record", "quantified-fact", "collection-expectation"], 5);
+  const dimensions = contract.comparisonDimensions.map((dimension) => dimension.label);
+  const shape = informationShape(role, contract);
   switch (role) {
     case "hook": return {
       audienceQuestion: "What is this, and can it help me now?",
       purpose: `Make ${analysis.subject} immediately legible while keeping the primary job in view.`,
-      focalObject: analysis.subject,
-      evidence: ["Subject, audience, and constraints explicitly supplied by the brief"],
+      focalObject: contract.collectionExpectation
+        ? `${contract.collectionExpectation.expectedCount} ${contract.collectionExpectation.label}`
+        : analysis.subject,
+      evidence: facts.length ? facts.slice(0, 2).map((item) => item.text) : ["Subject, audience, and constraints explicitly supplied by the brief"],
+      evidenceIds: facts.slice(0, 2).map((item) => item.id),
+      informationShape: shape,
     };
     case "tension": return {
       audienceQuestion: "What decision or uncertainty must I resolve?",
       purpose: "Turn the audience's real uncertainty into a visible design tension, not a decorative slogan.",
       focalObject: analysis.primaryJob,
-      evidence: ["Audience need and explicit constraints from the brief"],
+      evidence: contract.gaps.length
+        ? contract.gaps.map((gap) => gap.message)
+        : facts.length
+          ? facts.slice(0, 2).map((item) => item.text)
+          : ["Audience need and explicit constraints from the brief"],
+      evidenceIds: facts.slice(0, 2).map((item) => item.id),
+      informationShape: shape,
     };
     case "discovery": return {
       audienceQuestion: "What can I inspect, navigate, or understand here?",
       purpose: "Reveal the subject through a domain-native exploration mechanism.",
-      focalObject: `Inspectable ${analysis.industry} material`,
-      evidence: ["Only items, categories, or process details explicitly present in the brief"],
+      focalObject: contract.records.length ? "The verified record collection" : `Inspectable ${analysis.industry} material`,
+      evidence: records.length
+        ? records
+        : facts.length
+          ? facts.slice(0, 3).map((item) => item.text)
+          : ["Only items, categories, or process details explicitly present in the brief"],
+      evidenceIds: contract.records.slice(0, 3).map((record) => record.evidenceId),
+      informationShape: shape,
       action: "Explore or focus a supplied item",
       visibleConsequence: "The selected context becomes visibly distinct without losing orientation",
     };
@@ -184,15 +233,21 @@ function sceneCopy(role: NarrativeRole, analysis: BriefAnalysis): Pick<StoryScen
       audienceQuestion: "What verified evidence supports my decision?",
       purpose: "Make supplied specifications, provenance, or evidence inspectable and comparable.",
       focalObject: "Verified decision evidence",
-      evidence: ["Brief facts and approved assets only", "Explicit missing-evidence labels when source material is absent"],
+      evidence: facts.length ? [...recordSummaries(contract, 5), ...facts.map((item) => item.text)].filter((value, index, values) => values.indexOf(value) === index).slice(0, 6) : ["Brief facts and approved assets only", "Explicit missing-evidence labels when source material is absent"],
+      evidenceIds: facts.map((item) => item.id),
+      informationShape: shape,
       action: "Inspect the evidence behind a choice",
       visibleConsequence: "Evidence detail or provenance becomes visible in context",
     };
     case "choice": return {
       audienceQuestion: "How do the available paths differ, and which one fits?",
       purpose: `Let ${analysis.audience} act on meaningful differences instead of scanning generic feature cards.`,
-      focalObject: "The primary decision surface",
-      evidence: ["Differences and criteria explicitly supplied by the brief"],
+      focalObject: dimensions.length ? `${dimensions.join(" / ")} comparison` : "The primary decision surface",
+      evidence: dimensions.length || records.length || contract.gaps.length
+        ? [...dimensions.map((dimension) => `Compare by ${dimension}`), ...records, ...contract.gaps.map((gap) => gap.message)].slice(0, 8)
+        : ["Differences and criteria explicitly supplied by the brief"],
+      evidenceIds: [...contract.comparisonDimensions.map((dimension) => dimension.evidenceId), ...contract.records.map((record) => record.evidenceId)].filter((value, index, values) => values.indexOf(value) === index),
+      informationShape: shape,
       action: analysis.primaryJob,
       visibleConsequence: "The chosen option, filter, or path changes the visible working state",
     };
@@ -200,7 +255,9 @@ function sceneCopy(role: NarrativeRole, analysis: BriefAnalysis): Pick<StoryScen
       audienceQuestion: "What happens when I take the next step?",
       purpose: "Resolve the experience with a truthful action and a visible, non-fabricated outcome.",
       focalObject: "Primary action and its consequence",
-      evidence: ["Connection status and next-step requirements are disclosed"],
+      evidence: [...contract.gaps.map((gap) => gap.message), "Connection status and next-step requirements are disclosed"].slice(0, 4),
+      evidenceIds: contract.collectionExpectation ? [contract.collectionExpectation.evidenceId] : [],
+      informationShape: shape,
       action: analysis.primaryJob,
       visibleConsequence: "A real route, local state, or clearly disclosed unconnected adapter responds",
     };
@@ -219,8 +276,9 @@ export function buildVisualNarrativeContract(input: {
   profile: ComplexityProfile;
   routes: NarrativeRouteBlueprint[];
   assetBundle: AssetBundle;
+  briefEvidence: BriefEvidenceContract;
 }): VisualNarrativeContract {
-  const { analysis, plan, profile, routes, assetBundle } = input;
+  const { analysis, plan, profile, routes, assetBundle, briefEvidence } = input;
   const direction = selectedDirection(plan);
   const model: ExperienceModel = direction?.descriptors.experienceModel ?? "guided-conversation";
   const signals = detectSignals(analysis);
@@ -234,7 +292,7 @@ export function buildVisualNarrativeContract(input: {
         routeId: route.id,
         narrativeRole: role,
         regionRole: regionRoleFor(role, model),
-        ...sceneCopy(role, analysis),
+        ...sceneCopy(role, analysis, briefEvidence),
         medium: mediumFor(role, model, assetBundle, signals),
         nextSceneIds: [],
       });
@@ -264,18 +322,19 @@ export function buildVisualNarrativeContract(input: {
   const detailDensity = direction?.descriptors.density === "dense" || profile === "systemic"
     ? "immersive"
     : direction?.descriptors.density === "airy" && profile === "focused"
-      ? "restrained"
+      ? briefEvidence.density === "rich" ? "layered" : "restrained"
       : "layered";
   const approvedMedia = assetBundle.photos.length > 0;
   const materialVocabulary = [
     ...plan.colorPalette.slice(0, 3).map((color) => `${color.role}: ${color.name}`),
     `signature mechanism: ${plan.signatureElement.name}`,
+    ...briefEvidence.records.flatMap((record) => record.attributes.map((attribute) => `${attribute.label}: ${attribute.value}`)).slice(0, 6),
     ...assetBundle.mediaRequirement.suggestedSubjects.slice(0, 2).map((subject) => `approved subject language: ${subject}`),
   ];
 
   return {
     version: VISUAL_NARRATIVE_VERSION,
-    thesis: `Transform ${analysis.primaryJob} into the organizing visual and interactive idea for ${analysis.subject}.`,
+    thesis: `Transform ${analysis.primaryJob} into the organizing visual and interactive idea for ${analysis.subject}${briefEvidence.comparisonDimensions.length ? ` through ${briefEvidence.comparisonDimensions.map((dimension) => dimension.label).join(", ")}` : ""}.`,
     emotionalTension: `Balance ${analysis.tone} with the audience's need to make a confident, evidence-aware decision.`,
     structure: narrativeStructure(model, routes.length),
     scenes,
@@ -294,8 +353,9 @@ export function buildVisualNarrativeContract(input: {
       forbiddenFallbacks: [
         "Generic hero, feature-card grid, testimonial strip, and CTA sequence",
         "Retired editorial register of giant type, numbered ledger rows, image interruption, and dark folio close",
+        ...briefEvidence.prohibitedPatterns.map((pattern) => pattern.text),
         ...analysis.constraints.slice(0, 2),
-      ],
+      ].filter((value, index, values) => values.indexOf(value) === index).slice(0, 12),
     },
     richness: {
       strategy: "global-clarity-local-detail",
