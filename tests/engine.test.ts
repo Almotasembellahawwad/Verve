@@ -1980,6 +1980,7 @@ test("Render Gate instrumentation stays ephemeral and supports HTML and React pr
   assert.match(htmlFiles["/__verve_render_probe.js"].code, /parent\.postMessage/);
   assert.match(htmlFiles["/__verve_render_probe.js"].code, /data-verve-primary-action/);
   assert.match(htmlFiles["/__verve_render_probe.js"].code, /functional-visual-fulfillment/);
+  assert.match(htmlFiles["/__verve_render_probe.js"].code, /rendered-composition-realization/);
   assert.match(htmlFiles["/__verve_render_probe.js"].code, /Opening size is not scored/);
   assert.equal(htmlProject.files[0].content, originalHtml);
 
@@ -2020,6 +2021,11 @@ test("Render Gate accepts only reports for the active probe", () => {
   assert.equal(isRenderGateReport(withRenderedEvidence, "active"), true);
   assert.equal(isRenderGateReport({ ...withRenderedEvidence, renderedEvidence: { ...withRenderedEvidence.renderedEvidence, score: 2 } }, "active"), false);
   assert.equal(isRenderGateReport({ ...withRenderedEvidence, renderedEvidence: { ...withRenderedEvidence.renderedEvidence, missingEvidenceKeys: ["evidence-1"] } }, "active"), false);
+  const geometry = { itemCount: 4, columnBands: 2, rowBands: 2, horizontalSpread: 0.7, verticalSpread: 0.6, overlapRatio: 0, boundaryCrossing: 0, dominance: 0.3, depthDensity: 0.2, edgeBias: 0.5, sizeVariation: 0.4, angularCoverage: 1, alignmentConcentration: 0.5, occupiedArea: 0.7, mediaCoverage: 0.3, mediaFragments: 2, internalPan: false };
+  const withRenderedComposition = { ...withRenderedEvidence, renderedComposition: { score: 0.76, expectedScenes: 1, observedScenes: 1, realizedScenes: 1, minimumAdjacentDistance: 1, repeatedAdjacentPairs: 0, scenes: [{ sceneKey: "surface-abc123", structure: "modular-matrix", mobileTransform: "focus-and-drawer", markerMatch: true, score: 0.76, geometry }], missingSceneKeys: [], weakSceneKeys: [], privacy: "numeric-and-hashed-composition-only" } };
+  assert.equal(isRenderGateReport(withRenderedComposition, "active"), true);
+  assert.equal(isRenderGateReport({ ...withRenderedComposition, renderedComposition: { ...withRenderedComposition.renderedComposition, scenes: [{ ...withRenderedComposition.renderedComposition.scenes[0], geometry: { ...geometry, columnBands: 9 } }] } }, "active"), false);
+  assert.equal(isRenderGateReport({ ...withRenderedComposition, renderedComposition: { ...withRenderedComposition.renderedComposition, missingSceneKeys: ["private-scene-id"] } }, "active"), false);
 });
 
 test("Render Gate requires evidence at 360, 768, and 1440 before passing", () => {
@@ -2034,6 +2040,7 @@ test("Render Gate requires evidence at 360, 768, and 1440 before passing", () =>
     firstViewport: { taskSignalCount: 2, taskCoverage: 1, informationSalience: 0.8, primaryActionVisible: true, actionClarity: 1, scrollCost: 0, score: width === 360 ? 0.72 : 0.95 },
     functionalVisual: { score: width === 360 ? 0.68 : 0.9, expectedScenes: 4, renderedScenes: 4, fulfilledScenes: 3, requiredLayers: ["type", "interaction"], observedLayers: ["type", "interaction"], missingLayers: [], orphanVisualRatio: 0.1, missingAssetSceneIds: [] },
     renderedEvidence: { score: width === 360 ? 0.66 : 0.88, coverage: 1, prominence: width === 360 ? 0.44 : 0.78, firstViewportCoverage: 1, expected: 3, observed: 3, prominent: 2, missingEvidenceKeys: [], missingCriticalKeys: [], privacy: "numeric-and-hashed-evidence-only" },
+    renderedComposition: { score: width === 360 ? 0.64 : 0.86, expectedScenes: 1, observedScenes: 1, realizedScenes: 1, minimumAdjacentDistance: 1, repeatedAdjacentPairs: 0, scenes: [{ sceneKey: "surface-scene", structure: "split-stage", mobileTransform: "single-column-reorder", markerMatch: true, score: 0.8, geometry: { itemCount: 2, columnBands: width === 360 ? 1 : 2, rowBands: width === 360 ? 2 : 1, horizontalSpread: width === 360 ? 0 : 0.5, verticalSpread: width === 360 ? 0.5 : 0, overlapRatio: 0, boundaryCrossing: 0, dominance: 0.5, depthDensity: 0.2, edgeBias: 0.4, sizeVariation: 0, angularCoverage: 0.5, alignmentConcentration: 0.5, occupiedArea: 0.8, mediaCoverage: 0.4, mediaFragments: 1, internalPan: false } }], missingSceneKeys: [], weakSceneKeys: [], privacy: "numeric-and-hashed-composition-only" },
   });
   let matrix = createRenderEvidenceMatrix();
   matrix = recordRenderEvidence(matrix, report(360));
@@ -2046,6 +2053,7 @@ test("Render Gate requires evidence at 360, 768, and 1440 before passing", () =>
   assert.equal(matrix.firstViewportScore, 0.72);
   assert.equal(matrix.functionalVisualScore, 0.68);
   assert.equal(matrix.renderedEvidenceScore, 0.66);
+  assert.equal(matrix.renderedCompositionScore, 0.64);
   matrix = recordRenderEvidence(matrix, report(768, "fail"));
   assert.equal(matrix.status, "fail");
   assert.equal(matrix.failures, 1);

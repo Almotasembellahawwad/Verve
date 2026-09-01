@@ -1,11 +1,12 @@
 import type { VerveProjectSpec, VisualLayer } from "../domain/project-spec";
 import {
   RENDER_EVIDENCE_WIDTHS,
+  type RenderedCompositionScene,
   type RenderEvidenceWidth,
   type RenderGateReport,
 } from "./render-gate";
 
-export const VISUAL_TRUTH_VERSION = 1 as const;
+export const VISUAL_TRUTH_VERSION = 2 as const;
 
 export type VisualTruthRouteExpectation = {
   routeKey: string;
@@ -51,6 +52,7 @@ export type DirectionRealizationReport = {
     responsive: DirectionFidelityAxis;
     states: DirectionFidelityAxis;
     scenes: DirectionFidelityAxis;
+    composition: DirectionFidelityAxis;
     layers: DirectionFidelityAxis;
     typography: DirectionFidelityAxis;
   };
@@ -196,6 +198,33 @@ function axis(score: number, weight: number, observed: number, expected: number)
   };
 }
 
+function compositionGeometryDistance(left: RenderedCompositionScene, right: RenderedCompositionScene): number {
+  const a = left.geometry;
+  const b = right.geometry;
+  const leftVector = [a.columnBands / 4, a.rowBands / 4, a.horizontalSpread, a.verticalSpread, a.overlapRatio, a.boundaryCrossing, a.dominance, a.depthDensity, a.edgeBias, a.sizeVariation, a.angularCoverage, a.alignmentConcentration, a.occupiedArea, a.mediaCoverage, Math.min(1, a.mediaFragments / 4), a.internalPan ? 1 : 0];
+  const rightVector = [b.columnBands / 4, b.rowBands / 4, b.horizontalSpread, b.verticalSpread, b.overlapRatio, b.boundaryCrossing, b.dominance, b.depthDensity, b.edgeBias, b.sizeVariation, b.angularCoverage, b.alignmentConcentration, b.occupiedArea, b.mediaCoverage, Math.min(1, b.mediaFragments / 4), b.internalPan ? 1 : 0];
+  return leftVector.reduce((total, value, index) => total + Math.abs(value - rightVector[index]), 0) / leftVector.length;
+}
+
+function responsiveCompositionScore(mobile: RenderedCompositionScene, desktop: RenderedCompositionScene): number {
+  const geometry = mobile.geometry;
+  const desktopGeometry = desktop.geometry;
+  const distance = compositionGeometryDistance(mobile, desktop);
+  if (mobile.mobileTransform === "single-column-reorder") {
+    return geometry.columnBands <= Math.max(1, Math.min(2, desktopGeometry.columnBands)) && geometry.rowBands >= 1 ? 1 : 0.4;
+  }
+  if (mobile.mobileTransform === "focus-and-drawer") {
+    return geometry.internalPan || geometry.columnBands < desktopGeometry.columnBands || distance >= 0.1 ? 1 : 0.35;
+  }
+  if (mobile.mobileTransform === "stacked-overlap-preserved") {
+    return geometry.overlapRatio >= 0.02 || geometry.depthDensity >= 0.08 || geometry.boundaryCrossing >= 0.02 ? 1 : 0.4;
+  }
+  if (mobile.mobileTransform === "pan-and-focus") {
+    return geometry.internalPan || (geometry.horizontalSpread >= 0.45 && geometry.columnBands >= 2) ? 1 : 0.25;
+  }
+  return geometry.columnBands <= 2 && geometry.rowBands >= 2 ? 1 : 0.35;
+}
+
 export function buildDirectionRealizationReport(
   spec: VerveProjectSpec,
   matrix: VisualTruthMatrix
@@ -237,14 +266,36 @@ export function buildDirectionRealizationReport(
     .map((entry) => normalizeFontFamily(entry.family)));
   const expectedFonts = matrix.contract.expectedFontFamilies;
   const matchedFonts = expectedFonts.filter((family) => observedFonts.has(family)).length;
+  const compositionAssignments = spec.narrative.compositionGenome?.assignments ?? [];
+  const compositionReports = reports.flatMap((report) => report.renderedComposition ? [report.renderedComposition] : []);
+  const compositionScenes = compositionReports.flatMap((report) => report.scenes);
+  const realizedSceneKeys = new Set(compositionScenes.filter((scene) => scene.score >= 0.6).map((scene) => scene.sceneKey));
+  const bestAtWidth = (sceneKey: string, width: number) => reports
+    .filter((report) => Math.abs(report.viewport.width - width) <= 2)
+    .flatMap((report) => report.renderedComposition?.scenes.filter((scene) => scene.sceneKey === sceneKey) ?? [])
+    .sort((left, right) => right.score - left.score)[0];
+  const measuredSceneKeys = [...new Set(compositionScenes.map((scene) => scene.sceneKey))];
+  const recompositionScores = measuredSceneKeys.flatMap((sceneKey) => {
+    const mobile = bestAtWidth(sceneKey, 360);
+    const desktop = bestAtWidth(sceneKey, 1440);
+    return mobile && desktop ? [responsiveCompositionScore(mobile, desktop)] : [];
+  });
+  const baseCompositionScore = compositionReports.length ? Math.min(...compositionReports.map((report) => report.score)) : 0;
+  const recompositionScore = recompositionScores.length === compositionAssignments.length
+    ? recompositionScores.reduce((total, score) => total + score, 0) / Math.max(1, recompositionScores.length)
+    : 0;
+  const compositionScore = compositionAssignments.length
+    ? Math.sqrt(Math.max(0, baseCompositionScore * recompositionScore))
+    : 1;
 
   const axes = {
-    routes: axis(matrix.coveredRoutes / Math.max(1, matrix.expectedRoutes), 0.2, matrix.coveredRoutes, matrix.expectedRoutes),
-    responsive: axis(matrix.coveredRouteViewports / Math.max(1, matrix.expectedRouteViewports), 0.15, matrix.coveredRouteViewports, matrix.expectedRouteViewports),
-    states: axis(matrix.coveredStates / Math.max(1, matrix.expectedStates), 0.15, matrix.coveredStates, matrix.expectedStates),
-    scenes: axis(sceneScore, 0.2, sceneObserved, sceneExpected),
-    layers: axis(requiredLayers.filter((layer) => observedLayers.has(layer)).length / Math.max(1, requiredLayers.length), 0.15, requiredLayers.filter((layer) => observedLayers.has(layer)).length, requiredLayers.length),
-    typography: axis(expectedFonts.length ? matchedFonts / expectedFonts.length : 1, 0.15, matchedFonts, expectedFonts.length),
+    routes: axis(matrix.coveredRoutes / Math.max(1, matrix.expectedRoutes), 0.14, matrix.coveredRoutes, matrix.expectedRoutes),
+    responsive: axis(matrix.coveredRouteViewports / Math.max(1, matrix.expectedRouteViewports), 0.12, matrix.coveredRouteViewports, matrix.expectedRouteViewports),
+    states: axis(matrix.coveredStates / Math.max(1, matrix.expectedStates), 0.1, matrix.coveredStates, matrix.expectedStates),
+    scenes: axis(sceneScore, 0.16, sceneObserved, sceneExpected),
+    composition: axis(compositionScore, 0.2, realizedSceneKeys.size, compositionAssignments.length),
+    layers: axis(requiredLayers.filter((layer) => observedLayers.has(layer)).length / Math.max(1, requiredLayers.length), 0.14, requiredLayers.filter((layer) => observedLayers.has(layer)).length, requiredLayers.length),
+    typography: axis(expectedFonts.length ? matchedFonts / expectedFonts.length : 1, 0.14, matchedFonts, expectedFonts.length),
   };
   const fidelity = Number(Object.values(axes)
     .reduce((total, item) => total + item.score * item.weight, 0)
@@ -254,6 +305,7 @@ export function buildDirectionRealizationReport(
   if (axes.responsive.score < 1) unverified.push(`${matrix.expectedRouteViewports - matrix.coveredRouteViewports} route/viewport surface(s) are missing.`);
   if (axes.states.score < 1) unverified.push(`${Math.max(0, matrix.expectedStates - matrix.coveredStates)} declared state(s) were not exercised.`);
   if (axes.scenes.score < 0.72) unverified.push("Functional scene fulfillment is below the release threshold.");
+  if (axes.composition.score < 0.6) unverified.push("Rendered scene geometry or its responsive transformation does not realize the Composition Genome.");
   if (axes.layers.score < 1) unverified.push("One or more required visual layers were not observed.");
   if (axes.typography.score < 1) unverified.push("The bundled typography contract was not fully observed in the render.");
   const status = matrix.failures > 0 || fidelity < 0.5

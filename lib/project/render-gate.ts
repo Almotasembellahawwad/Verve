@@ -1,13 +1,18 @@
 import type { GeneratedProject } from "./types";
 import { replaceOwnedAssetReferences } from "./brand-kit";
 import { FIRST_VIEWPORT_THRESHOLDS, type FirstViewportEvidence } from "../domain/first-viewport";
-import type { VerveProjectSpec, VisualLayer } from "../domain/project-spec";
+import type {
+  CompositionMobileTransform,
+  CompositionStructure,
+  VerveProjectSpec,
+  VisualLayer,
+} from "../domain/project-spec";
 import type { BriefEvidenceKind } from "../domain/brief-evidence";
 
 export type SandboxFileMap = Record<string, { code: string }>;
 
 export type RenderGateCheck = {
-  id: "horizontal-overflow" | "runtime-errors" | "tiny-text" | "image-alt" | "duplicate-ids" | "button-names" | "first-viewport-effectiveness" | "functional-visual-fulfillment" | "rendered-evidence-salience";
+  id: "horizontal-overflow" | "runtime-errors" | "tiny-text" | "image-alt" | "duplicate-ids" | "button-names" | "first-viewport-effectiveness" | "functional-visual-fulfillment" | "rendered-evidence-salience" | "rendered-composition-realization";
   title: string;
   status: "pass" | "warning" | "fail";
   message: string;
@@ -37,6 +42,50 @@ export type RenderedEvidenceSalience = {
   missingEvidenceKeys: string[];
   missingCriticalKeys: string[];
   privacy: "numeric-and-hashed-evidence-only";
+};
+
+export type RenderedCompositionGeometry = {
+  itemCount: number;
+  columnBands: number;
+  rowBands: number;
+  horizontalSpread: number;
+  verticalSpread: number;
+  overlapRatio: number;
+  boundaryCrossing: number;
+  dominance: number;
+  depthDensity: number;
+  edgeBias: number;
+  sizeVariation: number;
+  angularCoverage: number;
+  alignmentConcentration: number;
+  occupiedArea: number;
+  mediaCoverage: number;
+  mediaFragments: number;
+  internalPan: boolean;
+};
+
+export type RenderedCompositionScene = {
+  /** FNV-1a hash of the private scene ID. */
+  sceneKey: string;
+  structure: CompositionStructure;
+  mobileTransform: CompositionMobileTransform;
+  markerMatch: boolean;
+  score: number;
+  geometry: RenderedCompositionGeometry;
+};
+
+export type RenderedCompositionRealization = {
+  /** Experimental geometry realization evidence, not a beauty score. */
+  score: number;
+  expectedScenes: number;
+  observedScenes: number;
+  realizedScenes: number;
+  minimumAdjacentDistance: number;
+  repeatedAdjacentPairs: number;
+  scenes: RenderedCompositionScene[];
+  missingSceneKeys: string[];
+  weakSceneKeys: string[];
+  privacy: "numeric-and-hashed-composition-only";
 };
 
 export type VisualFingerprint = {
@@ -79,6 +128,7 @@ export type RenderGateReport = {
   firstViewport?: FirstViewportEvidence;
   functionalVisual?: FunctionalVisualEvidence;
   renderedEvidence?: RenderedEvidenceSalience;
+  renderedComposition?: RenderedCompositionRealization;
 };
 
 function vectorDistance(left: number[], right: number[]): number {
@@ -152,6 +202,7 @@ export type RenderEvidenceMatrix = {
   firstViewportScore: number | null;
   functionalVisualScore: number | null;
   renderedEvidenceScore: number | null;
+  renderedCompositionScore: number | null;
 };
 
 export function createRenderEvidenceMatrix(): RenderEvidenceMatrix {
@@ -166,6 +217,7 @@ export function createRenderEvidenceMatrix(): RenderEvidenceMatrix {
     firstViewportScore: null,
     functionalVisualScore: null,
     renderedEvidenceScore: null,
+    renderedCompositionScore: null,
   };
 }
 
@@ -192,6 +244,7 @@ export function recordRenderEvidence(
   const firstViewportScores = captured.flatMap((item) => item.firstViewport ? [item.firstViewport.score] : []);
   const functionalVisualScores = captured.flatMap((item) => item.functionalVisual ? [item.functionalVisual.score] : []);
   const renderedEvidenceScores = captured.flatMap((item) => item.renderedEvidence ? [item.renderedEvidence.score] : []);
+  const renderedCompositionScores = captured.flatMap((item) => item.renderedComposition ? [item.renderedComposition.score] : []);
   const status = failures > 0
     ? "fail"
     : warnings > 0
@@ -211,6 +264,7 @@ export function recordRenderEvidence(
     firstViewportScore: firstViewportScores.length ? Math.min(...firstViewportScores) : null,
     functionalVisualScore: functionalVisualScores.length ? Math.min(...functionalVisualScores) : null,
     renderedEvidenceScore: renderedEvidenceScores.length ? Math.min(...renderedEvidenceScores) : null,
+    renderedCompositionScore: renderedCompositionScores.length ? Math.min(...renderedCompositionScores) : null,
   };
 }
 
@@ -227,6 +281,7 @@ function visualIntentExpectation(spec?: VerveProjectSpec, context?: RenderProbeC
   const evidenceKinds = new Map<string, BriefEvidenceKind>((spec.briefEvidence?.items ?? []).map((item) => [item.id, item.kind]));
   const narrativeScenes = spec.narrative?.scenes ?? [];
   const sceneDirections = spec.assetDirection?.sceneDirections ?? [];
+  const compositionAssignments = new Map((spec.narrative?.compositionGenome?.assignments ?? []).map((assignment) => [assignment.sceneId, assignment]));
   return {
     defaultRouteIdentity: defaultRoute?.id ?? defaultRoute?.path ?? "root",
     routes: spec.experience.routes.map((route) => {
@@ -247,12 +302,19 @@ function visualIntentExpectation(spec?: VerveProjectSpec, context?: RenderProbeC
           .reduce((total, interaction) => total + Math.max(1, interaction.states.length), 0)),
         evidence,
         firstViewportEvidenceIds: (firstScene?.evidenceIds ?? []).filter((id) => evidence.some((item) => item.id === id)),
-        scenes: sceneDirections.filter((direction) => sceneIds.has(direction.sceneId)).map((direction) => ({
-          id: direction.sceneId,
-          layers: direction.expectedLayers,
-          assetIds: direction.selectedAssetIds,
-          assetRequired: direction.requirement === "required",
-        })),
+        scenes: sceneDirections.filter((direction) => sceneIds.has(direction.sceneId)).map((direction) => {
+          const composition = compositionAssignments.get(direction.sceneId);
+          return {
+            id: direction.sceneId,
+            layers: direction.expectedLayers,
+            assetIds: direction.selectedAssetIds,
+            assetRequired: direction.requirement === "required",
+            composition: composition ? {
+              genes: composition.genes,
+              mobileTransform: composition.mobileTransform,
+            } : null,
+          };
+        }),
       };
     }),
   };
@@ -606,6 +668,162 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
         missingAssetSceneIds: sceneResults.filter((scene) => scene.assetMissing).map((scene) => scene.id)
       };
     }
+    let renderedComposition = null;
+    const expectedCompositionScenes = activeVisualIntent && Array.isArray(activeVisualIntent.scenes)
+      ? activeVisualIntent.scenes.filter((scene) => scene.composition)
+      : [];
+    if (expectedCompositionScenes.length > 0) {
+      const clampUnit = (value) => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
+      const mean = (values) => values.length ? values.reduce((sum, value) => sum + clampUnit(value), 0) / values.length : 0;
+      const emptyGeometry = () => ({ itemCount: 0, columnBands: 0, rowBands: 0, horizontalSpread: 0, verticalSpread: 0, overlapRatio: 0, boundaryCrossing: 0, dominance: 0, depthDensity: 0, edgeBias: 0, sizeVariation: 0, angularCoverage: 0, alignmentConcentration: 0, occupiedArea: 0, mediaCoverage: 0, mediaFragments: 0, internalPan: false });
+      const geometryDistance = (left, right) => {
+        const leftVector = [left.columnBands / 4, left.rowBands / 4, left.horizontalSpread, left.verticalSpread, left.overlapRatio, left.boundaryCrossing, left.dominance, left.depthDensity, left.edgeBias, left.sizeVariation, left.angularCoverage, left.alignmentConcentration, left.occupiedArea, left.mediaCoverage, Math.min(1, left.mediaFragments / 4), left.internalPan ? 1 : 0];
+        const rightVector = [right.columnBands / 4, right.rowBands / 4, right.horizontalSpread, right.verticalSpread, right.overlapRatio, right.boundaryCrossing, right.dominance, right.depthDensity, right.edgeBias, right.sizeVariation, right.angularCoverage, right.alignmentConcentration, right.occupiedArea, right.mediaCoverage, Math.min(1, right.mediaFragments / 4), right.internalPan ? 1 : 0];
+        return mean(leftVector.map((value, index) => Math.abs(value - rightVector[index])));
+      };
+      const scoreStructure = (structure, geometry) => {
+        const items = Math.min(1, geometry.itemCount / 4);
+        const columns = Math.min(1, geometry.columnBands / 3);
+        const rows = Math.min(1, geometry.rowBands / 3);
+        if (structure === 'single-object-stage') return mean([geometry.dominance, 1 - Math.min(1, Math.max(0, geometry.itemCount - 2) / 5), 1 - geometry.edgeBias * 0.55]);
+        if (structure === 'split-stage') return mean([Math.min(1, geometry.horizontalSpread * 1.6), geometry.columnBands >= 2 ? 1 : 0, Math.min(1, geometry.itemCount / 2), 1 - geometry.overlapRatio]);
+        if (structure === 'rail-canvas') return mean([Math.min(1, geometry.horizontalSpread * 1.5), columns, items, geometry.internalPan ? 1 : 0.65]);
+        if (structure === 'layered-field') return mean([Math.min(1, Math.max(geometry.overlapRatio * 4, geometry.boundaryCrossing * 2, geometry.depthDensity * 2)), Math.min(1, geometry.itemCount / 3), geometry.sizeVariation]);
+        if (structure === 'modular-matrix') return mean([items, columns, rows, 1 - geometry.overlapRatio]);
+        if (structure === 'radial-map') return mean([Math.min(1, geometry.itemCount / 3), geometry.angularCoverage, 1 - geometry.alignmentConcentration, Math.min(1, geometry.horizontalSpread + geometry.verticalSpread)]);
+        if (structure === 'editorial-spine') return mean([Math.min(1, geometry.verticalSpread * 1.4), rows, geometry.alignmentConcentration, Math.min(1, geometry.itemCount / 3)]);
+        return mean([items, columns, rows, geometry.sizeVariation]);
+      };
+      const scoreGenes = (genes, geometry, largestCenterX) => {
+        const horizontalLead = document.documentElement.dir === 'rtl' ? 0.75 : 0.25;
+        const focal = genes.focalPosition === 'center' ? 1 - Math.min(1, Math.abs(largestCenterX - 0.5) * 2)
+          : genes.focalPosition === 'edge' ? geometry.edgeBias
+            : genes.focalPosition === 'distributed' ? mean([geometry.horizontalSpread, geometry.verticalSpread])
+              : 1 - Math.min(1, Math.abs(largestCenterX - (genes.focalPosition === 'leading' ? horizontalLead : 1 - horizontalLead)) * 2);
+        const flow = genes.flow === 'vertical' ? clampUnit(0.5 + (geometry.verticalSpread - geometry.horizontalSpread))
+          : genes.flow === 'horizontal' ? clampUnit(0.5 + (geometry.horizontalSpread - geometry.verticalSpread))
+            : genes.flow === 'radial' ? geometry.angularCoverage
+              : genes.flow === 'freeform' ? mean([1 - geometry.alignmentConcentration, geometry.sizeVariation, Math.max(geometry.overlapRatio, geometry.boundaryCrossing)])
+                : mean([Math.min(1, geometry.columnBands / 2), Math.min(1, geometry.rowBands / 2)]);
+        const overlap = genes.overlap === 'none' ? 1 - geometry.overlapRatio
+          : genes.overlap === 'contained' ? mean([1 - geometry.boundaryCrossing, Math.min(1, geometry.overlapRatio * 3 + geometry.depthDensity)])
+            : Math.min(1, Math.max(geometry.boundaryCrossing * 2, geometry.overlapRatio * 3, geometry.depthDensity * 1.5));
+        const depth = genes.depth === 'flat' ? 1 - geometry.depthDensity
+          : genes.depth === 'layered' ? Math.min(1, geometry.depthDensity * 2 + geometry.overlapRatio)
+            : Math.min(1, geometry.depthDensity * 1.7 + geometry.boundaryCrossing + geometry.dominance * 0.35);
+        const density = genes.density === 'sparse' ? 1 - Math.min(1, Math.max(0, geometry.itemCount - 3) / 6)
+          : genes.density === 'dense' ? mean([Math.min(1, geometry.itemCount / 5), geometry.occupiedArea])
+            : mean([1 - Math.min(1, Math.abs(geometry.itemCount - 4) / 5), 1 - Math.min(1, Math.abs(geometry.occupiedArea - 0.55) / 0.55)]);
+        const media = genes.mediaFrame === 'none' ? (geometry.mediaFragments === 0 ? 1 : 0)
+          : genes.mediaFrame === 'full-bleed' ? Math.min(1, geometry.mediaCoverage / 0.5)
+            : genes.mediaFrame === 'fragmented' ? mean([Math.min(1, geometry.mediaFragments / 2), geometry.sizeVariation])
+              : genes.mediaFrame === 'strip' ? mean([geometry.mediaFragments > 0 ? 1 : 0, Math.min(1, geometry.horizontalSpread * 1.5)])
+                : genes.mediaFrame === 'constellation' ? mean([Math.min(1, geometry.mediaFragments / 3), geometry.angularCoverage])
+                  : mean([geometry.mediaFragments > 0 ? 1 : 0.65, 1 - Math.max(0, geometry.mediaCoverage - 0.65)]);
+        return mean([focal, flow, overlap, depth, density, media]);
+      };
+      const sceneResults = expectedCompositionScenes.map((expected) => {
+        const root = document.querySelector('[data-verve-scene="' + CSS.escape(expected.id) + '"]');
+        if (!root || !visible(root)) return { id: expected.id, observed: false, markerMatch: false, score: 0, geometry: emptyGeometry(), structure: expected.composition.genes.structure, mobileTransform: expected.composition.mobileTransform };
+        const rootRect = root.getBoundingClientRect();
+        const meaningful = (element) => {
+          if (!visible(element)) return false;
+          const rect = element.getBoundingClientRect();
+          return rect.width >= 4 && rect.height >= 4 && rect.bottom >= rootRect.top && rect.top <= rootRect.bottom;
+        };
+        let items = [...root.children].filter(meaningful);
+        if (items.length === 1) {
+          const unwrapped = [...items[0].children].filter(meaningful);
+          if (unwrapped.length >= 2) items = unwrapped;
+        }
+        items = items.slice(0, 16);
+        const rects = items.map((element) => element.getBoundingClientRect());
+        const rootArea = Math.max(1, rootRect.width * rootRect.height);
+        const areas = rects.map((rect) => Math.max(0, rect.width * rect.height));
+        const totalArea = Math.max(1, areas.reduce((sum, value) => sum + value, 0));
+        const largestIndex = areas.reduce((best, area, index) => area > (areas[best] || 0) ? index : best, 0);
+        const largestRect = rects[largestIndex] || rootRect;
+        const centerX = (rect) => clampUnit((rect.left + rect.width / 2 - rootRect.left) / Math.max(1, rootRect.width));
+        const centerY = (rect) => clampUnit((rect.top + rect.height / 2 - rootRect.top) / Math.max(1, rootRect.height));
+        const xCenters = rects.map(centerX);
+        const yCenters = rects.map(centerY);
+        const columnBands = new Set(xCenters.map((value) => Math.max(0, Math.min(3, Math.floor(value * 4))))).size;
+        const rowBands = new Set(yCenters.map((value) => Math.max(0, Math.min(3, Math.floor(value * 4))))).size;
+        let overlapTotal = 0;
+        let overlapPairs = 0;
+        for (let left = 0; left < rects.length; left++) for (let right = left + 1; right < rects.length; right++) {
+          const intersectionWidth = Math.max(0, Math.min(rects[left].right, rects[right].right) - Math.max(rects[left].left, rects[right].left));
+          const intersectionHeight = Math.max(0, Math.min(rects[left].bottom, rects[right].bottom) - Math.max(rects[left].top, rects[right].top));
+          overlapTotal += intersectionWidth * intersectionHeight / Math.max(1, Math.min(areas[left], areas[right]));
+          overlapPairs++;
+        }
+        const descendants = [root, ...root.querySelectorAll('*')].filter(visible).slice(0, 80);
+        const depthSignals = descendants.filter((element) => {
+          const style = getComputedStyle(element);
+          const z = Number.parseInt(style.zIndex, 10);
+          return Boolean(style.boxShadow && style.boxShadow !== 'none') || Boolean(style.filter && style.filter !== 'none') || Boolean(style.backdropFilter && style.backdropFilter !== 'none') || Boolean(style.transform && style.transform !== 'none') || ['absolute','fixed','sticky'].includes(style.position) || (Number.isFinite(z) && z !== 0);
+        }).length;
+        const mediaElements = descendants.filter((element) => element.matches('img,picture,video,canvas,svg'));
+        const mediaArea = mediaElements.reduce((sum, element) => {
+          const rect = element.getBoundingClientRect();
+          return sum + Math.max(0, rect.width * rect.height);
+        }, 0);
+        const quadrants = new Set(rects.map((rect) => {
+          const x = centerX(rect) - 0.5;
+          const y = centerY(rect) - 0.5;
+          return (x >= 0 ? 1 : 0) + (y >= 0 ? 2 : 0);
+        }));
+        const alignmentBuckets = new Map();
+        rects.forEach((rect) => {
+          const bucket = Math.max(0, Math.min(7, Math.round(clampUnit((rect.left - rootRect.left) / Math.max(1, rootRect.width)) * 7)));
+          alignmentBuckets.set(bucket, (alignmentBuckets.get(bucket) || 0) + 1);
+        });
+        const geometry = {
+          itemCount: items.length,
+          columnBands,
+          rowBands,
+          horizontalSpread: xCenters.length > 1 ? Math.max(...xCenters) - Math.min(...xCenters) : 0,
+          verticalSpread: yCenters.length > 1 ? Math.max(...yCenters) - Math.min(...yCenters) : 0,
+          overlapRatio: overlapPairs ? clampUnit(overlapTotal / overlapPairs) : 0,
+          boundaryCrossing: rects.length ? rects.filter((rect) => rect.left < rootRect.left - 2 || rect.right > rootRect.right + 2 || rect.top < rootRect.top - 2 || rect.bottom > rootRect.bottom + 2).length / rects.length : 0,
+          dominance: areas.length ? clampUnit(Math.max(...areas) / totalArea) : 0,
+          depthDensity: clampUnit(depthSignals / Math.max(1, Math.min(12, descendants.length))),
+          edgeBias: clampUnit(Math.abs(centerX(largestRect) - 0.5) * 2),
+          sizeVariation: areas.length > 1 ? clampUnit((Math.max(...areas) - Math.min(...areas)) / Math.max(1, Math.max(...areas))) : 0,
+          angularCoverage: clampUnit(quadrants.size / 4),
+          alignmentConcentration: items.length ? clampUnit(Math.max(0, ...alignmentBuckets.values()) / items.length) : 0,
+          occupiedArea: clampUnit(totalArea / rootArea),
+          mediaCoverage: clampUnit(mediaArea / rootArea),
+          mediaFragments: mediaElements.length,
+          internalPan: root.scrollWidth > root.clientWidth + 2
+        };
+        Object.keys(geometry).forEach((key) => { if (typeof geometry[key] === 'number') geometry[key] = key === 'itemCount' || key === 'columnBands' || key === 'rowBands' || key === 'mediaFragments' ? geometry[key] : Number(clampUnit(geometry[key]).toFixed(3)); });
+        const genes = expected.composition.genes;
+        const markerMatch = root.getAttribute('data-verve-composition') === genes.structure && root.getAttribute('data-verve-flow') === genes.flow && root.getAttribute('data-verve-depth') === genes.depth;
+        const geometryScore = Math.sqrt(Math.max(0, scoreStructure(genes.structure, geometry) * scoreGenes(genes, geometry, centerX(largestRect))));
+        return { id: expected.id, observed: true, markerMatch, score: Number((geometryScore * (markerMatch ? 1 : 0.45)).toFixed(3)), geometry, structure: genes.structure, mobileTransform: expected.composition.mobileTransform };
+      });
+      const observed = sceneResults.filter((scene) => scene.observed);
+      const adjacentDistances = [];
+      for (let index = 1; index < observed.length; index++) adjacentDistances.push(geometryDistance(observed[index - 1].geometry, observed[index].geometry));
+      const minimumAdjacentDistance = adjacentDistances.length ? Math.min(...adjacentDistances) : 1;
+      const repeatedAdjacentPairs = adjacentDistances.filter((distance) => distance < 0.12).length;
+      const harmonicScores = sceneResults.map((scene) => Math.max(0.001, scene.score));
+      const harmonicScore = harmonicScores.length / harmonicScores.reduce((sum, value) => sum + 1 / value, 0);
+      const score = harmonicScore * (1 - repeatedAdjacentPairs / Math.max(1, adjacentDistances.length) * 0.35);
+      renderedComposition = {
+        score: Number(clampUnit(score).toFixed(3)),
+        expectedScenes: sceneResults.length,
+        observedScenes: observed.length,
+        realizedScenes: sceneResults.filter((scene) => scene.score >= 0.6).length,
+        minimumAdjacentDistance: Number(clampUnit(minimumAdjacentDistance).toFixed(3)),
+        repeatedAdjacentPairs,
+        scenes: observed.map((scene) => ({ sceneKey: privacyKey('composition:' + scene.id), structure: scene.structure, mobileTransform: scene.mobileTransform, markerMatch: scene.markerMatch, score: scene.score, geometry: scene.geometry })),
+        missingSceneKeys: sceneResults.filter((scene) => !scene.observed).map((scene) => privacyKey('composition:' + scene.id)),
+        weakSceneKeys: sceneResults.filter((scene) => scene.observed && scene.score < 0.6).map((scene) => privacyKey('composition:' + scene.id)),
+        privacy: 'numeric-and-hashed-composition-only'
+      };
+    }
     let renderedEvidence = null;
     if (activeVisualIntent && Array.isArray(activeVisualIntent.evidence) && activeVisualIntent.evidence.length > 0) {
       const weightOf = (kind) => kind === 'record' || kind === 'collection-expectation' ? 3 : kind === 'comparison-dimension' ? 2 : 1;
@@ -676,9 +894,10 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
       { id: "button-names", title: "Rendered button names", status: unnamedButtons.length ? "warning" : "pass", message: unnamedButtons.length ? "Unnamed buttons: " + unnamedButtons.join(", ") : "Every rendered button has an accessible name." },
       { id: "first-viewport-effectiveness", title: "First viewport effectiveness", status: taskSignalCount < ${FIRST_VIEWPORT_THRESHOLDS.minimumTaskSignals} || !primaryActionVisible || firstViewportScore < ${FIRST_VIEWPORT_THRESHOLDS.reviewScore} ? "warning" : "pass", message: "FVE " + firstViewport.score.toFixed(2) + ": " + taskSignalCount + "/${FIRST_VIEWPORT_THRESHOLDS.minimumTaskSignals} task signals, information salience " + firstViewport.informationSalience.toFixed(2) + ", primary action " + (primaryActionVisible ? "visible" : "not visible") + ". Opening size is not scored." },
       ...(functionalVisual ? [{ id: "functional-visual-fulfillment", title: "Functional visual fulfillment", status: functionalVisual.missingAssetSceneIds.length || functionalVisual.renderedScenes < functionalVisual.expectedScenes ? "fail" : functionalVisual.score < 0.72 ? "warning" : "pass", message: "FVF " + functionalVisual.score.toFixed(2) + ": " + functionalVisual.fulfilledScenes + "/" + functionalVisual.expectedScenes + " scenes fulfilled, layers " + functionalVisual.observedLayers.join(", ") + ", orphan visual area " + functionalVisual.orphanVisualRatio.toFixed(2) + (functionalVisual.missingAssetSceneIds.length ? ", missing required assets in " + functionalVisual.missingAssetSceneIds.join(", ") : "") + ". Harmonic aggregation prevents one polished scene from hiding weak scenes." }] : []),
-      ...(renderedEvidence ? [{ id: "rendered-evidence-salience", title: "Rendered evidence salience", status: renderedEvidence.missingCriticalKeys.length ? "fail" : renderedEvidence.score < 0.65 || renderedEvidence.firstViewportCoverage < 1 ? "warning" : "pass", message: "RES " + renderedEvidence.score.toFixed(2) + ": " + renderedEvidence.observed + "/" + renderedEvidence.expected + " scene-bound evidence items rendered, prominence " + renderedEvidence.prominence.toFixed(2) + ", first-viewport evidence " + renderedEvidence.firstViewportCoverage.toFixed(2) + ". The report contains hashes and numeric measurements only." }] : [])
+      ...(renderedEvidence ? [{ id: "rendered-evidence-salience", title: "Rendered evidence salience", status: renderedEvidence.missingCriticalKeys.length ? "fail" : renderedEvidence.score < 0.65 || renderedEvidence.firstViewportCoverage < 1 ? "warning" : "pass", message: "RES " + renderedEvidence.score.toFixed(2) + ": " + renderedEvidence.observed + "/" + renderedEvidence.expected + " scene-bound evidence items rendered, prominence " + renderedEvidence.prominence.toFixed(2) + ", first-viewport evidence " + renderedEvidence.firstViewportCoverage.toFixed(2) + ". The report contains hashes and numeric measurements only." }] : []),
+      ...(renderedComposition ? [{ id: "rendered-composition-realization", title: "Rendered composition realization", status: renderedComposition.missingSceneKeys.length || renderedComposition.scenes.some((scene) => !scene.markerMatch) ? "fail" : renderedComposition.score < 0.6 || renderedComposition.repeatedAdjacentPairs > 0 ? "warning" : "pass", message: "RCR " + renderedComposition.score.toFixed(2) + ": " + renderedComposition.realizedScenes + "/" + renderedComposition.expectedScenes + " scene geometries realized, minimum adjacent geometry distance " + renderedComposition.minimumAdjacentDistance.toFixed(2) + ", repeated adjacent pairs " + renderedComposition.repeatedAdjacentPairs + ". This measures DOM geometry, not beauty." }] : [])
     ];
-    parent.postMessage({ source: "verve-render-gate", probeId: PROBE_ID, sequence: ++sequence, viewport: { width, height: window.innerHeight, documentWidth }, surface, checks, fingerprint, firstViewport, functionalVisual, renderedEvidence }, "*");
+    parent.postMessage({ source: "verve-render-gate", probeId: PROBE_ID, sequence: ++sequence, viewport: { width, height: window.innerHeight, documentWidth }, surface, checks, fingerprint, firstViewport, functionalVisual, renderedEvidence, renderedComposition }, "*");
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", schedule, { once: true });
   else schedule();
@@ -845,9 +1064,56 @@ export function isRenderGateReport(value: unknown, probeId: string): value is Re
       && report.renderedEvidence.missingCriticalKeys.every((key) => /^surface-[a-z0-9]+$/.test(key))
       && report.renderedEvidence.privacy === "numeric-and-hashed-evidence-only"
     ))
-    && report.checks.length <= 11
+    && (!report.renderedComposition || (
+      boundedUnit(report.renderedComposition.score)
+      && Number.isInteger(report.renderedComposition.expectedScenes)
+      && report.renderedComposition.expectedScenes >= 1
+      && report.renderedComposition.expectedScenes <= 40
+      && Number.isInteger(report.renderedComposition.observedScenes)
+      && report.renderedComposition.observedScenes >= 0
+      && report.renderedComposition.observedScenes <= report.renderedComposition.expectedScenes
+      && Number.isInteger(report.renderedComposition.realizedScenes)
+      && report.renderedComposition.realizedScenes >= 0
+      && report.renderedComposition.realizedScenes <= report.renderedComposition.observedScenes
+      && boundedUnit(report.renderedComposition.minimumAdjacentDistance)
+      && Number.isInteger(report.renderedComposition.repeatedAdjacentPairs)
+      && report.renderedComposition.repeatedAdjacentPairs >= 0
+      && report.renderedComposition.repeatedAdjacentPairs < report.renderedComposition.expectedScenes
+      && Array.isArray(report.renderedComposition.scenes)
+      && report.renderedComposition.scenes.length === report.renderedComposition.observedScenes
+      && new Set(report.renderedComposition.scenes.map((scene) => scene.sceneKey)).size === report.renderedComposition.scenes.length
+      && report.renderedComposition.scenes.every((scene) => scene
+        && /^surface-[a-z0-9]+$/.test(scene.sceneKey)
+        && ["single-object-stage", "split-stage", "rail-canvas", "layered-field", "modular-matrix", "radial-map", "editorial-spine", "mosaic-browser"].includes(scene.structure)
+        && ["single-column-reorder", "focus-and-drawer", "stacked-overlap-preserved", "pan-and-focus", "sequenced-cards"].includes(scene.mobileTransform)
+        && typeof scene.markerMatch === "boolean"
+        && boundedUnit(scene.score)
+        && scene.geometry
+        && Number.isInteger(scene.geometry.itemCount)
+        && scene.geometry.itemCount >= 0
+        && scene.geometry.itemCount <= 16
+        && Number.isInteger(scene.geometry.columnBands)
+        && scene.geometry.columnBands >= 0
+        && scene.geometry.columnBands <= 4
+        && Number.isInteger(scene.geometry.rowBands)
+        && scene.geometry.rowBands >= 0
+        && scene.geometry.rowBands <= 4
+        && Number.isInteger(scene.geometry.mediaFragments)
+        && scene.geometry.mediaFragments >= 0
+        && scene.geometry.mediaFragments <= 80
+        && [scene.geometry.horizontalSpread, scene.geometry.verticalSpread, scene.geometry.overlapRatio, scene.geometry.boundaryCrossing, scene.geometry.dominance, scene.geometry.depthDensity, scene.geometry.edgeBias, scene.geometry.sizeVariation, scene.geometry.angularCoverage, scene.geometry.alignmentConcentration, scene.geometry.occupiedArea, scene.geometry.mediaCoverage].every(boundedUnit)
+        && typeof scene.geometry.internalPan === "boolean")
+      && Array.isArray(report.renderedComposition.missingSceneKeys)
+      && report.renderedComposition.missingSceneKeys.length <= 40
+      && report.renderedComposition.missingSceneKeys.every((key) => /^surface-[a-z0-9]+$/.test(key))
+      && Array.isArray(report.renderedComposition.weakSceneKeys)
+      && report.renderedComposition.weakSceneKeys.length <= 40
+      && report.renderedComposition.weakSceneKeys.every((key) => /^surface-[a-z0-9]+$/.test(key))
+      && report.renderedComposition.privacy === "numeric-and-hashed-composition-only"
+    ))
+    && report.checks.length <= 12
     && report.checks.every((item) => item
-      && ["horizontal-overflow", "runtime-errors", "tiny-text", "image-alt", "duplicate-ids", "button-names", "first-viewport-effectiveness", "functional-visual-fulfillment", "rendered-evidence-salience"].includes(item.id)
+      && ["horizontal-overflow", "runtime-errors", "tiny-text", "image-alt", "duplicate-ids", "button-names", "first-viewport-effectiveness", "functional-visual-fulfillment", "rendered-evidence-salience", "rendered-composition-realization"].includes(item.id)
       && ["pass", "warning", "fail"].includes(item.status)
       && typeof item.title === "string"
       && item.title.length <= 120

@@ -228,3 +228,60 @@ test("Rendered Evidence Salience measures visible prominence and reports only ha
   expect(transparent.renderedEvidence?.missingCriticalKeys).toHaveLength(1);
   expect(transparent.checks.find((check) => check.id === "rendered-evidence-salience")?.status).toBe("fail");
 });
+
+test("Rendered Composition Realization rejects truthful markers around repeated centered stacks", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome", "One browser is sufficient for deterministic geometry measurement.");
+  const compositionSpec = {
+    experience: { route: "/", routes: [{ id: "gallery", path: "/", regionIds: ["scene-split", "scene-matrix", "scene-layered"] }] },
+    components: [],
+    interactions: [],
+    narrative: {
+      scenes: [
+        { id: "scene-split", routeId: "gallery", evidenceIds: [] },
+        { id: "scene-matrix", routeId: "gallery", evidenceIds: [] },
+        { id: "scene-layered", routeId: "gallery", evidenceIds: [] },
+      ],
+      compositionGenome: {
+        assignments: [
+          { sceneId: "scene-split", genes: { structure: "split-stage", focalPosition: "leading", flow: "horizontal", overlap: "contained", depth: "layered", density: "balanced", mediaFrame: "full-bleed" }, mobileTransform: "single-column-reorder" },
+          { sceneId: "scene-matrix", genes: { structure: "modular-matrix", focalPosition: "distributed", flow: "alternating", overlap: "none", depth: "flat", density: "dense", mediaFrame: "inset" }, mobileTransform: "focus-and-drawer" },
+          { sceneId: "scene-layered", genes: { structure: "layered-field", focalPosition: "edge", flow: "freeform", overlap: "cross-boundary", depth: "immersive", density: "balanced", mediaFrame: "fragmented" }, mobileTransform: "stacked-overlap-preserved" },
+        ],
+      },
+    },
+    assetDirection: {
+      sceneDirections: ["scene-split", "scene-matrix", "scene-layered"].map((sceneId) => ({ sceneId, expectedLayers: ["type", "shape"], selectedAssetIds: [], requirement: "not-applicable" })),
+    },
+  } as unknown as VerveProjectSpec;
+  const markup = `<main>
+    <section class="scene split" data-verve-scene="scene-split" data-verve-composition="split-stage" data-verve-flow="horizontal" data-verve-depth="layered"><article><h1 data-verve-task="primary-object">Material catalog</h1><p>Measured stock</p></article><figure data-verve-layer="shape" data-verve-visual-purpose="material evidence"><svg viewBox="0 0 200 120" aria-label="Material map"><rect width="200" height="120" fill="#e95d3f"/></svg></figure><aside><button data-verve-primary-action>Compare</button></aside></section>
+    <section class="scene matrix" data-verve-scene="scene-matrix" data-verve-composition="modular-matrix" data-verve-flow="alternating" data-verve-depth="flat">${Array.from({ length: 6 }, (_, index) => `<article data-verve-layer="shape" data-verve-visual-purpose="comparison cell"><strong>${index + 1}</strong><p data-verve-task="${index === 0 ? "decision-evidence" : "support"}">Specification</p></article>`).join("")}</section>
+    <section class="scene layered" data-verve-scene="scene-layered" data-verve-composition="layered-field" data-verve-flow="freeform" data-verve-depth="immersive"><article><h2>Layer one</h2></article><figure data-verve-layer="shape" data-verve-visual-purpose="spatial relationship"><svg viewBox="0 0 240 180" aria-label="Layer field"><circle cx="100" cy="80" r="75" fill="#425cc7"/></svg></figure><aside>Depth note</aside></section>
+  </main>`;
+  const measure = async (strong: boolean) => {
+    const probeId = `composition-realization-${strong ? "strong" : "deceptive"}`;
+    const probe = createRenderProbeSource(probeId, compositionSpec);
+    const style = strong
+      ? `.scene{box-sizing:border-box;min-height:420px;margin:0;padding:48px;position:relative}.split{display:grid;grid-template-columns:1.1fr .9fr;gap:48px;align-items:center}.split>*{min-height:240px}.split figure{margin:0;box-shadow:18px 18px 0 #111}.split svg{width:100%;height:100%}.matrix{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.matrix article{padding:28px;border:2px solid #111}.layered{height:520px;overflow:visible}.layered>*{position:absolute;width:42%;min-height:220px;padding:30px;box-shadow:18px 20px 50px #0004}.layered article{left:4%;top:14%}.layered figure{left:31%;top:4%;z-index:2;transform:rotate(-5deg)}.layered aside{right:-2%;bottom:5%;z-index:3}.layered svg{width:100%;height:100%}`
+      : `.scene{box-sizing:border-box;min-height:420px;margin:0;padding:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}.scene>*{box-sizing:border-box;width:62%;min-height:72px;margin:0;padding:18px;text-align:center;border:1px solid #111}.scene svg{width:100%;height:72px}`;
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.setContent(`<!doctype html><html><head><style>body{margin:0;font:18px Arial,sans-serif}${style}</style></head><body>${markup}<script>window.__compositionReport=null;window.addEventListener("message",event=>{if(event.data&&event.data.probeId==="${probeId}")window.__compositionReport=event.data});</script><script>${probe}</script></body></html>`, { waitUntil: "load" });
+    await page.waitForFunction(
+      (activeProbeId) => (window as unknown as { __compositionReport?: RenderGateReport }).__compositionReport?.probeId === activeProbeId,
+      probeId
+    );
+    return page.evaluate(() => (window as unknown as { __compositionReport: RenderGateReport }).__compositionReport);
+  };
+
+  const strong = await measure(true);
+  const deceptive = await measure(false);
+  expect(isRenderGateReport(strong, "composition-realization-strong")).toBe(true);
+  expect(isRenderGateReport(deceptive, "composition-realization-deceptive")).toBe(true);
+  expect(strong.renderedComposition?.observedScenes).toBe(3);
+  expect(strong.renderedComposition?.score).toBeGreaterThanOrEqual(0.6);
+  expect(strong.renderedComposition?.repeatedAdjacentPairs).toBe(0);
+  expect(deceptive.renderedComposition?.score ?? 1).toBeLessThan((strong.renderedComposition?.score ?? 0) - 0.12);
+  expect(deceptive.renderedComposition?.repeatedAdjacentPairs).toBeGreaterThan(0);
+  expect(deceptive.checks.find((check) => check.id === "rendered-composition-realization")?.status).toBe("warning");
+  expect(JSON.stringify(deceptive.renderedComposition)).not.toContain("scene-split");
+});
