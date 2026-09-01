@@ -19,7 +19,7 @@
     "test:load": "node scripts/load-smoke.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.120.0",
+    "@anthropic-ai/sdk": "^0.122.0",
     "@codesandbox/sandpack-react": "^2.20.0",
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "@fontsource-variable/fraunces": "^5.3.0",
@@ -42,7 +42,7 @@
     "react-dom": "19.2.8",
     "typescript": "^5",
     "uuid": "^14.0.2",
-    "zod": "^4.4.3"
+    "zod": "^4.5.2"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
