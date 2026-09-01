@@ -12,7 +12,9 @@
 
 import type { LLMAdapter } from "./llm-utils";
 import type { BriefEvidenceContract } from "../domain/brief-evidence";
+import type { CompositionGenomeContract } from "../domain/project-spec";
 import { inspectBriefEvidenceRealization, type BriefEvidenceRealization } from "./brief-evidence-realization";
+import { inspectCompositionGenomeSource, type CompositionGenomeRealization } from "./composition-genome";
 import { findUnsupportedQuantifiedClaims } from "./content-safety";
 import { inspectDesignDiversity } from "./design-diversity";
 import ts from "typescript";
@@ -23,11 +25,13 @@ export interface CodeQualityResult {
   issues:         string[];
   signatureFound: boolean;
   evidenceRealization?: BriefEvidenceRealization;
+  compositionRealization?: CompositionGenomeRealization;
 }
 
 export type CodeQualityContext = {
   briefEvidence?: BriefEvidenceContract;
   requiredEvidenceIds?: string[];
+  compositionGenome?: CompositionGenomeContract;
   /** Generated files other than the entry file, used for whole-project evidence checks. */
   supportingSource?: string;
 };
@@ -217,6 +221,11 @@ export async function runCodeQualityLoop(
     context.requiredEvidenceIds
   );
   issues.push(...evidenceRealization.issues);
+  const compositionRealization = inspectCompositionGenomeSource(
+    `${stripped}\n${context.supportingSource ?? ""}`,
+    context.compositionGenome
+  );
+  issues.push(...compositionRealization.issues);
 
   // Step 3: Check signature element
   const signatureFound = checkSignatureElement(stripped, signatureElement);
@@ -226,13 +235,13 @@ export async function runCodeQualityLoop(
 
   // Step 4: If no issues — return as-is
   if (issues.length === 0) {
-    return { code: stripped, wasRepaired: false, issues: [], signatureFound, evidenceRealization };
+    return { code: stripped, wasRepaired: false, issues: [], signatureFound, evidenceRealization, compositionRealization };
   }
 
   // Fast mode deliberately stops at deterministic validation to preserve its
   // bounded budget. Creative mode may spend one additional call on repair.
   if (!allowRepair) {
-    return { code: stripped, wasRepaired: false, issues, signatureFound, evidenceRealization };
+    return { code: stripped, wasRepaired: false, issues, signatureFound, evidenceRealization, compositionRealization };
   }
 
   // Step 5: One targeted repair pass
@@ -269,6 +278,11 @@ export async function runCodeQualityLoop(
       context.requiredEvidenceIds
     );
     repairedIssues.push(...repairedEvidenceRealization.issues);
+    const repairedCompositionRealization = inspectCompositionGenomeSource(
+      `${repairedStripped}\n${context.supportingSource ?? ""}`,
+      context.compositionGenome
+    );
+    repairedIssues.push(...repairedCompositionRealization.issues);
 
     const repairedSignatureFound = checkSignatureElement(repairedStripped, signatureElement);
 
@@ -286,6 +300,7 @@ export async function runCodeQualityLoop(
         issues,
         signatureFound: repairedSignatureFound,
         evidenceRealization: repairedEvidenceRealization,
+        compositionRealization: repairedCompositionRealization,
       };
     }
   } catch (err) {
@@ -294,5 +309,5 @@ export async function runCodeQualityLoop(
   }
 
   // Repair failed or made things worse — return stripped original
-  return { code: stripped, wasRepaired: false, issues, signatureFound, evidenceRealization };
+  return { code: stripped, wasRepaired: false, issues, signatureFound, evidenceRealization, compositionRealization };
 }

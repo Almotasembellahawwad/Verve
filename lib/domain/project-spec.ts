@@ -1,6 +1,7 @@
 export const VERVE_PROJECT_SPEC_VERSION = 2 as const;
 export const VISUAL_NARRATIVE_VERSION = 1 as const;
 export const ASSET_DIRECTION_VERSION = 1 as const;
+export const COMPOSITION_GENOME_VERSION = 1 as const;
 
 export type VerveProjectFramework = "nextjs" | "react" | "html";
 export type ComplexityProfile = "focused" | "balanced" | "systemic";
@@ -29,6 +30,45 @@ export type NarrativeStructure = "linear" | "branching" | "spatial" | "cyclical"
 export type VisualMedium = "typography" | "photography" | "illustration" | "data" | "diagram" | "interface" | "spatial" | "generative";
 export type VisualLayer = "type" | "media" | "data" | "shape" | "motion" | "interaction";
 export type SceneInformationShape = "orientation-signal" | "record-browser" | "comparison-matrix" | "evidence-ledger" | "guided-decision" | "action-outcome";
+
+export type CompositionStructure = "single-object-stage" | "split-stage" | "rail-canvas" | "layered-field" | "modular-matrix" | "radial-map" | "editorial-spine" | "mosaic-browser";
+export type CompositionFocalPosition = "leading" | "center" | "trailing" | "edge" | "distributed";
+export type CompositionFlow = "vertical" | "horizontal" | "radial" | "freeform" | "alternating";
+export type CompositionOverlap = "none" | "contained" | "cross-boundary";
+export type CompositionDepth = "flat" | "layered" | "immersive";
+export type CompositionDensity = "sparse" | "balanced" | "dense";
+export type CompositionMediaFrame = "none" | "inset" | "full-bleed" | "fragmented" | "strip" | "constellation";
+export type CompositionContinuity = "echo" | "contrast" | "escalate" | "resolve";
+export type CompositionMobileTransform = "single-column-reorder" | "focus-and-drawer" | "stacked-overlap-preserved" | "pan-and-focus" | "sequenced-cards";
+
+export type CompositionGenes = {
+  structure: CompositionStructure;
+  focalPosition: CompositionFocalPosition;
+  flow: CompositionFlow;
+  overlap: CompositionOverlap;
+  depth: CompositionDepth;
+  density: CompositionDensity;
+  mediaFrame: CompositionMediaFrame;
+};
+
+export type SceneCompositionAssignment = {
+  sceneId: string;
+  genes: CompositionGenes;
+  continuity: CompositionContinuity;
+  mobileTransform: CompositionMobileTransform;
+  distanceFromPrevious: number | null;
+  rationale: string;
+};
+
+export type CompositionGenomeContract = {
+  version: typeof COMPOSITION_GENOME_VERSION;
+  selectionPolicy: "fitness-constrained-maximin";
+  axisWeights: Record<keyof CompositionGenes, number>;
+  assignments: SceneCompositionAssignment[];
+  distinctStructures: number;
+  minimumAdjacentDistance: number;
+  meanPairDistance: number;
+};
 
 export type AssetLicense = "user-owned" | "pexels-license" | "programmatic-original" | "not-applicable";
 /** External-media need. `not-applicable` means the scene is fulfilled programmatically, not visually empty. */
@@ -121,6 +161,8 @@ export type VisualNarrativeContract = {
   scenes: StoryScene[];
   artDirection: ArtDirectionContract;
   richness: VisualRichnessBudget;
+  /** Deterministic per-scene spatial grammar; absent on older ProjectSpec v2 checkpoints. */
+  compositionGenome?: CompositionGenomeContract;
 };
 
 export type ExperienceRegion = {
@@ -268,6 +310,48 @@ export function validateVisualNarrativeContract(contract: VisualNarrativeContrac
   if (new Set(contract.richness.requiredLayers).size !== contract.richness.requiredLayers.length) issues.push("Required visual layers must be unique.");
   if (!contract.richness.requiredLayers.includes("type") || !contract.richness.requiredLayers.includes("interaction")) issues.push("Type and interaction are mandatory functional layers.");
   if (contract.artDirection.forbiddenFallbacks.length < 2) issues.push("Art direction must name at least two forbidden generic fallbacks.");
+  if (contract.compositionGenome) {
+    const genome = contract.compositionGenome;
+    const assignmentIds = new Set(genome.assignments.map((assignment) => assignment.sceneId));
+    const geneAxes = ["structure", "focalPosition", "flow", "overlap", "depth", "density", "mediaFrame"] as const;
+    const suppliedWeightAxes = Object.keys(genome.axisWeights);
+    const axisWeightsAreExact = suppliedWeightAxes.length === geneAxes.length && geneAxes.every((axis) => suppliedWeightAxes.includes(axis));
+    const suppliedWeights = Object.values(genome.axisWeights);
+    const weightTotal = suppliedWeights.reduce((sum, weight) => sum + weight, 0);
+    const genomeDistance = (left: CompositionGenes, right: CompositionGenes) => Number(geneAxes.reduce((sum, axis) => sum + (left[axis] === right[axis] ? 0 : genome.axisWeights[axis]), 0).toFixed(3));
+    if (genome.version !== COMPOSITION_GENOME_VERSION) issues.push("Unsupported composition genome version.");
+    if (genome.selectionPolicy !== "fitness-constrained-maximin") issues.push("Unsupported composition genome selection policy.");
+    if (genome.assignments.length !== contract.scenes.length || assignmentIds.size !== contract.scenes.length) issues.push("Every story scene requires one unique composition genome assignment.");
+    if (!axisWeightsAreExact || !Number.isFinite(weightTotal) || Math.abs(weightTotal - 1) > 0.001 || suppliedWeights.some((weight) => !Number.isFinite(weight) || weight <= 0 || weight > 1)) issues.push("Composition genome axis weights must contain the seven exact positive axes and sum to one.");
+    const actualDistinctStructures = new Set(genome.assignments.map((assignment) => assignment.genes.structure)).size;
+    if (actualDistinctStructures !== genome.distinctStructures) issues.push("Composition genome distinct-structure evidence does not match its assignments.");
+    if (actualDistinctStructures < Math.min(3, contract.scenes.length)) issues.push("The composition genome requires at least three structural expressions per project.");
+    if (genome.minimumAdjacentDistance < 0 || genome.minimumAdjacentDistance > 1 || genome.meanPairDistance < 0 || genome.meanPairDistance > 1) issues.push("Composition genome distances must stay within the unit interval.");
+    const previousByRoute = new Map<string, SceneCompositionAssignment>();
+    const actualAdjacentDistances: number[] = [];
+    for (const assignment of genome.assignments) {
+      if (!sceneIds.has(assignment.sceneId)) issues.push(`Composition genome references unknown scene ${assignment.sceneId}.`);
+      if (assignment.distanceFromPrevious !== null && (assignment.distanceFromPrevious < 0 || assignment.distanceFromPrevious > 1)) issues.push(`${assignment.sceneId} has an invalid composition distance.`);
+      if (!assignment.rationale.trim()) issues.push(`${assignment.sceneId} has no composition rationale.`);
+      const routeId = contract.scenes.find((scene) => scene.id === assignment.sceneId)?.routeId;
+      const previous = routeId ? previousByRoute.get(routeId) : undefined;
+      if (previous) {
+        const actualDistance = genomeDistance(previous.genes, assignment.genes);
+        actualAdjacentDistances.push(actualDistance);
+        if (assignment.distanceFromPrevious === null || Math.abs(assignment.distanceFromPrevious - actualDistance) > 0.001) issues.push(`${assignment.sceneId} composition distance does not match its genes.`);
+      } else if (assignment.distanceFromPrevious !== null) {
+        issues.push(`${assignment.sceneId} must begin its route without a previous-scene distance.`);
+      }
+      if (routeId) previousByRoute.set(routeId, assignment);
+    }
+    const pairDistances: number[] = [];
+    for (let left = 0; left < genome.assignments.length; left++) for (let right = left + 1; right < genome.assignments.length; right++) pairDistances.push(genomeDistance(genome.assignments[left].genes, genome.assignments[right].genes));
+    const actualMinimumAdjacent = actualAdjacentDistances.length ? Math.min(...actualAdjacentDistances) : 1;
+    const actualMeanPair = pairDistances.length ? pairDistances.reduce((sum, value) => sum + value, 0) / pairDistances.length : 1;
+    if (Math.abs(genome.minimumAdjacentDistance - actualMinimumAdjacent) > 0.001) issues.push("Composition genome minimum-adjacent evidence does not match its assignments.");
+    if (Math.abs(genome.meanPairDistance - actualMeanPair) > 0.001) issues.push("Composition genome mean-pair evidence does not match its assignments.");
+    if (actualAdjacentDistances.length && actualMinimumAdjacent < 0.3) issues.push("Adjacent story scenes are too compositionally similar.");
+  }
   for (const scene of contract.scenes) {
     if (!scene.audienceQuestion.trim()) issues.push(`${scene.id} has no audience question.`);
     if (!scene.purpose.trim()) issues.push(`${scene.id} has no narrative purpose.`);

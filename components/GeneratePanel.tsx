@@ -177,6 +177,8 @@ type PipelineResult = {
     score: number;
     expectedScenes: number;
     markedScenes: number;
+    expectedCompositions?: number;
+    markedCompositions?: number;
     expectedLayers: string[];
     markedLayers: string[];
     requiredAssetPlacements: number;
@@ -1701,9 +1703,9 @@ export default function GeneratePanel() {
                 <div className={styles.mediaGate} data-level={result.visualIntentSource.status === "pass" ? "optional" : "required"}>
                   <div className={styles.mediaGateHead}>
                     <div><span>FUNCTIONAL VISUAL FULFILLMENT / SOURCE</span><strong>{result.visualIntentSource.status}</strong></div>
-                    <b>{result.visualIntentSource.score}/100 · {result.visualIntentSource.markedScenes}/{result.visualIntentSource.expectedScenes} scenes traced</b>
+                    <b>{result.visualIntentSource.score}/100 · {result.visualIntentSource.markedScenes}/{result.visualIntentSource.expectedScenes} scenes{result.visualIntentSource.expectedCompositions == null ? "" : ` · ${result.visualIntentSource.markedCompositions ?? 0}/${result.visualIntentSource.expectedCompositions} genomes`}</b>
                   </div>
-                  <p>The score is a harmonic coverage measure: a polished hero cannot compensate for missing scene, layer, purpose, or required-asset evidence. The live Render Gate measures the same contract against the DOM at 360/768/1440.</p>
+                  <p>The score is a harmonic coverage measure: a polished hero cannot compensate for missing scene, composition genome, layer, purpose, or required-asset evidence. The live Render Gate measures the functional contract against the DOM at 360/768/1440.</p>
                   <small>{result.visualIntentSource.markedLayers.join(" · ") || "No functional layer markers delivered"}</small>
                   {result.visualIntentSource.warnings.length > 0 && (
                     <ul>{result.visualIntentSource.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>

@@ -15,6 +15,7 @@ import type { BriefEvidenceContract, BriefEvidenceItem } from "../domain/brief-e
 import type { BriefAnalysis } from "./brief-analyzer";
 import type { AssetBundle } from "./asset-sourcer";
 import type { DesignPlan } from "./plan-generator";
+import { buildCompositionGenome } from "./composition-genome";
 
 export type NarrativeRouteBlueprint = {
   id: string;
@@ -331,6 +332,17 @@ export function buildVisualNarrativeContract(input: {
     ...briefEvidence.records.flatMap((record) => record.attributes.map((attribute) => `${attribute.label}: ${attribute.value}`)).slice(0, 6),
     ...assetBundle.mediaRequirement.suggestedSubjects.slice(0, 2).map((subject) => `approved subject language: ${subject}`),
   ];
+  const compositionDensity = direction?.descriptors.density === "airy"
+    ? "sparse" as const
+    : direction?.descriptors.density === "dense" || profile === "systemic"
+      ? "dense" as const
+      : "balanced" as const;
+  const compositionGenome = buildCompositionGenome({
+    scenes,
+    model,
+    density: compositionDensity,
+    seed: `${analysis.subject}:${direction?.id ?? model}:${direction?.descriptors.openingMode ?? "task-first"}`,
+  });
 
   return {
     version: VISUAL_NARRATIVE_VERSION,
@@ -357,6 +369,7 @@ export function buildVisualNarrativeContract(input: {
         ...analysis.constraints.slice(0, 2),
       ].filter((value, index, values) => values.indexOf(value) === index).slice(0, 12),
     },
+    compositionGenome,
     richness: {
       strategy: "global-clarity-local-detail",
       targetSceneCount: scenes.length,

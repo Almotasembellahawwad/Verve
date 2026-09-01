@@ -9,12 +9,15 @@ export type VisualIntentSourceEvidence = {
   score: number;
   coverage: {
     scenes: number;
+    compositions: number;
     layers: number;
     purposes: number;
     assets: number | null;
   };
   expectedScenes: number;
   markedScenes: number;
+  expectedCompositions: number;
+  markedCompositions: number;
   expectedLayers: VisualLayer[];
   markedLayers: VisualLayer[];
   requiredAssetPlacements: number;
@@ -27,6 +30,11 @@ function literalAttribute(code: string, name: string, value?: string): boolean {
   if (value === undefined) return new RegExp(`${escapedName}\\s*=`, "i").test(code);
   const escapedValue = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`${escapedName}\\s*=\\s*["']${escapedValue}["']`, "i").test(code);
+}
+
+function literalAttributesOnOneElement(code: string, attributes: [string, string][]): boolean {
+  const tags = code.match(/<[a-z][^>]{0,2000}>/gi) ?? [];
+  return tags.some((tag) => attributes.every(([name, value]) => literalAttribute(tag, name, value)));
 }
 
 function coverage(found: number, expected: number): number {
@@ -47,6 +55,13 @@ function requiredAssetDirections(contract: AssetDirectionContract) {
 export function inspectVisualIntentSource(spec: VerveProjectSpec, code: string): VisualIntentSourceEvidence {
   const expectedScenes = spec.assetDirection.sceneDirections.length;
   const markedScenes = spec.assetDirection.sceneDirections.filter((direction) => literalAttribute(code, "data-verve-scene", direction.sceneId)).length;
+  const compositionAssignments = spec.narrative.compositionGenome?.assignments ?? [];
+  const markedCompositions = compositionAssignments.filter((assignment) => literalAttributesOnOneElement(code, [
+    ["data-verve-scene", assignment.sceneId],
+    ["data-verve-composition", assignment.genes.structure],
+    ["data-verve-flow", assignment.genes.flow],
+    ["data-verve-depth", assignment.genes.depth],
+  ])).length;
   const expectedLayers = [...new Set(spec.assetDirection.sceneDirections.flatMap((direction) => direction.expectedLayers))]
     .filter((layer) => layer !== "type");
   const markedLayers = expectedLayers.filter((layer) => literalAttribute(code, "data-verve-layer", layer));
@@ -60,14 +75,16 @@ export function inspectVisualIntentSource(spec: VerveProjectSpec, code: string):
     return Boolean(asset && code.includes(asset.url) && literalAttribute(code, "data-verve-asset-id", assetId));
   })).length;
   const sceneCoverage = coverage(markedScenes, expectedScenes);
+  const compositionCoverage = coverage(markedCompositions, compositionAssignments.length);
   const layerCoverage = coverage(markedLayers.length, expectedLayers.length);
   const purposeCoverage = coverage(purposefulScenes, purposeExpectedScenes);
   const assetCoverage = assetDirections.length ? coverage(tracedAssetPlacements, assetDirections.length) : null;
-  const scoreTerms = [sceneCoverage, layerCoverage, purposeCoverage, ...(assetCoverage === null ? [] : [assetCoverage])];
+  const scoreTerms = [sceneCoverage, ...(compositionAssignments.length ? [compositionCoverage] : []), layerCoverage, purposeCoverage, ...(assetCoverage === null ? [] : [assetCoverage])];
   const score = Math.round(harmonicCoverage(scoreTerms) * 100);
   const warnings: string[] = [];
 
   if (markedScenes < expectedScenes) warnings.push(`Visual intent trace: ${markedScenes}/${expectedScenes} story scenes use exact data-verve-scene markers.`);
+  if (markedCompositions < compositionAssignments.length) warnings.push(`Composition genome trace: ${markedCompositions}/${compositionAssignments.length} scene roots declare their exact structure, flow, and depth genes.`);
   if (markedLayers.length < expectedLayers.length) warnings.push(`Visual intent trace: missing functional layer markers for ${expectedLayers.filter((layer) => !markedLayers.includes(layer)).join(", ")}.`);
   if (purposefulScenes < purposeExpectedScenes) warnings.push(`Visual intent trace: ${purposefulScenes}/${purposeExpectedScenes} scenes declare why their non-text visual exists.`);
   if (assetDirections.length && tracedAssetPlacements < assetDirections.length) warnings.push(`Visual intent trace: ${tracedAssetPlacements}/${assetDirections.length} required scene assets have both an exact URL and asset ID marker.`);
@@ -79,12 +96,15 @@ export function inspectVisualIntentSource(spec: VerveProjectSpec, code: string):
     score,
     coverage: {
       scenes: Number(sceneCoverage.toFixed(3)),
+      compositions: Number(compositionCoverage.toFixed(3)),
       layers: Number(layerCoverage.toFixed(3)),
       purposes: Number(purposeCoverage.toFixed(3)),
       assets: assetCoverage === null ? null : Number(assetCoverage.toFixed(3)),
     },
     expectedScenes,
     markedScenes,
+    expectedCompositions: compositionAssignments.length,
+    markedCompositions,
     expectedLayers,
     markedLayers,
     requiredAssetPlacements: assetDirections.length,

@@ -63,7 +63,7 @@ request
        [04.1] direction diversity and local novelty selection
        [04.15] executable Typography Contract: script-aware profile + local OFL file manifest
        [04.18] source-bound Brief Evidence Ledger: records, attributes, comparisons, exclusions, gaps
-       [04.2] ProjectSpec Visual Narrative: semantic routes, evidence-shaped story scenes, art direction, richness budget
+       [04.2] ProjectSpec Visual Narrative: semantic routes, evidence-shaped story scenes, per-scene Composition Genome, richness budget
        [04.3] Scene Asset Director: licensed catalog, scene purpose, framing, fallback, expected layers
        [05] code generation
        [05.5] syntax/quality + whole-project Brief Evidence Realization + optional repair
@@ -113,6 +113,8 @@ Typography has an independent delivery boundary. `typography-contract.ts` select
 `brief-evidence.ts` performs bounded deterministic extraction from the original English or Arabic brief. Every evidence item stores a verbatim span, source length, and digest; validation fails if a checkpoint is rebound to changed input. Quoted and list-form records are kept separate from collection totals, while comparison dimensions, explicit exclusions, and missing-record/missing-value gaps remain first-class data. The extractor does not call a provider and does not infer absent item-level facts.
 
 ProjectSpec maps those evidence IDs into Story Graph scenes and information shapes. After generation, `brief-evidence-realization.ts` inspects entry plus supporting source files for known record labels, supplied attributes, requested dimensions, explicit gap disclosure, and prohibited patterns. This is source realization evidence, not proof that content is visually prominent; Render Gate remains responsible for rendered visibility and responsive truth. Creative can spend its already-bounded repair pass on a failed realization check. Fast returns the same measured warning without adding a provider call.
+
+[Composition Genome](COMPOSITION_GENOME.md) compiles every story scene into seven categorical spatial axes. The deterministic selector first respects the scene's information shape, medium, and chosen experience model, then maximizes weighted distance from already assigned scenes. Generated scene roots trace the exact structure, flow, and depth genes into the existing Visual Intent source gate. The trace proves that the contract reached source; it deliberately does not claim that categorical markers alone prove rendered geometry or aesthetic quality.
 
 ## Project and preview boundary
 

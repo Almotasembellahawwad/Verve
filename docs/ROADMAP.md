@@ -56,6 +56,7 @@ This document tracks shipped foundations and the next evidence-driven product wo
 - [x] Visual Narrative Story Graph with art-direction and functional-richness contracts
 - [x] Source-bound bilingual Brief Evidence Ledger with exact records, comparison dimensions, missing-data gaps, and a whole-project realization gate
 - [x] Rendered Evidence Salience with opaque evidence hooks, weighted prominence, first-viewport coverage, and privacy-bounded render receipts
+- [x] Per-scene Composition Genome with fitness-constrained maximin selection, seven spatial axes, narrative continuity, and explicit mobile transforms
 - [x] Scene Asset Director with licensed catalog, scene assignment, responsive framing, alt intent, and generated asset receipts
 - [x] Licensed Asset Delivery with exact-host allowlisting, bounded binary copy, media-signature validation, SHA-256 receipts, local source rewriting, and ZIP inclusion
 - [x] Functional Visual Fulfillment source and rendered-DOM evidence with harmonic weak-scene aggregation
@@ -66,6 +67,7 @@ This document tracks shipped foundations and the next evidence-driven product wo
 - [ ] Section-level regeneration without replacing the whole project
 - [x] Dedicated `/editor` with IndexedDB autosave, complete editable projects, portable import/export, and bounded local revisions
 - [ ] User acceptance/rejection signals to calibrate scoring against real outcomes
+- [ ] Rendered Composition Realization calibrated against screenshot geometry, so genome source traces cannot substitute for actual spatial difference
 
 ## Phase 2.2 — Collaboration and delivery
 
