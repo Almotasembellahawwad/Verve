@@ -69,7 +69,7 @@ request
        [05.5] syntax/quality + whole-project Brief Evidence Realization + optional repair
        delivered-code quality, restraint, engineering, diversity checks
        [06] evidence-bounded scoring
-       [07] source FVF + asset-use evidence + project assembly + validation/readiness
+       [07] rendered FVE/FVF/RES/DF + asset-use evidence + project assembly + validation/readiness
   -> JSON response OR observer events framed as SSE
   -> concurrent lease release
 ```
@@ -118,7 +118,7 @@ ProjectSpec maps those evidence IDs into Story Graph scenes and information shap
 
 `buildGeneratedProject()` creates Next.js, React/Vite, or HTML scaffolds, runs deterministic validation, and computes three-axis readiness. Static HTML is delivered as `index.html`, `styles.css`, and optional `script.js`. Browser ZIP packaging consumes the current edited project, not the original response.
 
-HTML and lightweight React run in isolated previews. Next.js output is inspected and exported rather than mounted into an incompatible browser runtime. Render probes are ephemeral and never enter history or ZIP files. When a ProjectSpec is present, the probe computes rendered Functional Visual Fulfillment from visible scene roots, actual DOM layers, purpose links, required asset placements, and orphan visual area. It is readiness evidence, not a creativity score.
+HTML and lightweight React run in isolated previews. Next.js output is inspected and exported rather than mounted into an incompatible browser runtime. Render probes are ephemeral and never enter history or ZIP files. When a ProjectSpec is present, the probe computes rendered Functional Visual Fulfillment from visible scene roots, actual DOM layers, purpose links, required asset placements, and orphan visual area. It also computes [Rendered Evidence Salience](RENDERED_EVIDENCE_SALIENCE.md) from opaque scene-bound evidence markers, weighted coverage, local prominence, and first-viewport placement. Both are readiness evidence, not creativity scores.
 
 ## Persistence
 

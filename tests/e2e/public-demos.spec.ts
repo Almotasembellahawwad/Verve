@@ -172,3 +172,59 @@ test("Visual Truth follows SPA route and interaction-state changes without expos
   expect(JSON.stringify(surfaces)).not.toContain("private-order");
   expect(JSON.stringify(surfaces)).not.toContain("ready");
 });
+
+test("Rendered Evidence Salience measures visible prominence and reports only hashed missing evidence", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome", "One browser is sufficient for deterministic evidence measurement.");
+  const evidenceSpec = {
+    briefEvidence: {
+      items: [
+        { id: "evidence-1", kind: "record" },
+        { id: "evidence-2", kind: "comparison-dimension" },
+      ],
+    },
+    experience: { route: "/", routes: [{ id: "catalog", path: "/", regionIds: ["opening", "choice"] }] },
+    narrative: {
+      scenes: [
+        { id: "opening", routeId: "catalog", evidenceIds: ["evidence-1"] },
+        { id: "choice", routeId: "catalog", evidenceIds: ["evidence-2"] },
+      ],
+    },
+    components: [],
+    interactions: [],
+    assetDirection: { sceneDirections: [] },
+  } as unknown as VerveProjectSpec;
+
+  const measure = async (hidden: boolean, transparentAncestor = false) => {
+    const probeId = `evidence-salience-${hidden ? "hidden" : transparentAncestor ? "transparent" : "visible"}`;
+    const probe = createRenderProbeSource(probeId, evidenceSpec);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.setContent(`<!doctype html><html><head><style>
+      body{margin:0;font:18px Arial,sans-serif}.record{${hidden ? "display:none;" : ""}min-height:190px;padding:48px;background:#17223b;color:white}.record h1{font-size:56px;margin:0 0 16px}.matrix{width:80%;margin:48px auto;border-collapse:collapse}.matrix th{padding:28px;text-align:left;border:1px solid #333}
+    </style></head><body><main><div style="${transparentAncestor ? "opacity:0" : ""}"><article class="record" data-verve-evidence-id="evidence-1"><h1 data-verve-task="primary-object">Riso Notebook</h1><p>A5 · 80 pages · 120gsm · EGP 450</p></article></div><table class="matrix"><thead><tr data-verve-evidence-id="evidence-2"><th data-verve-task="decision-evidence">Paper weight</th><th>Binding</th><th>Batch</th><th>Price</th></tr></thead></table><button data-verve-primary-action>Compare</button></main><script>window.__evidenceReport=null;window.addEventListener("message",event=>{if(event.data&&event.data.probeId==="${probeId}")window.__evidenceReport=event.data});</script><script>${probe}</script></body></html>`, { waitUntil: "load" });
+    await page.waitForFunction(
+      (activeProbeId) => (window as unknown as { __evidenceReport?: RenderGateReport }).__evidenceReport?.probeId === activeProbeId,
+      probeId
+    );
+    return page.evaluate(() => (window as unknown as { __evidenceReport: RenderGateReport }).__evidenceReport);
+  };
+
+  const visible = await measure(false);
+  expect(isRenderGateReport(visible, "evidence-salience-visible")).toBe(true);
+  expect(visible.renderedEvidence?.coverage).toBe(1);
+  expect(visible.renderedEvidence?.firstViewportCoverage).toBe(1);
+  expect(visible.renderedEvidence?.score).toBeGreaterThanOrEqual(0.65);
+  expect(visible.checks.find((check) => check.id === "rendered-evidence-salience")?.status).toBe("pass");
+
+  const hidden = await measure(true);
+  expect(isRenderGateReport(hidden, "evidence-salience-hidden")).toBe(true);
+  expect(hidden.renderedEvidence?.observed).toBe(1);
+  expect(hidden.renderedEvidence?.missingCriticalKeys).toHaveLength(1);
+  expect(hidden.checks.find((check) => check.id === "rendered-evidence-salience")?.status).toBe("fail");
+  expect(JSON.stringify(hidden.renderedEvidence)).not.toContain("evidence-1");
+  expect(hidden.renderedEvidence?.missingCriticalKeys[0]).toMatch(/^surface-[a-z0-9]+$/);
+
+  const transparent = await measure(false, true);
+  expect(isRenderGateReport(transparent, "evidence-salience-transparent")).toBe(true);
+  expect(transparent.renderedEvidence?.missingCriticalKeys).toHaveLength(1);
+  expect(transparent.checks.find((check) => check.id === "rendered-evidence-salience")?.status).toBe("fail");
+});
