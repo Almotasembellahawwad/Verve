@@ -11,6 +11,8 @@
 // =========================================================
 
 import type { LLMAdapter } from "./llm-utils";
+import type { BriefEvidenceContract } from "../domain/brief-evidence";
+import { inspectBriefEvidenceRealization, type BriefEvidenceRealization } from "./brief-evidence-realization";
 import { findUnsupportedQuantifiedClaims } from "./content-safety";
 import { inspectDesignDiversity } from "./design-diversity";
 import ts from "typescript";
@@ -20,7 +22,14 @@ export interface CodeQualityResult {
   wasRepaired:    boolean;
   issues:         string[];
   signatureFound: boolean;
+  evidenceRealization?: BriefEvidenceRealization;
 }
+
+export type CodeQualityContext = {
+  briefEvidence?: BriefEvidenceContract;
+  /** Generated files other than the entry file, used for whole-project evidence checks. */
+  supportingSource?: string;
+};
 
 const REPAIR_SYSTEM = `You are a code repair specialist. Fix ONLY the specific issues listed.
 Preserve the supplied content, factual safety, behavior, and framework contract. If a Template Diversity Gate issue is listed, change the information composition itself while preserving the intended job; changing colors or class names is not a repair. Otherwise avoid unrelated redesign. Return ONLY the corrected code with no markdown, no explanation.`;
@@ -185,7 +194,8 @@ export async function runCodeQualityLoop(
   framework: string,
   allowRepair = true,
   rawBrief = "",
-  allowedFontFamilies: string[] = []
+  allowedFontFamilies: string[] = [],
+  context: CodeQualityContext = {}
 ): Promise<CodeQualityResult> {
   // Step 1: Strip fences
   const stripped = stripFences(rawCode);
@@ -200,6 +210,11 @@ export async function runCodeQualityLoop(
     ...checkInlineStyles(stripped),
     ...checkDeliveryPolicies(stripped, rawBrief, allowedFontFamilies),
   ];
+  const evidenceRealization = inspectBriefEvidenceRealization(
+    `${stripped}\n${context.supportingSource ?? ""}`,
+    context.briefEvidence
+  );
+  issues.push(...evidenceRealization.issues);
 
   // Step 3: Check signature element
   const signatureFound = checkSignatureElement(stripped, signatureElement);
@@ -209,13 +224,13 @@ export async function runCodeQualityLoop(
 
   // Step 4: If no issues — return as-is
   if (issues.length === 0) {
-    return { code: stripped, wasRepaired: false, issues: [], signatureFound };
+    return { code: stripped, wasRepaired: false, issues: [], signatureFound, evidenceRealization };
   }
 
   // Fast mode deliberately stops at deterministic validation to preserve its
   // bounded budget. Creative mode may spend one additional call on repair.
   if (!allowRepair) {
-    return { code: stripped, wasRepaired: false, issues, signatureFound };
+    return { code: stripped, wasRepaired: false, issues, signatureFound, evidenceRealization };
   }
 
   // Step 5: One targeted repair pass
@@ -246,6 +261,11 @@ export async function runCodeQualityLoop(
       ...checkSyntax(repairedStripped, framework),
       ...checkDeliveryPolicies(repairedStripped, rawBrief, allowedFontFamilies),
     ];
+    const repairedEvidenceRealization = inspectBriefEvidenceRealization(
+      `${repairedStripped}\n${context.supportingSource ?? ""}`,
+      context.briefEvidence
+    );
+    repairedIssues.push(...repairedEvidenceRealization.issues);
 
     const repairedSignatureFound = checkSignatureElement(repairedStripped, signatureElement);
 
@@ -262,6 +282,7 @@ export async function runCodeQualityLoop(
         wasRepaired:    true,
         issues,
         signatureFound: repairedSignatureFound,
+        evidenceRealization: repairedEvidenceRealization,
       };
     }
   } catch (err) {
@@ -270,5 +291,5 @@ export async function runCodeQualityLoop(
   }
 
   // Repair failed or made things worse — return stripped original
-  return { code: stripped, wasRepaired: false, issues, signatureFound };
+  return { code: stripped, wasRepaired: false, issues, signatureFound, evidenceRealization };
 }

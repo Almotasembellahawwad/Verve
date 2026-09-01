@@ -14,6 +14,7 @@ Verve is an open-source project intelligence engine for generating distinctive w
 - **Functional Visual Fulfillment (FVF)** — source and rendered DOM evidence check whether visuals serve the declared scene purpose. Rendered FVF uses harmonic aggregation, so one polished hero cannot hide weak scenes, and penalizes visual area that sits outside the Story Graph.
 - **Brief-sensitive six-direction board** — every new run selects six cells from an 18-cell experience/opening/navigation pool: two combinational, two exploratory, and two transformational, with all six experience models represented. Auto-selection applies a quality floor, then maximizes distance from recent Verve structures, then brief fit; statistical likelihood is never a reward.
 - **Executable ProjectSpec v2 + Visual Narrative** — the chosen direction compiles into semantic routes and connected story scenes. Every scene names the audience question, focal object, evidence, visual medium, action, and visible consequence; an art-direction contract and functional richness budget reach code generation with it.
+- **Source-bound Brief Evidence Ledger** — quoted or list-form records, exact attributes, requested comparison dimensions, collection totals, explicit exclusions, and missing-data gaps are extracted from verbatim brief spans before scenes are authored. The Evidence Realization Gate then checks the complete generated source: Creative may repair an evidence-thin result once, while Fast exposes a review warning without spending another model call. A declared total is never permission to invent the missing records.
 - **Fixation-resistant references** — `data/reference-library.json` defines a 12-domain × 6-experience matrix (72 abstract patterns). Retrieval supplies one near principle, two remote analogies, and one anti-reference without passing source palettes or brand identities to the model.
 - **Private local design memory** — the browser keeps only bounded structural and numeric DOM fingerprints. Version 2 adds area-weighted color, rendered font families, functional-layer balance, depth, alignment diversity, and stateful-control density to the 12×12 occupancy/type/media/interaction signals. Route and state identities are one-way hashes; briefs, code, images, form values, and API keys are never stored in this memory.
 - **Inspectable Stage Graph** — deterministic post-plan work now runs as immutable, independently testable experience-contract and direction-diversity stages.
@@ -30,6 +31,14 @@ The selector is a small product-specific adaptation of [MAP-Elites](https://arxi
 FVF is a Verve-specific engineering metric, not a validated creativity measure or a causal-inference claim. For each rendered scene, layer coverage is combined with a visible purpose link and required-asset fulfillment; scene scores are aggregated with a harmonic mean and multiplied by `(1 - 0.5 × orphanVisualAreaRatio)`. The harmonic mean is deliberate: a missing scene approaches zero and cannot be averaged away by an exceptional opening.
 
 Direction Fidelity (DF) is also evidence, not a taste score. It is the weighted realized fraction of six declared axes: routes (20%), responsive route surfaces (15%), meaningful states (15%), functional scenes (20%), visual layers (15%), and typography assignments (15%). Missing renders stay missing; a polished desktop opening cannot substitute for an untested route or interaction state.
+
+## What changed in 0.14 Brief Evidence Ledger
+
+- **Verbatim evidence binding** — every extracted item carries its exact source offsets plus a digest of the originating brief; stale or modified source invalidates the contract.
+- **Bilingual structured records** — English and Arabic briefs can provide product/service rows inside quotation marks or newline lists. Known labels and attributes remain distinct from a separately declared collection total.
+- **Evidence-shaped scenes** — Story Graph scenes now choose information shapes such as record browser, evidence ledger, and comparison matrix from the actual brief instead of falling back to generic feature cards.
+- **Honest incompleteness** — when a brief promises five lines but specifies only one, Verve records the 5/1 gap, renders the verified item, and requires a visible disclosure for the other four rather than synthesizing them.
+- **Whole-project realization check** — deterministic validation measures record, attribute, comparison-dimension, gap-disclosure, and prohibited-pattern coverage across entry and supporting source files. This report is returned with code quality evidence and participates in repair/readiness.
 
 ## What changed in 0.13 Visual Truth Harness
 
@@ -214,11 +223,13 @@ Spoken or written brief + optional owned brand kit
         |
 [04.1] Quality-diversity selection from a brief-sensitive 18-cell pool
         |
-[04.2] ProjectSpec + Visual Narrative + task-bearing opening contract
+[04.18] Source-bound Brief Evidence Ledger
+        |
+[04.2] ProjectSpec + evidence-shaped Visual Narrative + task-bearing opening contract
         ↓
 [05] Production-minded entry code
         ↓
-[05.5] Syntax validation ─ deterministic in Fast / bounded repair in Creative
+[05.5] Syntax + Brief Evidence Realization ─ deterministic in Fast / bounded repair in Creative
         ↓
 [06] Distinctiveness + template diversity + first-viewport + engineering evidence
         ↓
