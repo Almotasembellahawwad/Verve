@@ -241,7 +241,7 @@ function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, 
     : validation.status === "review-required" || project.warnings.length > 0 || renderWarnings > 0 || visualReviewRequired || directionReviewRequired
       ? "review-required"
       : "ready";
-  const renderGateStatus = `${renderEvidence.status.toUpperCase()} ${renderEvidence.covered}/3${renderEvidence.firstViewportScore == null ? "" : ` · FVE ${renderEvidence.firstViewportScore.toFixed(2)}`}${renderEvidence.functionalVisualScore == null ? "" : ` · FVF ${renderEvidence.functionalVisualScore.toFixed(2)}`}${renderEvidence.renderedEvidenceScore == null ? "" : ` · RES ${renderEvidence.renderedEvidenceScore.toFixed(2)}`}${directionRealization ? ` · DF ${directionRealization.fidelity.toFixed(2)}` : ""}`;
+  const renderGateStatus = `${renderEvidence.status.toUpperCase()} ${renderEvidence.covered}/3${renderEvidence.firstViewportScore == null ? "" : ` · FVE ${renderEvidence.firstViewportScore.toFixed(2)}`}${renderEvidence.functionalVisualScore == null ? "" : ` · FVF ${renderEvidence.functionalVisualScore.toFixed(2)}`}${renderEvidence.renderedEvidenceScore == null ? "" : ` · RES ${renderEvidence.renderedEvidenceScore.toFixed(2)}`}${renderEvidence.renderedCompositionScore == null ? "" : ` · RCR ${renderEvidence.renderedCompositionScore.toFixed(2)}`}${directionRealization ? ` · DF ${directionRealization.fidelity.toFixed(2)}` : ""}`;
 
   useEffect(() => {
     const receiveReport = (event: MessageEvent<unknown>) => {

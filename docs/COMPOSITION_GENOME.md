@@ -56,4 +56,4 @@ Code generation must implement the genes as layout behavior. The scene root carr
 
 Visual Intent source inspection verifies that the expected gene values occur together on the correct scene root. This catches omitted or partially switched composition contracts and lowers Functional Visual Fulfillment.
 
-It does not prove that the rendered geometry matches the declared family. A generator could still write correct markers around weak CSS. The next calibration step is Rendered Composition Realization: compare child geometry, overlap, focal dominance, depth, and responsive transformation across screenshots and validate those signals against human review.
+It does not prove that the rendered geometry matches the declared family. A generator could still write correct markers around weak CSS. [Rendered Composition Realization](RENDERED_COMPOSITION_REALIZATION.md) now checks child geometry, overlap, focal dominance, depth, adjacent repetition, and responsive transformation in the browser. That heuristic still requires calibration against blinded human screenshot judgments before its thresholds can be treated as more than engineering hypotheses.
