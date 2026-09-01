@@ -15,9 +15,9 @@ Verve is an open-source project intelligence engine for generating distinctive w
 - **Brief-sensitive six-direction board** — every new run selects six cells from an 18-cell experience/opening/navigation pool: two combinational, two exploratory, and two transformational, with all six experience models represented. Auto-selection applies a quality floor, then maximizes distance from recent Verve structures, then brief fit; statistical likelihood is never a reward.
 - **Executable ProjectSpec v2 + Visual Narrative** — the chosen direction compiles into semantic routes and connected story scenes. Every scene names the audience question, focal object, evidence, visual medium, action, and visible consequence; an art-direction contract and functional richness budget reach code generation with it.
 - **Fixation-resistant references** — `data/reference-library.json` defines a 12-domain × 6-experience matrix (72 abstract patterns). Retrieval supplies one near principle, two remote analogies, and one anti-reference without passing source palettes or brand identities to the model.
-- **Private local design memory** — the browser keeps only bounded structural and numeric DOM fingerprints, including a 12×12 occupancy grid, type distribution, color histogram, media/interaction density, section rhythm, and route count. Briefs, code, images, and API keys are never stored in this memory.
+- **Private local design memory** — the browser keeps only bounded structural and numeric DOM fingerprints. Version 2 adds area-weighted color, rendered font families, functional-layer balance, depth, alignment diversity, and stateful-control density to the 12×12 occupancy/type/media/interaction signals. Route and state identities are one-way hashes; briefs, code, images, form values, and API keys are never stored in this memory.
 - **Inspectable Stage Graph** — deterministic post-plan work now runs as immutable, independently testable experience-contract and direction-diversity stages.
-- **Three-viewport render evidence** — HTML and React readiness cannot pass from one convenient preview. Render Gate retains separate evidence at 360, 768, and 1440 pixels and triggers one bounded Creative retry when the delivered structure repeats Verve's house composition.
+- **Visual Truth + Direction Fidelity** — HTML and React readiness cannot pass from one convenient preview. Render Gate v2 distinguishes hashed routes and UI states across 360, 768, and 1440 pixels, then reports whether the delivered routes, responsive surfaces, states, scenes, layers, and bundled fonts actually realize the selected direction.
 - **Task-bearing openings** — ProjectSpec allows compact, split, or viewport-filling openings. [First Viewport Effectiveness](docs/FIRST_VIEWPORT_EFFECTIVENESS.md) measures visible task signals, information salience, primary-action clarity, and scroll cost; opening size itself is never rewarded or penalized.
 - **Fast stays fast** — one board call plus one code call. Creative normally spends five calls and is bounded at seven when a plan revision, code repair, or one diversity retry is needed.
 
@@ -28,6 +28,15 @@ Creative Engine v3 adapts established ideas rather than treating one numeric sco
 The selector is a small product-specific adaptation of [MAP-Elites](https://arxiv.org/abs/1504.04909) and [quality-diversity search](https://doi.org/10.3389/frobt.2016.00040): it keeps quality as a gate while comparing candidates across explicit behavioral descriptors. It is not a full evolutionary optimizer. Archive distance borrows the anti-convergence motivation of [novelty search](https://doi.org/10.1162/EVCO_a_00025). Norman's visceral, behavioral, and reflective levels from [Emotional Design](https://www.hachettebookgroup.com/titles/don-norman/emotional-design/9780465004171/) remain a descriptive review lens, never a creativity score.
 
 FVF is a Verve-specific engineering metric, not a validated creativity measure or a causal-inference claim. For each rendered scene, layer coverage is combined with a visible purpose link and required-asset fulfillment; scene scores are aggregated with a harmonic mean and multiplied by `(1 - 0.5 × orphanVisualAreaRatio)`. The harmonic mean is deliberate: a missing scene approaches zero and cannot be averaged away by an exceptional opening.
+
+Direction Fidelity (DF) is also evidence, not a taste score. It is the weighted realized fraction of six declared axes: routes (20%), responsive route surfaces (15%), meaningful states (15%), functional scenes (20%), visual layers (15%), and typography assignments (15%). Missing renders stay missing; a polished desktop opening cannot substitute for an untested route or interaction state.
+
+## What changed in 0.13 Visual Truth Harness
+
+- **Visual Fingerprint v2** — distance now sees rendered font families, area-weighted surface color, functional visual-layer balance, depth signals, alignment diversity, and stateful controls instead of relying mainly on DOM frequency.
+- **Multi-surface evidence contract** — route and state identities are hashed inside the isolated preview and combined with the three release viewports. Raw routes, labels, copy, and form values are excluded from visual memory.
+- **Direction realization report** — the workbench exposes `DF` beside FVE and FVF, and moves a result to review when its three visible widths pass but declared routes, states, layers, scenes, or fonts remain unverified.
+- **Measured public-example receipts** — Playwright generates evidence for all 18 example/viewport renders and checks the committed receipt baseline. This immediately exposed that the six examples' true nearest-neighbor distance is currently only 0.212–0.285, not the former hand-authored 0.66–0.81 claim.
 
 ## What changed in 0.11 Licensed Asset Delivery
 
@@ -268,6 +277,7 @@ npm run dev        # Next.js development server
 npm run typecheck  # strict TypeScript validation
 npm run lint       # ESLint
 npm test           # deterministic engine tests
+npm run test:visual # 18-render public-example Visual Truth matrix
 npm run build      # production build
 npm start          # serve the production build
 npm run test:load  # quota-free admission/health load smoke

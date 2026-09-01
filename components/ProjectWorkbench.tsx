@@ -25,6 +25,11 @@ import {
   visualFingerprintDistance,
   type RenderEvidenceWidth,
 } from "@/lib/project/render-gate";
+import {
+  buildDirectionRealizationReport,
+  createVisualTruthMatrix,
+  recordVisualTruth,
+} from "@/lib/project/visual-truth";
 import NativeHtmlWorkbench from "./NativeHtmlWorkbench";
 import styles from "./ProjectWorkbench.module.css";
 import { projectFileDataUrl } from "@/lib/project/brand-kit";
@@ -181,7 +186,7 @@ function NextProjectInspector({ project, onProjectChange, readOnly = false, show
   );
 }
 
-function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, onVisualDiversity }: ProjectWorkbenchProps & { probeId: string }) {
+function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, onVisualDiversity }: ProjectWorkbenchProps & { probeId: string }) {
   const { sandpack } = useSandpack();
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [bottomPanel, setBottomPanel] = useState<BottomPanel>("problems");
@@ -193,9 +198,16 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
     revision: filesRevision,
     evidence: createRenderEvidenceMatrix(),
   }));
+  const [visualTruthState, setVisualTruthState] = useState(() => ({
+    revision: filesRevision,
+    evidence: createVisualTruthMatrix(projectSpec),
+  }));
   const renderEvidence = renderEvidenceState.revision === filesRevision
     ? renderEvidenceState.evidence
     : createRenderEvidenceMatrix();
+  const visualTruth = visualTruthState.revision === filesRevision
+    ? visualTruthState.evidence
+    : createVisualTruthMatrix(projectSpec);
   const selectedViewport = VIEWPORT_LABELS.find((item) => item.id === viewport)!;
 
   const editedProject = useMemo<GeneratedProject>(
@@ -212,19 +224,24 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
   );
   const renderFailures = renderEvidence.failures;
   const renderWarnings = renderEvidence.warnings;
+  const directionRealization = useMemo(
+    () => projectSpec ? buildDirectionRealizationReport(projectSpec, visualTruth) : null,
+    [projectSpec, visualTruth]
+  );
   const totalProblems = problemChecks.length + renderProblems.length + (runtimeError ? 1 : 0);
   const riskScore = Math.max(0, 100 - project.warnings.length * 18);
   const visualReviewRequired = visualArchiveDistance !== null && visualArchiveDistance < visualDiversityThreshold;
+  const directionReviewRequired = Boolean(projectSpec && renderEvidence.complete && directionRealization?.status !== "pass");
   const renderScore = renderEvidence.covered > 0 ? renderEvidence.score : 85;
   const readinessScore = Math.min(validation.score, riskScore, renderScore);
   const readinessStatus = validation.status === "blocked" || renderFailures > 0 || runtimeError
     ? "blocked"
     : !renderEvidence.complete
       ? "verifying"
-    : validation.status === "review-required" || project.warnings.length > 0 || renderWarnings > 0 || visualReviewRequired
+    : validation.status === "review-required" || project.warnings.length > 0 || renderWarnings > 0 || visualReviewRequired || directionReviewRequired
       ? "review-required"
       : "ready";
-  const renderGateStatus = `${renderEvidence.status.toUpperCase()} ${renderEvidence.covered}/3${renderEvidence.firstViewportScore == null ? "" : ` · FVE ${renderEvidence.firstViewportScore.toFixed(2)}`}${renderEvidence.functionalVisualScore == null ? "" : ` · FVF ${renderEvidence.functionalVisualScore.toFixed(2)}`}`;
+  const renderGateStatus = `${renderEvidence.status.toUpperCase()} ${renderEvidence.covered}/3${renderEvidence.firstViewportScore == null ? "" : ` · FVE ${renderEvidence.firstViewportScore.toFixed(2)}`}${renderEvidence.functionalVisualScore == null ? "" : ` · FVF ${renderEvidence.functionalVisualScore.toFixed(2)}`}${directionRealization ? ` · DF ${directionRealization.fidelity.toFixed(2)}` : ""}`;
 
   useEffect(() => {
     const receiveReport = (event: MessageEvent<unknown>) => {
@@ -245,11 +262,18 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
             report
           ),
         }));
+        setVisualTruthState((current) => ({
+          revision: filesRevision,
+          evidence: recordVisualTruth(
+            current.revision === filesRevision ? current.evidence : createVisualTruthMatrix(projectSpec),
+            report
+          ),
+        }));
       }
     };
     window.addEventListener("message", receiveReport);
     return () => window.removeEventListener("message", receiveReport);
-  }, [filesRevision, onVisualDiversity, probeId, readOnly]);
+  }, [filesRevision, onVisualDiversity, probeId, projectSpec, readOnly]);
 
   useEffect(() => {
     onProjectChange?.(editedProject);
@@ -307,6 +331,12 @@ function ProjectWorkspaceBody({ project, probeId, onProjectChange, readOnly = fa
         <div className={styles.warning} role="status">
           <strong>Visual diversity review</strong>
           <p>This render is close to a recent local result ({visualArchiveDistance.toFixed(2)} distance). Fast results should be reviewed; Creative results should be regenerated from another direction.</p>
+        </div>
+      )}
+      {directionReviewRequired && directionRealization && (
+        <div className={styles.warning} role="status">
+          <strong>Direction realization needs evidence · DF {directionRealization.fidelity.toFixed(2)}</strong>
+          <p>{directionRealization.unverified.slice(0, 3).join(" ")}</p>
         </div>
       )}
 

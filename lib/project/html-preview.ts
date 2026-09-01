@@ -1,6 +1,6 @@
 import type { GeneratedProject } from "./types";
 import type { VerveProjectSpec } from "../domain/project-spec";
-import { createRenderProbeSource } from "./render-gate";
+import { createRenderProbeSource, type RenderProbeContext } from "./render-gate";
 import { replaceOwnedAssetReferences } from "./brand-kit";
 import {
   escapeHtmlAttribute,
@@ -19,7 +19,14 @@ function normalizePath(path: string): string {
  * JavaScript files are inlined for preview only; the editable project and ZIP
  * keep their original multi-file structure.
  */
-export function buildHtmlPreviewDocument(project: GeneratedProject, probeId: string, projectSpec?: VerveProjectSpec): string {
+export type HtmlPreviewOptions = RenderProbeContext & { entryFile?: string };
+
+export function buildHtmlPreviewDocument(
+  project: GeneratedProject,
+  probeId: string,
+  projectSpec?: VerveProjectSpec,
+  options?: HtmlPreviewOptions
+): string {
   if (project.framework !== "html") {
     throw new Error("Native HTML preview only accepts HTML projects.");
   }
@@ -27,7 +34,7 @@ export function buildHtmlPreviewDocument(project: GeneratedProject, probeId: str
   const files = new Map(project.files
     .filter((item) => item.encoding !== "base64")
     .map((item) => [normalizePath(item.path), item.content]));
-  const entryPath = normalizePath(project.entryFile || "index.html");
+  const entryPath = normalizePath(options?.entryFile || project.entryFile || "index.html");
   let html = files.get(entryPath) ?? files.get("index.html") ?? "";
 
   html = rewriteHtmlElements(html, "link", (element) => {
@@ -56,6 +63,6 @@ export function buildHtmlPreviewDocument(project: GeneratedProject, probeId: str
 
   html = replaceOwnedAssetReferences(html, project.files);
 
-  const probe = `<script data-verve-render-probe>${escapeRawTextEndTags(createRenderProbeSource(probeId, projectSpec), "script")}</script>`;
+  const probe = `<script data-verve-render-probe>${escapeRawTextEndTags(createRenderProbeSource(probeId, projectSpec, options), "script")}</script>`;
   return insertBeforeHtmlEndTag(html, "body", probe);
 }

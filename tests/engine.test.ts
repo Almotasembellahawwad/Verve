@@ -1193,6 +1193,8 @@ test("every public demo is a complete, runnable native project", () => {
     assert.ok(demo.result.project.files.some((file) => file.path === "ASSETS.md"), demo.id);
     assert.equal(demo.receipt.tests.criticalAccessibility, 0, demo.id);
     assert.equal(demo.receipt.tests.horizontalOverflow, 0, demo.id);
+    assert.equal(demo.meetsMeasuredDiversityFloor, demo.receipt.nearestExampleDistance >= 0.5, demo.id);
+    assert.equal(demo.receipt.nearestExampleDistance, demo.receipt.measurement.nearestMeasuredExampleDistance, demo.id);
     structuralCells.add(`${demo.receipt.direction.topology}/${demo.receipt.direction.opening}/${demo.receipt.direction.navigation}`);
     const validation = validateGeneratedProject(demo.result.project);
     assert.equal(validation.failed, 0, `${demo.id}: ${JSON.stringify(validation.checks)}`);
@@ -1201,7 +1203,6 @@ test("every public demo is a complete, runnable native project", () => {
     assert.ok(statSync(join(process.cwd(), "public", "demo-assets", "screenshots", `${demo.id}.jpg`)).size > 20_000, `${demo.id} requires a real frozen gallery screenshot`);
   }
   assert.equal(structuralCells.size, 6);
-  assert.ok(Math.min(...PUBLIC_DEMOS.map((demo) => demo.receipt.nearestExampleDistance)) >= 0.5);
 });
 
 test("result sharing publishes bounded evidence without the private brief", () => {

@@ -14,6 +14,11 @@ import {
   visualFingerprintDistance,
   type RenderEvidenceWidth,
 } from "@/lib/project/render-gate";
+import {
+  buildDirectionRealizationReport,
+  createVisualTruthMatrix,
+  recordVisualTruth,
+} from "@/lib/project/visual-truth";
 import styles from "./ProjectWorkbench.module.css";
 import { projectFileDataUrl } from "@/lib/project/brand-kit";
 import type { WorkbenchFocusMode } from "./ProjectWorkbench";
@@ -49,6 +54,7 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
   const [selectedPath, setSelectedPath] = useState(project.entryFile);
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [renderEvidence, setRenderEvidence] = useState(createRenderEvidenceMatrix);
+  const [visualTruth, setVisualTruth] = useState(() => createVisualTruthMatrix(projectSpec));
   const [previewRevision, setPreviewRevision] = useState(0);
   const [downloading, setDownloading] = useState(false);
   const [visualArchiveDistance, setVisualArchiveDistance] = useState<number | null>(null);
@@ -69,20 +75,25 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
   );
   const renderFailures = renderEvidence.failures;
   const renderWarnings = renderEvidence.warnings;
+  const directionRealization = useMemo(
+    () => projectSpec ? buildDirectionRealizationReport(projectSpec, visualTruth) : null,
+    [projectSpec, visualTruth]
+  );
   const totalProblems = staticProblems.length + renderProblems.length;
   const riskScore = Math.max(0, 100 - project.warnings.length * 18);
   const riskBlocked = project.readiness.status === "blocked" || project.warnings.some((warning) => warning.startsWith("BLOCKING:"));
   const visualReviewRequired = visualArchiveDistance !== null && visualArchiveDistance < visualDiversityThreshold;
+  const directionReviewRequired = Boolean(projectSpec && renderEvidence.complete && directionRealization?.status !== "pass");
   const renderScore = renderEvidence.covered > 0 ? renderEvidence.score : 85;
   const readinessScore = Math.min(validation.score, riskScore, renderScore);
   const readinessStatus = validation.status === "blocked" || renderFailures > 0 || riskBlocked
     ? "blocked"
     : !renderEvidence.complete
       ? "verifying"
-      : validation.status === "review-required" || project.warnings.length > 0 || renderWarnings > 0 || visualReviewRequired
+      : validation.status === "review-required" || project.warnings.length > 0 || renderWarnings > 0 || visualReviewRequired || directionReviewRequired
         ? "review-required"
         : "ready";
-  const renderGateStatus = `${renderEvidence.status.toUpperCase()} ${renderEvidence.covered}/3${renderEvidence.firstViewportScore == null ? "" : ` · FVE ${renderEvidence.firstViewportScore.toFixed(2)}`}${renderEvidence.functionalVisualScore == null ? "" : ` · FVF ${renderEvidence.functionalVisualScore.toFixed(2)}`}`;
+  const renderGateStatus = `${renderEvidence.status.toUpperCase()} ${renderEvidence.covered}/3${renderEvidence.firstViewportScore == null ? "" : ` · FVE ${renderEvidence.firstViewportScore.toFixed(2)}`}${renderEvidence.functionalVisualScore == null ? "" : ` · FVF ${renderEvidence.functionalVisualScore.toFixed(2)}`}${directionRealization ? ` · DF ${directionRealization.fidelity.toFixed(2)}` : ""}`;
 
   const receiveReport = useEffectEvent((message: MessageEvent<unknown>) => {
     if (message.source !== iframeRef.current?.contentWindow) return;
@@ -97,6 +108,7 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
         rememberVisualFingerprint(report.fingerprint);
       }
       setRenderEvidence((current) => recordRenderEvidence(current, report));
+      setVisualTruth((current) => recordVisualTruth(current, report));
     }
   });
 
@@ -111,6 +123,7 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
 
   const updateSelectedFile = (content: string) => {
     setRenderEvidence(createRenderEvidenceMatrix());
+    setVisualTruth(createVisualTruthMatrix(projectSpec));
     setPreviewRevision((revision) => revision + 1);
     setFiles((current) => current.map((item) => item.path === selectedFile.path ? { ...item, content } : item));
   };
@@ -119,6 +132,7 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
     setFiles(project.files);
     setSelectedPath(project.entryFile);
     setRenderEvidence(createRenderEvidenceMatrix());
+    setVisualTruth(createVisualTruthMatrix(projectSpec));
     setPreviewRevision((revision) => revision + 1);
   };
 
@@ -176,6 +190,12 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
         <div className={styles.warning} role="status">
           <strong>Visual diversity review</strong>
           <p>This render is close to a recent local result ({visualArchiveDistance.toFixed(2)} distance). Fast results should be reviewed; Creative results should be regenerated from another direction.</p>
+        </div>
+      )}
+      {directionReviewRequired && directionRealization && (
+        <div className={styles.warning} role="status">
+          <strong>Direction realization needs evidence · DF {directionRealization.fidelity.toFixed(2)}</strong>
+          <p>{directionRealization.unverified.slice(0, 3).join(" ")}</p>
         </div>
       )}
 
