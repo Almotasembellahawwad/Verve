@@ -156,6 +156,11 @@ export default function HistoryDrawer({ open, onClose, onRestore }: Props) {
                         ◐ {entry.normanLevels.behavioral}
                       </span>
                     )}
+                    {entry.renderAudit && (
+                      <span className={styles.normanMini} title={`Render ${entry.renderAudit.status}; FVE ${entry.renderAudit.firstViewportScore ?? "pending"}; FVF ${entry.renderAudit.functionalVisualScore ?? "pending"}`}>
+                        R {entry.renderAudit.covered}/3
+                      </span>
+                    )}
                     <span className={styles.time}>{timeAgo(entry.timestamp)}</span>
                   </div>
                 </div>

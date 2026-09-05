@@ -1,9 +1,24 @@
 import type { PipelineResult } from "@/lib/engine/pipeline";
 import { buildQualityReport } from "@/lib/engine/quality-report";
+import { buildEvaluationCoherence } from "@/lib/engine/evaluation-coherence";
 
 /** One public response contract shared by JSON, SSE, and background jobs. */
 export function serializePipelineResult(result: PipelineResult, requestId?: string) {
   const qualityReport = buildQualityReport(result.project, result.assetUsage, result.finalCritique, result.assetDelivery);
+  const evaluationCoherence = buildEvaluationCoherence({
+    project: result.project,
+    qualityReport,
+    assetUsage: result.assetUsage,
+    assetDelivery: result.assetDelivery,
+    typographyDelivery: result.typographyDelivery,
+    visualIntentSource: result.visualIntentSource,
+    directionDiversity: result.directionDiversity,
+    diversityResult: result.diversityResult,
+    execution: result.execution,
+    critique: result.finalCritique,
+    restraint: result.restraintResult,
+    distinctiveness: result.distinctivenessReport,
+  });
   return {
     mode: result.mode,
     effectiveMode: result.execution.effectiveMode.startsWith("creative") ? "creative" : "fast",
@@ -26,6 +41,7 @@ export function serializePipelineResult(result: PipelineResult, requestId?: stri
       warnings: result.directionDiversity.warnings,
     },
     qualityReport,
+    evaluationCoherence,
     experienceReview: {
       kind: "descriptive-not-novelty-score",
       visceral: result.distinctivenessReport.normanLevels?.visceral,

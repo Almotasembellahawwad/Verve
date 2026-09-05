@@ -46,10 +46,12 @@ export function buildQualityReport(
   const responsive = axis(project.validation.checks, ["overflow", "responsive", "mobile-clipping"]);
   const firstViewport = axis(project.validation.checks, ["first-viewport"]);
   const accessibility = axis(project.validation.checks, ["access", "motion", "font", "label", "alt", "contrast"]);
+  const blockingAssetWarnings = assetUsage.warnings.filter((warning) => warning.startsWith("BLOCKING:"));
+  const assetFailure = assetDelivery.failed > 0 || blockingAssetWarnings.length > 0;
   const assets: QualityAxis = {
-    status: assetDelivery.failed ? "fail" : assetUsage.warnings.length ? "review" : "pass",
-    score: assetDelivery.failed ? Math.max(0, 45 - assetDelivery.failed * 15) : Math.max(0, 100 - assetUsage.warnings.length * 15),
-    evidence: assetDelivery.failed
+    status: assetFailure ? "fail" : assetUsage.warnings.length ? "review" : "pass",
+    score: assetFailure ? Math.max(0, 45 - assetDelivery.failed * 15 - blockingAssetWarnings.length * 15) : Math.max(0, 100 - assetUsage.warnings.length * 15),
+    evidence: assetFailure
       ? [...assetDelivery.warnings, ...assetUsage.warnings]
       : assetUsage.warnings.length
         ? [...assetUsage.warnings]

@@ -72,6 +72,11 @@ export function inspectAssetUsage(
   if (plannedScenePlacements > tracedScenePlacements) {
     warnings.push(`Asset direction trace: ${tracedScenePlacements}/${plannedScenePlacements} planned scene placements use the assigned asset ID marker.`);
   }
+  const unplannedAssets = items.filter((item) => item.used && item.plannedSceneIds.length === 0);
+  if (unplannedAssets.length > 0) {
+    const message = `Asset direction mismatch: ${unplannedAssets.length} used asset(s) were never assigned to a scene (${unplannedAssets.map((item) => item.id).join(", ")}).`;
+    warnings.push(bundle.mediaRequirement.level === "required" ? `BLOCKING: ${message}` : message);
+  }
 
   return {
     available: bundle.photos.length,

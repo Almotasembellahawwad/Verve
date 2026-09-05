@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./GeneratePanel.module.css";
 import { PROVIDER_MODELS, DEFAULT_MODEL, PROVIDER_KEY_LABELS } from "@/lib/llm-adapter/types";
 import type { Provider } from "@/lib/llm-adapter/types";
-import { addHistory, entryFromResult } from "@/lib/history";
+import { addHistory, entryFromResult, updateHistoryRenderAudit } from "@/lib/history";
 import type { HistoryEntry } from "@/lib/history";
 import { downloadCSS, downloadFigmaTokens, downloadREADME } from "@/lib/export";
 import HistoryDrawer from "./HistoryDrawer";
@@ -40,6 +40,10 @@ import {
   getRecentLocalDesignFingerprints,
   rememberLocalDesignDirection,
 } from "@/lib/client/design-memory";
+import {
+  applyRenderedEvaluationEvidence,
+  type RenderedEvaluationEvidence,
+} from "@/lib/engine/evaluation-coherence";
 
 const PROVIDERS: { id: Provider; label: string; icon: string }[] = [
   { id: "anthropic",  label: "Claude",     icon: "A" },
@@ -60,7 +64,7 @@ const PIPELINE_STAGES = [
   { id: "04",   name: "DESIGN CONTRACT GATES",   module: "contrast + spec + QD + asset intent", status: "VERIFYING"   },
   { id: "05",   name: "CODE GENERATION",         module: "code-generator.ts",   status: "COMPILING"   },
   { id: "05.5", name: "CODE VALIDATION",         module: "CodeQualityLoop",     status: "REPAIRING"    },
-  { id: "06",   name: "NORMAN 3-LEVEL SCORE",    module: "scorer.ts",           status: "SCORING"     },
+  { id: "06",   name: "EVALUATION EVIDENCE",     module: "quality + coherence", status: "RECONCILING" },
   { id: "07",   name: "PROJECT ASSEMBLY",        module: "ProjectEngine",       status: "PACKAGING"   },
 ] as const;
 
@@ -196,6 +200,29 @@ type PipelineResult = {
     degraded: boolean;
     degradations: { stageId: string; reason: string; message: string }[];
   };
+  evaluationCoherence?: {
+    version: 1;
+    status: "coherent" | "review" | "incoherent";
+    releaseDecision: "ready" | "review-required" | "blocked";
+    creativeClaim: "eligible" | "provisional" | "withheld";
+    signals: {
+      id: string;
+      label: string;
+      authority: "release-gate" | "delivered-source" | "plan-diagnostic" | "provenance" | "render-evidence";
+      stage: "plan" | "source" | "render" | "release";
+      status: "pass" | "review" | "fail" | "unavailable";
+      score: number | null;
+      summary: string;
+    }[];
+    findings: {
+      id: string;
+      severity: "blocking" | "warning" | "explanation";
+      signalIds: string[];
+      message: string;
+    }[];
+    policy: string[];
+  };
+  renderAudit?: RenderedEvaluationEvidence;
   plan: {
     colorPalette: { name: string; hex: string; role: string }[];
     typePairing: { display: string; body: string; rationale: string };
@@ -386,6 +413,7 @@ export default function GeneratePanel() {
   const abortRef = useRef<AbortController | null>(null);
   const latestCheckpointRef = useRef<PipelineCheckpoint | null>(null);
   const creativeVisualRetryRef = useRef(0);
+  const activeHistoryIdRef = useRef<string | null>(null);
 
   const currentDirectionSnapshot = JSON.stringify({ brief: brief.trim(), framework, mode, provider, model, brandProfile });
   const activeDirectionBoard = directionSnapshot === currentDirectionSnapshot ? directionBoard : null;
@@ -485,6 +513,7 @@ export default function GeneratePanel() {
     setDirectionLoading(true);
     setError(null);
     setMissingKey(false);
+    activeHistoryIdRef.current = null;
     setResult(null);
     try {
       const response = await fetch("/api/directions/stream", {
@@ -681,7 +710,8 @@ export default function GeneratePanel() {
             // ── Save to history ──────────────────────────────────────────
             try {
               const historyResult = { ...enriched, project: stripBinaryAssetContent(enriched.project) };
-              addHistory(entryFromResult(brief, historyResult));
+              const historyEntry = addHistory(entryFromResult(brief, historyResult));
+              activeHistoryIdRef.current = historyEntry.id;
             } catch {}
           } else if (eventType === "heartbeat") {
             const stageElapsed = Math.max(1, Math.round(Number(payload.stageElapsedMs ?? 0) / 1000));
@@ -761,11 +791,37 @@ export default function GeneratePanel() {
     void handleGenerate("creative", undefined, true);
   };
 
+  const handleRenderAudit = useCallback((audit: RenderedEvaluationEvidence) => {
+    setResult((current) => {
+      if (!current) return current;
+      const threshold = current.execution?.effectiveMode.startsWith("creative") ? 0.45 : 0.35;
+      return {
+        ...current,
+        renderAudit: audit,
+        evaluationCoherence: current.evaluationCoherence
+          ? applyRenderedEvaluationEvidence(current.evaluationCoherence, audit, threshold)
+          : current.evaluationCoherence,
+      };
+    });
+    if (activeHistoryIdRef.current) updateHistoryRenderAudit(activeHistoryIdRef.current, audit);
+  }, []);
+
   const handleRestoreHistory = (entry: HistoryEntry) => {
     setHistoryOpen(false);
     setBrief(entry.brief);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (entry.fullResult) { setResult(entry.fullResult as any); setActiveView("project"); }
+    activeHistoryIdRef.current = entry.id;
+    if (entry.fullResult) {
+      const restored = entry.fullResult as PipelineResult;
+      const threshold = restored.execution?.effectiveMode.startsWith("creative") ? 0.45 : 0.35;
+      setResult(entry.renderAudit && restored.evaluationCoherence
+        ? {
+            ...restored,
+            renderAudit: entry.renderAudit,
+            evaluationCoherence: applyRenderedEvaluationEvidence(restored.evaluationCoherence, entry.renderAudit, threshold),
+          }
+        : restored);
+      setActiveView("project");
+    }
   };
 
   const gradeColor = (grade: string) => {
@@ -1181,6 +1237,7 @@ export default function GeneratePanel() {
                   projectSpec={result.projectSpec}
                   visualDiversityThreshold={result.execution?.effectiveMode.startsWith("creative") ? 0.45 : 0.35}
                   onVisualDiversity={handleVisualDiversity}
+                  onRenderAudit={handleRenderAudit}
                 />
               </div>
             </>
@@ -1629,6 +1686,28 @@ export default function GeneratePanel() {
                 </section>
               )}
 
+              {result.evaluationCoherence && (
+                <section className={styles.evidenceCard} aria-label="Evaluation coherence report">
+                  <div className={styles.evidenceHead}>
+                    <div><span>EVALUATION COHERENCE</span><strong>{result.evaluationCoherence.status}</strong></div>
+                    <b>Creative claim: {result.evaluationCoherence.creativeClaim}</b>
+                  </div>
+                  <dl className={styles.evidenceGrid}>
+                    <div><dt>Release decision</dt><dd>{result.evaluationCoherence.releaseDecision.replace("-", " ")}</dd></div>
+                    <div><dt>Release gates</dt><dd>{result.evaluationCoherence.signals.filter((signal) => signal.authority === "release-gate").map((signal) => signal.status).join(" / ")}</dd></div>
+                    <div><dt>Render evidence</dt><dd>{result.evaluationCoherence.signals.find((signal) => signal.id === "render-evidence")?.status ?? "unavailable"}</dd></div>
+                  </dl>
+                  <p>There is deliberately no composite score: release gates can veto plan diagnostics, and browser evidence belongs to a later measured stage.</p>
+                  {result.evaluationCoherence.findings.length > 0 && (
+                    <ul className={styles.evidenceWarnings}>
+                      {result.evaluationCoherence.findings.map((finding) => (
+                        <li key={finding.id}>[{finding.severity}] {finding.message}</li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              )}
+
               {result.distinctivenessReport.clichesDetected.length > 0 && (
                 <div className={styles.reportSection}>
                   <h3 className={styles.reportSectionTitle}>
@@ -1737,10 +1816,10 @@ export default function GeneratePanel() {
                 </div>
               )}
 
-              {/* Module J — Don Norman 3-Level Score */}
+              {/* Module J — descriptive plan-level lenses */}
               {result.distinctivenessReport.normanLevels && (
                 <div className={styles.reportSection}>
-                  <h3 className={styles.reportSectionTitle}>Don Norman 3-Level Analysis — Module J</h3>
+                  <h3 className={styles.reportSectionTitle}>Don Norman 3-Level Reading — Plan Diagnostic</h3>
                   {result.distinctivenessReport.normanSummary && (
                     <p style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "12px", lineHeight: 1.6 }}>
                       {result.distinctivenessReport.normanSummary}
@@ -1748,7 +1827,7 @@ export default function GeneratePanel() {
                   )}
                   {([
                     { key: "visceral",   label: "Visceral",   desc: "First impression — visual boldness", color: "var(--brand)" },
-                    { key: "behavioral", label: "Behavioral", desc: "Usability — function, clarity (evaluated blind to aesthetics)", color: "var(--status-success)" },
+                    { key: "behavioral", label: "Behavioral", desc: "Plan-level usability hypothesis; source and render gates remain authoritative", color: "var(--status-success)" },
                     { key: "reflective", label: "Reflective", desc: "Shareability — would someone be proud to show this?", color: "var(--status-info)" },
                   ] as const).map(({ key, label, desc, color }) => {
                     const level = result.distinctivenessReport.normanLevels![key];
@@ -1782,11 +1861,11 @@ export default function GeneratePanel() {
                 </div>
               )}
 
-              {/* Module N -- Restraint Check (Dieter Rams) */}
+              {/* Module N -- plan restraint heuristic */}
               {result.restraintResult && (
                 <div className={styles.reportSection}>
                   <h3 className={styles.reportSectionTitle}>
-                    Restraint Check &mdash; Module N
+                    Plan Restraint Heuristic &mdash; Diagnostic Only
                     <span style={{
                       fontSize: "10px", letterSpacing: "0.1em", marginLeft: 8,
                       color: result.restraintResult.verdict === "disciplined" ? "#34D399"
@@ -1796,6 +1875,10 @@ export default function GeneratePanel() {
                       {result.restraintResult.verdict.toUpperCase().replace(/-/g, " ")}
                     </span>
                   </h3>
+
+                  <p style={{ fontSize: "10px", color: "var(--text-dim)", lineHeight: 1.6, marginBottom: 10 }}>
+                    This tests whether the proposed signature earns its prominence. It is not a creativity or launch-readiness score.
+                  </p>
 
                   {/* Score bar */}
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>

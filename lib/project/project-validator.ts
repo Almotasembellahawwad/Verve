@@ -216,6 +216,24 @@ export function validateGeneratedProject(project: GeneratedProject): ProjectVali
     ? check("content-truth", "Content truthfulness", "pass", "No explicit fake or unfinished content markers were detected.")
     : check("content-truth", "Content truthfulness", "warning", `${placeholderSignals.length} placeholder or unfinished content marker(s) remain.`));
 
+  const visitorSource = sourceFiles(project)
+    .map((file) => file.content)
+    .join("\n")
+    .replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\/|^\s*\/\/.*$/gm, " ");
+  const engineMetaCopy = [
+    /\b(?:source|available|provided)\s+brief\b/i,
+    /\bdesign\s+plan\b/i,
+    /\blayout\s+concept\b/i,
+    /\b(?:page\s+)?topology\s+(?:mutates?|changes?|becomes?|transforms?)\b/i,
+    /\bspatial\s+narrative\b/i,
+    /\bcomposition\s+genome\b/i,
+    /\bstory\s+graph\b/i,
+    /\bscene\s+contract\b/i,
+  ].filter((pattern) => pattern.test(visitorSource));
+  checks.push(engineMetaCopy.length === 0
+    ? check("content-boundary", "Visitor copy boundary", "pass", "No internal planning language appears in visitor-facing source.")
+    : check("content-boundary", "Visitor copy boundary", "fail", `${engineMetaCopy.length} internal planning phrase(s) leaked into visitor-facing source. Rewrite them in the subject's voice; never expose the brief, plan, topology, or engine contract.`));
+
   const failed = checks.filter((item) => item.status === "fail").length;
   const warnings = checks.filter((item) => item.status === "warning").length;
   const score = Math.max(0, 100 - failed * 22 - warnings * 7);

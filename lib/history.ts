@@ -3,6 +3,7 @@
 // Stores up to 20 generation results with LRU eviction
 
 import { BrowserHistoryRepository } from "./adapters/storage/browser-history-repository";
+import type { RenderedEvaluationEvidence } from "./engine/evaluation-coherence";
 
 export const HISTORY_KEY = "verve_design_history";
 export const MAX_HISTORY  = 20;
@@ -22,6 +23,7 @@ export type HistoryEntry = {
   signatureElement: string;
   palette: { name: string; hex: string }[];
   codeSnippet: string; // first 500 chars of generated code
+  renderAudit?: RenderedEvaluationEvidence;
   fullResult:  unknown; // complete API response, stored as-is
 };
 
@@ -82,6 +84,18 @@ export function deleteHistoryEntry(id: string): void {
 
 export function clearHistory(): void {
   repository().clear();
+}
+
+export function updateHistoryRenderAudit(id: string, renderAudit: RenderedEvaluationEvidence): void {
+  const entries = load();
+  const updated = entries.map((entry) => {
+    if (entry.id !== id) return entry;
+    const fullResult = entry.fullResult && typeof entry.fullResult === "object"
+      ? { ...entry.fullResult, renderAudit }
+      : entry.fullResult;
+    return { ...entry, renderAudit, fullResult };
+  });
+  save(updated);
 }
 
 /** Format a history entry from a pipeline API response */
