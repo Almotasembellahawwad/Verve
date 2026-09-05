@@ -22,6 +22,7 @@ Verve is an open-source project intelligence engine for generating distinctive w
 - **Private local design memory** — the browser keeps only bounded structural and numeric DOM fingerprints. Version 2 adds area-weighted color, rendered font families, functional-layer balance, depth, alignment diversity, and stateful-control density to the 12×12 occupancy/type/media/interaction signals. Route and state identities are one-way hashes; briefs, code, images, form values, and API keys are never stored in this memory.
 - **Inspectable Stage Graph** — deterministic post-plan work now runs as immutable, independently testable experience-contract and direction-diversity stages.
 - **Visual Truth + Direction Fidelity** — HTML and React readiness cannot pass from one convenient preview. Render Gate v2 distinguishes hashed routes and UI states across 360, 768, and 1440 pixels, then reports whether the delivered routes, responsive surfaces, states, scenes, layers, and bundled fonts actually realize the selected direction.
+- **Coherent evaluation evidence** — release gates, delivered-source checks, plan diagnostics, provenance, and browser evidence remain separate signals with explicit authority. Verve never averages them into a decorative master score: a failed asset or typography gate vetoes an optimistic plan reading, and a creativity claim remains provisional until the three browser viewports are persisted. [Policy and calibration protocol](docs/EVALUATION_COHERENCE.md).
 - **Task-bearing openings** — ProjectSpec allows compact, split, or viewport-filling openings. [First Viewport Effectiveness](docs/FIRST_VIEWPORT_EFFECTIVENESS.md) measures visible task signals, information salience, primary-action clarity, and scroll cost; opening size itself is never rewarded or penalized.
 - **Fast stays fast** — one board call plus one code call. Creative normally spends five calls and is bounded at seven when a plan revision, code repair, or one diversity retry is needed.
 
@@ -34,6 +35,16 @@ The selector is a small product-specific adaptation of [MAP-Elites](https://arxi
 FVF is a Verve-specific engineering metric, not a validated creativity measure or a causal-inference claim. For each rendered scene, layer coverage is combined with a visible purpose link and required-asset fulfillment; scene scores are aggregated with a harmonic mean and multiplied by `(1 - 0.5 × orphanVisualAreaRatio)`. The harmonic mean is deliberate: a missing scene approaches zero and cannot be averaged away by an exceptional opening.
 
 Direction Fidelity (DF) is also evidence, not a taste score. It is the weighted realized fraction of seven declared axes: routes (14%), responsive route surfaces (12%), meaningful states (10%), functional scenes (16%), rendered composition and responsive transformation (20%), visual layers (14%), and typography assignments (14%). Missing renders stay missing; a polished desktop opening cannot substitute for an untested route, interaction state, or spatial contract.
+
+## What changed in 0.18 Delivery and evaluation coherence
+
+- **Production-verified typography** — bundled Fontsource files are resolved by Node at runtime instead of being rewritten to numeric Turbopack module IDs. Production output tracing includes only the 14 allowlisted WOFF2 files, `/api/health` probes their signatures, and CI boots the built server before accepting typography delivery.
+- **Pre-code media fulfillment** — when a brief requires external media, the Scene Asset Director assigns the required number of distinct approved assets to distinct evidence-bearing scenes before code generation. The later Media Gate rejects any required asset that appears in source without a scene assignment.
+- **Unambiguous receipts** — Asset Delivery reports referenced binary files; Media Gate reports the brief-level minimum actually used in assigned scenes. A complete delivery receipt can no longer conceal a failed usage gate, and the assets quality axis fails with a blocking media warning.
+- **Evidence authority instead of score accumulation** — an evaluation coherence report explains contradictions across readiness, typography, media, template diversity, critique provenance, Norman readings, restraint, and Render Gate. It does not create another composite score.
+- **Persisted render audit** — the browser stores only bounded numeric render summaries and hashed route/state evidence with the local history entry. Creative eligibility is withheld or provisional until 360, 768, and 1440 evidence is complete and compatible with the release gates.
+- **Copy and opening boundaries** — internal director language such as Story Graph, topology, or source-brief notes is blocked from visitor-facing output. The generator must expose a primary object, a decision fact or state, and an action in the initial viewport without using motion to hide them.
+- **Bounded critique call** — Creative's adversarial plan critique now uses strict structured output, a smaller output budget, and no hidden reasoning. This mitigates recurring provider-budget degradation; it remains a beta behavior that must be validated across real provider runs rather than inferred from local tests.
 
 ## What changed in 0.17 Rendered Composition Realization
 
@@ -317,6 +328,7 @@ npm run lint       # ESLint
 npm test           # deterministic engine tests
 npm run test:visual # 18-render public-example Visual Truth matrix
 npm run build      # production build
+npm run test:production-fonts # boot the built app and verify all 14 WOFF2 files
 npm start          # serve the production build
 npm run test:load  # quota-free admission/health load smoke
 ```

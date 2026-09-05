@@ -89,8 +89,13 @@ function directedCatalog(bundle: AssetBundle, ownedAssets: OwnedAssetManifest[])
 
 function choosePhoto(scene: StoryScene, photos: DirectedAsset[], uses: Map<string, number>): DirectedAsset | undefined {
   if (photos.length === 0) return undefined;
+  // A required media floor is measured in distinct delivered assets. Prefer an
+  // unused asset while one exists so the direction contract can actually
+  // satisfy the same invariant that the post-generation Media Gate enforces.
+  const unused = photos.filter((photo) => !uses.has(photo.id));
+  const candidates = unused.length > 0 ? unused : photos;
   const sceneWords = words(`${scene.focalObject} ${scene.evidence.join(" ")} ${scene.purpose}`);
-  return [...photos].sort((left, right) => {
+  return [...candidates].sort((left, right) => {
     const relevance = (asset: DirectedAsset) => {
       const overlap = [...words(asset.alt)].filter((word) => sceneWords.has(word)).length;
       const ownership = asset.source === "owned" ? 2 : 0;
@@ -98,6 +103,65 @@ function choosePhoto(scene: StoryScene, photos: DirectedAsset[], uses: Map<strin
     };
     return relevance(right) - relevance(left) || left.id.localeCompare(right.id);
   })[0];
+}
+
+const MEDIA_SCENE_PRIORITY: Record<StoryScene["narrativeRole"], number> = {
+  proof: 7,
+  discovery: 6,
+  tension: 5,
+  choice: 4,
+  hook: 3,
+  payoff: 2,
+};
+
+/**
+ * Align the pre-code scene contract with the global media policy. A photo may
+ * be a supporting evidence layer in a data, diagram, or interaction scene; it
+ * does not need to replace that scene's primary medium.
+ */
+function fulfillRequiredMediaFloor(
+  sceneDirections: SceneAssetDirection[],
+  narrative: VisualNarrativeContract,
+  photos: DirectedAsset[],
+  uses: Map<string, number>,
+  assetBundle: AssetBundle
+): void {
+  if (assetBundle.mediaRequirement.level !== "required") return;
+  const target = Math.min(
+    assetBundle.mediaRequirement.minimumAssets,
+    photos.length,
+    sceneDirections.length
+  );
+  const selected = new Set(sceneDirections.flatMap((direction) => direction.selectedAssetIds));
+  if (selected.size >= target) return;
+
+  const scenesById = new Map(narrative.scenes.map((scene) => [scene.id, scene]));
+  const candidates = sceneDirections
+    .filter((direction) => direction.requirement !== "avoid" && direction.selectedAssetIds.length === 0)
+    .sort((left, right) => {
+      const leftScene = scenesById.get(left.sceneId);
+      const rightScene = scenesById.get(right.sceneId);
+      return (rightScene ? MEDIA_SCENE_PRIORITY[rightScene.narrativeRole] : 0)
+        - (leftScene ? MEDIA_SCENE_PRIORITY[leftScene.narrativeRole] : 0);
+    });
+
+  for (const direction of candidates) {
+    if (selected.size >= target) break;
+    const scene = scenesById.get(direction.sceneId);
+    if (!scene) continue;
+    const available = photos.filter((photo) => !selected.has(photo.id));
+    const asset = choosePhoto(scene, available, uses);
+    if (!asset) break;
+    selected.add(asset.id);
+    uses.set(asset.id, (uses.get(asset.id) ?? 0) + 1);
+    direction.requirement = "required";
+    direction.sourcePolicy = "approved-only";
+    direction.selectedAssetIds = [asset.id];
+    if (!direction.expectedLayers.includes("media")) direction.expectedLayers.push("media");
+    direction.visualPurpose = `${direction.visualPurpose} Use the assigned photograph as specific evidence, not atmosphere.`;
+    direction.altIntent = `Describe the visible product, place, or craft evidence that supports: ${scene.audienceQuestion}`;
+    direction.fallback = "Keep the evidence slot explicit if this assigned source is unavailable; do not silently replace it with decoration.";
+  }
 }
 
 function needsExternalAsset(scene: StoryScene): boolean {
@@ -158,6 +222,7 @@ export function buildAssetDirectionContract(input: {
       fallback: fallbackFor(scene, Boolean(selected), assetBundle.mediaRequirement.suggestedSubjects),
     };
   });
+  fulfillRequiredMediaFloor(sceneDirections, narrative, photos, uses, assetBundle);
   const selectedIds = new Set(sceneDirections.flatMap((direction) => direction.selectedAssetIds));
 
   return {
@@ -169,6 +234,7 @@ export function buildAssetDirectionContract(input: {
     globalRules: [
       "Every visible asset must answer a scene question, expose evidence, orient the audience, or reveal state; atmosphere alone is not fulfillment.",
       "External-media requirement is separate from visual richness: not-applicable scenes still require their declared data, shape, motion, or interaction layers.",
+      "When the brief has a required media floor, the same number of distinct approved assets must be assigned to distinct scenes before code generation.",
       "Use only catalog URLs or original programmatic geometry. Never invent or silently substitute an asset; remote stock URLs are preview-only until copied into the project.",
       "Keep the assigned credit and source record in ASSETS.md; Pexels use also needs a visible linked credit in the experience.",
       "Treat framing as responsive information design: preserve the evidence-bearing subject before preserving the crop.",

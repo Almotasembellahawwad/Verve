@@ -220,6 +220,7 @@ export function formatAssetDeliveryReceipt(receipt: AssetDeliveryReceipt): strin
 - Status: ${receipt.status}
 - Bundled: ${receipt.bundled}/${receipt.requested} requested assets
 - Total bundled bytes: ${receipt.totalBytes}
+- This status covers binary delivery for assets referenced by the generated source; the separate Media Usage Gate verifies the brief-level minimum and scene assignments.
 - A checksum proves delivered-byte identity; it does not replace the source license or attribution obligation.
 - Pexels API projects must retain a prominent Pexels link and should preserve the photographer/photo-page credit recorded above.
 - Do not redistribute a stock file on a standalone basis, imply endorsement, or treat this receipt as clearance of third-party people, property, logo, or trademark rights.

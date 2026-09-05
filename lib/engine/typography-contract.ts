@@ -290,8 +290,7 @@ h1, h2, h3, h4, h5, h6, [data-verve-display] {
 
 code, pre, kbd, samp, [data-verve-mono] {
   font-family: var(--verve-font-mono);
-}` : ""}
-}`;
+}` : ""}`;
 }
 
 export function formatTypographyForCodegen(contract: TypographyContract, framework: ProjectFramework): string {

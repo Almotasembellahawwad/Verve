@@ -64,6 +64,59 @@ const CombinedCritiqueSchema = z.object({
   usabilityFloor: UsabilityFloorSchema,
 });
 
+const COMBINED_CRITIQUE_JSON_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  additionalProperties: false,
+  required: ["critique", "endingCheck", "usabilityFloor"],
+  properties: {
+    critique: {
+      type: "object",
+      additionalProperties: false,
+      required: ["genericElementCount", "flaggedElements", "positiveElements", "overallVerdict"],
+      properties: {
+        genericElementCount: { type: "integer", minimum: 0 },
+        flaggedElements: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["element", "reason", "severity"],
+            properties: {
+              element: { type: "string", minLength: 1 },
+              reason: { type: "string", minLength: 1 },
+              severity: { type: "string", enum: ["high", "medium", "low"] },
+            },
+          },
+        },
+        positiveElements: { type: "array", items: { type: "string" } },
+        overallVerdict: { type: "string", minLength: 1 },
+      },
+    },
+    endingCheck: {
+      type: "object",
+      additionalProperties: false,
+      required: ["quality", "description", "recommendation"],
+      properties: {
+        quality: { type: "string", enum: ["strong", "intentional", "weak", "filler"] },
+        description: { type: "string" },
+        recommendation: { type: "string" },
+      },
+    },
+    usabilityFloor: {
+      type: "object",
+      additionalProperties: false,
+      required: ["passed", "contrastOk", "touchTargetsOk", "bodyTextOk", "issues"],
+      properties: {
+        passed: { type: "boolean" },
+        contrastOk: { type: "boolean" },
+        touchTargetsOk: { type: "boolean" },
+        bodyTextOk: { type: "boolean" },
+        issues: { type: "array", items: { type: "string" } },
+      },
+    },
+  },
+};
+
 // ── Main adversarial critique prompt ─────────────────────────────────────────
 const CRITIQUE_SYSTEM_PROMPT = `You are an adversarial design critic. Your job is to identify generic, AI-default design decisions.
 
@@ -186,9 +239,16 @@ Usability baseline stated by designer: ${plan.cognitiveGrounding?.usabilityBasel
       .map((prompt) => prompt.split("Respond ONLY")[0])
       .join("\n\n")}\n\nRETURN ONE JSON OBJECT ONLY:\n{\n  "critique": { "genericElementCount": 0, "flaggedElements": [], "positiveElements": [], "overallVerdict": "..." },\n  "endingCheck": { "quality": "strong | intentional | weak | filler", "description": "...", "recommendation": "..." },\n  "usabilityFloor": { "contrastOk": true, "touchTargetsOk": true, "bodyTextOk": true, "issues": [], "passed": true }\n}`,
     temperature: 0.35,
-    maxTokens: 3000,
-    reasoningEffort: "low",
+    // This stage classifies an already-formed plan. Strict output plus no
+    // hidden reasoning is both more deterministic and materially faster than
+    // spending Creative's bounded deadline on open-ended deliberation.
+    maxTokens: 1600,
+    reasoningEffort: "none",
     timeoutMs,
+    responseFormat: {
+      name: "verve_plan_critique",
+      schema: COMBINED_CRITIQUE_JSON_SCHEMA,
+    },
   });
 
   const combined = CombinedCritiqueSchema.parse(extractJSON<unknown>(critiqueRaw, "Combined Critique"));

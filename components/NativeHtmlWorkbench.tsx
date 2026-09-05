@@ -23,6 +23,8 @@ import styles from "./ProjectWorkbench.module.css";
 import { projectFileDataUrl } from "@/lib/project/brand-kit";
 import type { WorkbenchFocusMode } from "./ProjectWorkbench";
 import { getRecentVisualFingerprints, rememberVisualFingerprint } from "@/lib/client/design-memory";
+import { summarizeRenderAudit } from "@/lib/client/render-audit";
+import type { RenderedEvaluationEvidence } from "@/lib/engine/evaluation-coherence";
 
 type Viewport = "mobile" | "tablet" | "desktop";
 
@@ -45,9 +47,10 @@ type Props = {
   showDiagnostics?: boolean;
   visualDiversityThreshold?: number;
   onVisualDiversity?: (distance: number | null) => void;
+  onRenderAudit?: (audit: RenderedEvaluationEvidence) => void;
 };
 
-export default function NativeHtmlWorkbench({ project, projectSpec, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, onVisualDiversity }: Props) {
+export default function NativeHtmlWorkbench({ project, projectSpec, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, onVisualDiversity, onRenderAudit }: Props) {
   const baseProbeId = useId();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [files, setFiles] = useState(project.files);
@@ -120,6 +123,10 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
   useEffect(() => {
     onProjectChange?.(editedProject);
   }, [editedProject, onProjectChange]);
+
+  useEffect(() => {
+    if (!readOnly) onRenderAudit?.(summarizeRenderAudit(renderEvidence, directionRealization, visualArchiveDistance));
+  }, [directionRealization, onRenderAudit, readOnly, renderEvidence, visualArchiveDistance]);
 
   const updateSelectedFile = (content: string) => {
     setRenderEvidence(createRenderEvidenceMatrix());

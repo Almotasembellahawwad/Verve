@@ -34,6 +34,8 @@ import NativeHtmlWorkbench from "./NativeHtmlWorkbench";
 import styles from "./ProjectWorkbench.module.css";
 import { projectFileDataUrl } from "@/lib/project/brand-kit";
 import { getRecentVisualFingerprints, rememberVisualFingerprint } from "@/lib/client/design-memory";
+import { summarizeRenderAudit } from "@/lib/client/render-audit";
+import type { RenderedEvaluationEvidence } from "@/lib/engine/evaluation-coherence";
 
 type Viewport = "mobile" | "tablet" | "desktop";
 type BottomPanel = "problems" | "console";
@@ -48,6 +50,7 @@ type ProjectWorkbenchProps = {
   showDiagnostics?: boolean;
   visualDiversityThreshold?: number;
   onVisualDiversity?: (distance: number | null) => void;
+  onRenderAudit?: (audit: RenderedEvaluationEvidence) => void;
 };
 
 const VIEWPORT_LABELS: Array<{ id: Viewport; label: string; width: string; pixels: RenderEvidenceWidth }> = [
@@ -186,7 +189,7 @@ function NextProjectInspector({ project, onProjectChange, readOnly = false, show
   );
 }
 
-function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, onVisualDiversity }: ProjectWorkbenchProps & { probeId: string }) {
+function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, onVisualDiversity, onRenderAudit }: ProjectWorkbenchProps & { probeId: string }) {
   const { sandpack } = useSandpack();
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [bottomPanel, setBottomPanel] = useState<BottomPanel>("problems");
@@ -278,6 +281,10 @@ function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, 
   useEffect(() => {
     onProjectChange?.(editedProject);
   }, [editedProject, onProjectChange]);
+
+  useEffect(() => {
+    if (!readOnly) onRenderAudit?.(summarizeRenderAudit(renderEvidence, directionRealization, visualArchiveDistance));
+  }, [directionRealization, onRenderAudit, readOnly, renderEvidence, visualArchiveDistance]);
 
   const downloadProject = async () => {
     setDownloading(true);
@@ -402,7 +409,7 @@ function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, 
   );
 }
 
-export default function ProjectWorkbench({ project, projectSpec, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, onVisualDiversity }: ProjectWorkbenchProps) {
+export default function ProjectWorkbench({ project, projectSpec, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, onVisualDiversity, onRenderAudit }: ProjectWorkbenchProps) {
   const probeId = useId();
   const projectRevision = useMemo(() => sandboxFilesRevision(Object.fromEntries(
     project.files.map((file) => [file.path, { code: file.content }])
@@ -417,7 +424,7 @@ export default function ProjectWorkbench({ project, projectSpec, onProjectChange
   }
 
   if (project.framework === "html") {
-    return <NativeHtmlWorkbench key={`${project.name}-${projectRevision}`} project={project} projectSpec={projectSpec} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} visualDiversityThreshold={visualDiversityThreshold} onVisualDiversity={onVisualDiversity} />;
+    return <NativeHtmlWorkbench key={`${project.name}-${projectRevision}`} project={project} projectSpec={projectSpec} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} visualDiversityThreshold={visualDiversityThreshold} onVisualDiversity={onVisualDiversity} onRenderAudit={onRenderAudit} />;
   }
 
   return (
@@ -454,7 +461,7 @@ export default function ProjectWorkbench({ project, projectSpec, onProjectChange
       }}
       options={{ activeFile: `/${project.entryFile}`, visibleFiles: project.files.map((item) => `/${item.path}`) }}
     >
-      <ProjectWorkspaceBody project={project} projectSpec={projectSpec} probeId={probeId} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} visualDiversityThreshold={visualDiversityThreshold} onVisualDiversity={onVisualDiversity} />
+      <ProjectWorkspaceBody project={project} projectSpec={projectSpec} probeId={probeId} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} visualDiversityThreshold={visualDiversityThreshold} onVisualDiversity={onVisualDiversity} onRenderAudit={onRenderAudit} />
     </SandpackProvider>
   );
 }

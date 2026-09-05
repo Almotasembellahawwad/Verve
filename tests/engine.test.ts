@@ -107,9 +107,12 @@ import { calculateFirstViewportEffectiveness, firstViewportNeedsReview } from ".
 import { harmonicCoverage, inspectVisualIntentSource } from "../lib/engine/visual-intent";
 import { buildCompositionGenome, compositionGenomeDistance, inspectCompositionGenomeSource } from "../lib/engine/composition-genome";
 import type { StoryScene } from "../lib/domain/project-spec";
-import { inspectAssetUsage } from "../lib/engine/asset-usage";
-import { deliverGeneratedAssets } from "../lib/engine/asset-delivery";
+import { inspectAssetUsage, type AssetUsageEvidence } from "../lib/engine/asset-usage";
+import { deliverGeneratedAssets, type AssetDeliveryReceipt } from "../lib/engine/asset-delivery";
 import { MAX_DELIVERED_ASSET_BYTES, PexelsAssetDeliveryAdapter } from "../lib/adapters/assets/pexels-asset-delivery";
+import { buildQualityReport } from "../lib/engine/quality-report";
+import { applyRenderedEvaluationEvidence, buildEvaluationCoherence } from "../lib/engine/evaluation-coherence";
+import type { GeneratedProject } from "../lib/project/types";
 
 async function runPipeline(
   input: PipelineInput & {
@@ -529,6 +532,46 @@ test("Scene Asset Director assigns licensed evidence and the fulfillment metric 
   assert.doesNotThrow(() => new Function(createRenderProbeSource("asset-intent-probe", spec)));
 });
 
+test("required media policy is compiled into distinct scene assignments before code generation", () => {
+  const analysis = analyzeBriefLocally("A UK skincare launch must compare ingredients, texture, packaging, and clinical routine with real product photography.");
+  const plan = generateDesignPlanLocally(analysis);
+  const photos = ["formula", "texture", "packaging", "routine"].map((subject, index) => ({
+    id: `owned:assets/${subject}.webp`,
+    url: `./assets/${subject}.webp`,
+    alt: `${subject} evidence`,
+    photographer: "User supplied",
+    credit: "User-owned asset",
+    source: "owned" as const,
+    dominant_hex: `#${index + 4}${index + 4}${index + 4}${index + 4}${index + 4}${index + 4}`,
+  }));
+  const assetBundle = {
+    photos,
+    icons: [], extractedPalette: [], warnings: [], readinessWarnings: [],
+    font: { family: "Arial", weights: [400, 700], cssImport: "none", isGoogleFont: false, source: "fallback" as const },
+    mediaRequirement: { level: "required" as const, minimumAssets: 3, reason: "Product evidence is essential.", suggestedSubjects: ["formula", "texture", "packaging"] },
+    assetSummary: "Four approved owned photographs.",
+  };
+  const spec = buildVerveProjectSpec({ analysis, plan, framework: "html", mode: "creative", assetBundle });
+  const assigned = spec.assetDirection.sceneDirections.filter((direction) => direction.selectedAssetIds.length > 0);
+  const assignedIds = new Set(assigned.flatMap((direction) => direction.selectedAssetIds));
+  assert.ok(assigned.length >= 3);
+  assert.ok(assignedIds.size >= 3);
+  assert.ok(assigned.every((direction) => direction.requirement === "required" && direction.expectedLayers.includes("media")));
+
+  const unplanned = photos.find((photo) => !assignedIds.has(photo.id));
+  assert.ok(unplanned);
+  const deliveredReferences = [
+    ...assignedIds,
+    unplanned!.id,
+  ].map((id) => {
+    const photo = photos.find((candidate) => candidate.id === id)!;
+    return `<img src="${photo.url}" alt="${photo.alt}" data-verve-asset-id="${photo.id}">`;
+  }).join("");
+  const usage = inspectAssetUsage(assetBundle, deliveredReferences, spec.assetDirection);
+  assert.ok(usage.used >= assetBundle.mediaRequirement.minimumAssets);
+  assert.ok(usage.warnings.some((warning) => warning.startsWith("BLOCKING: Asset direction mismatch:")));
+});
+
 test("Licensed Asset Delivery allowlists origins, localizes used Pexels bytes, and records integrity", async () => {
   const analysis = analyzeBriefLocally("Architecture portfolio with material photography and project evidence.");
   const plan = generateDesignPlanLocally(analysis);
@@ -600,6 +643,7 @@ test("Licensed Asset Delivery allowlists origins, localizes used Pexels bytes, a
   assert.match(manifest, /SHA-256 `a{64}`/);
   assert.match(manifest, /https:\/\/www\.pexels\.com\/license\//);
   assert.match(manifest, /standalone basis/);
+  assert.match(manifest, /separate Media Usage Gate verifies the brief-level minimum/);
   assert.ok(project.files.some((file) => file.path === delivery.files[0]?.path && file.role === "asset"));
   const archive = await JSZip.loadAsync(await (await createProjectArchive(project)).arrayBuffer());
   assert.ok(archive.file(delivery.files[0]!.path));
@@ -658,6 +702,7 @@ test("Typography Contract selects a local legal-services profile and bundles exe
   assert.equal(delivery.files.length, contract.files.length);
   assert.match(delivery.css, /--verve-font-display/);
   assert.match(delivery.css, /\.\/assets\/fonts\/newsreader-latin-wght-normal\.woff2/);
+  assert.equal((delivery.css.match(/\{/g) ?? []).length, (delivery.css.match(/\}/g) ?? []).length);
   assert.ok(delivery.receipt.files.every((file) => /^[a-f0-9]{64}$/.test(file.sha256)));
 
   const packageDelivery = await deliverTypographyContract(contract, "html");
@@ -1335,6 +1380,21 @@ test("managed deployment remains available in explicit memory fallback mode", ()
   });
   assert.equal(health.status, "degraded");
   assert.equal(health.checks.distributedRateLimit, "memory-fallback");
+});
+
+test("production health fails closed when bundled typography assets are unavailable", () => {
+  const health = readHealthUseCase({
+    snapshot: () => ({
+      environment: "production",
+      commitSha: "abc123",
+      rateLimitConfigured: true,
+      rateLimitFailClosed: true,
+      isManagedDeployment: true,
+    }),
+  }, { typographyAssets: "missing" });
+  assert.equal(health.status, "not-ready");
+  assert.equal(health.checks.typographyAssets, "missing");
+  assert.equal(health.checks.distributedRateLimit, "ok");
 });
 
 test("managed route admission remains usable with memory fallback", async () => {
@@ -2215,6 +2275,114 @@ test("engineering checks distinguish fluid CSS and accessibility policy from rea
   assert.ok(missingFocus.dimensions.find((dimension) => dimension.id === "a11y")?.flags.includes("focus outline removed without a visible replacement"));
 });
 
+test("evaluation coherence gives release gates veto authority without inventing another composite score", () => {
+  const analysis = analyzeBriefLocally("A skincare product launch needs real formula, texture, and packaging evidence.");
+  const plan = generateDesignPlanLocally(analysis);
+  const critique: CritiqueResult = critiquePlanLocally(plan);
+  const distinctiveness = generateDistinctivenessReport(
+    runBlocklistFilter(""),
+    plan,
+    critique,
+    0,
+    resolveArchetypeLocally(analysis)
+  );
+  const project: GeneratedProject = {
+    ...PUBLIC_DEMOS[0].result.project,
+    readiness: { status: "blocked", score: 0 },
+  };
+  const assetUsage = {
+    available: 3,
+    required: 3,
+    used: 2,
+    attributed: 2,
+    plannedScenePlacements: 3,
+    tracedScenePlacements: 2,
+    items: [],
+    warnings: ["BLOCKING: Media usage gate: 2/3 required assets are present in the delivered code."],
+  } satisfies AssetUsageEvidence;
+  const assetDelivery = {
+    version: 1,
+    policy: "allowlisted-copy-with-integrity",
+    status: "complete",
+    requested: 2,
+    bundled: 2,
+    failed: 0,
+    totalBytes: 4,
+    items: [],
+    warnings: [],
+  } satisfies AssetDeliveryReceipt;
+  const qualityReport = buildQualityReport(project, assetUsage, critique, assetDelivery);
+  assert.equal(qualityReport.assets.status, "fail");
+  assert.equal(qualityReport.status, "blocked");
+
+  const coherenceInput: Parameters<typeof buildEvaluationCoherence>[0] = {
+    project,
+    qualityReport,
+    assetUsage,
+    assetDelivery,
+    typographyDelivery: { version: 1, status: "ready", profileId: "material-character", script: "latin", files: [], warnings: [] },
+    visualIntentSource: {
+      version: 1,
+      metric: "functional-visual-fulfillment",
+      status: "review",
+      score: 70,
+      coverage: { scenes: 1, compositions: 1, layers: 1, purposes: 1, assets: 2 / 3 },
+      expectedScenes: 6,
+      markedScenes: 6,
+      expectedCompositions: 6,
+      markedCompositions: 6,
+      expectedLayers: ["media"],
+      markedLayers: ["media"],
+      requiredAssetPlacements: 3,
+      tracedAssetPlacements: 2,
+      warnings: [],
+    },
+    directionDiversity: { passed: true, diversityScore: 72, medianPairDistance: 0.6, minimumPairDistance: 0.35, distinctStructureCount: 5, historicalNoveltyScore: 68, recommendedDirectionId: "direction-1", warnings: [] },
+    diversityResult: { passed: true, fingerprints: [], scoreCap: null, warnings: [], recommendation: null },
+    execution: { requestedMode: "creative", effectiveMode: "creative", provider: "openai", requestedModel: "gpt-5.6-sol", resolvedModel: "gpt-5.6-sol", critiqueSource: "provider", scoreConfidence: "adversarial", degraded: false, degradations: [] },
+    critique,
+    restraint: runRestraintCheck(plan),
+    distinctiveness,
+  };
+  const coherent = buildEvaluationCoherence(coherenceInput);
+  assert.equal(coherent.creativeClaim, "withheld");
+  assert.equal(coherent.findings.some((finding) => finding.id === "asset-denominator-explanation"), true);
+  assert.equal(coherent.findings.some((finding) => finding.id === "media-quality-mismatch"), false);
+  assert.equal(coherent.signals.find((signal) => signal.id === "render-evidence")?.status, "unavailable");
+  assert.equal(Object.prototype.hasOwnProperty.call(coherent, "score"), false);
+  const rendered = applyRenderedEvaluationEvidence(coherent, {
+    version: 1,
+    capturedAt: 1,
+    status: "pass",
+    covered: 3,
+    complete: true,
+    score: 100,
+    failures: 0,
+    warnings: 0,
+    firstViewportScore: 0.82,
+    functionalVisualScore: 0.9,
+    renderedEvidenceScore: 0.86,
+    renderedCompositionScore: 0.8,
+    directionFidelity: 0.88,
+    directionStatus: "pass",
+    visualArchiveDistance: 0.58,
+    privacy: "numeric-and-hashed-render-summary-only",
+  }, 0.45);
+  assert.equal(rendered.signals.find((signal) => signal.id === "render-evidence")?.status, "pass");
+  assert.equal(rendered.findings.some((finding) => finding.id === "render-evidence-pending"), false);
+  assert.equal(rendered.creativeClaim, "withheld");
+
+  const incoherent = buildEvaluationCoherence({
+    ...coherenceInput,
+    qualityReport: {
+      ...qualityReport,
+      assets: { ...qualityReport.assets, status: "review" },
+    },
+  });
+  assert.equal(incoherent.status, "incoherent");
+  assert.equal(incoherent.findings.some((finding) => finding.id === "media-quality-mismatch"), true);
+});
+
 test("Fast evidence cannot turn a blocked visual result into an S grade", () => {
   const analysis = {
     subject: "Luxury interior design studio",
@@ -2330,6 +2498,23 @@ test("code validation reports unsafe DOM APIs and runtime font imports", async (
   );
   assert.ok(result.issues.some((issue) => issue.includes("Unsafe HTML injection")));
   assert.ok(result.issues.some((issue) => issue.includes("runtime font import")));
+});
+
+test("project validation blocks internal design-director language from visitor copy", () => {
+  const recovery = buildRecoveryProject("Skincare launch", "html", "fixture");
+  const project = {
+    ...recovery,
+    files: recovery.files.map((file) => file.path === "index.html"
+      ? {
+          ...file,
+          content: `<!doctype html><html><body><main><h1>Care</h1><p>A spatial narrative follows the product truth. The source brief names Norway and the page topology mutates as meaning changes.</p></main></body></html>`,
+        }
+      : file),
+  };
+  const validation = validateGeneratedProject(project);
+  const boundary = validation.checks.find((item) => item.id === "content-boundary");
+  assert.equal(boundary?.status, "fail");
+  assert.equal(validation.status, "blocked");
 });
 
 test("provider recovery always yields a previewable project", () => {
@@ -2573,10 +2758,12 @@ test("optional provider fallback never swallows user cancellation", async () => 
 test("Creative critique uses one bounded provider call", async () => {
   let calls = 0;
   let observedTimeout = 0;
+  let observedOptions: Parameters<LLMAdapter["complete"]>[1];
   const fakeAdapter: LLMAdapter = {
     async complete(_messages, options) {
       calls++;
       observedTimeout = options?.timeoutMs ?? 0;
+      observedOptions = options;
       return JSON.stringify({
         critique: { genericElementCount: 0, flaggedElements: [], positiveElements: ["Specific"], overallVerdict: "Distinct." },
         endingCheck: { quality: "intentional", description: "Purposeful close", recommendation: "Keep it." },
@@ -2595,6 +2782,10 @@ test("Creative critique uses one bounded provider call", async () => {
   assert.equal(result.passed, true);
   assert.equal(calls, 1);
   assert.equal(observedTimeout, 12_345);
+  assert.equal(observedOptions?.reasoningEffort, "none");
+  assert.equal(observedOptions?.maxTokens, 1600);
+  assert.equal(observedOptions?.responseFormat?.name, "verve_plan_critique");
+  assert.deepEqual(observedOptions?.responseFormat?.schema.required, ["critique", "endingCheck", "usabilityFloor"]);
 });
 
 test("generation stream watchdog detects missed heartbeats", async () => {
