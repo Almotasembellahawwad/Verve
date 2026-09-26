@@ -6,6 +6,20 @@ The review covers the direction pipeline, evidence policy, media, preview, persi
 public examples, CI and the user journey. It is not a penetration test or a complete
 audit of every dependency. No paid provider benchmark was run for this review.
 
+### Security follow-up
+
+GitHub reported two high-severity dependency alerts during publication. The follow-up
+lockfile patch updates transitive `sharp` 0.35.3 to 0.35.4 (including its platform
+packages/libvips) and development-only `js-yaml` 4.3.1 to 4.3.2. Direct dependency
+ranges remain unchanged. See the maintainer advisories for
+[sharp](https://github.com/lovell/sharp/security/advisories/GHSA-rgj7-g3m4-5g8c) and
+[js-yaml](https://github.com/nodeca/js-yaml/security/advisories/GHSA-2883-xcg3-v3hh).
+The installed paths were Next.js/ColorThief → sharp and ESLint → eslintrc → js-yaml.
+This establishes affected package presence, not confirmed exploitation of Verve.
+CI now audits the full dependency tree at the high-severity threshold; a registry
+failure is visible rather than silently ignored. Zero registry advisories at a point
+in time is not proof that the application has no security vulnerabilities.
+
 ## The decision
 
 Build a **design-directed creation workflow**, not another general-purpose IDE.
