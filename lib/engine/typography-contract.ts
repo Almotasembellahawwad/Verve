@@ -189,6 +189,16 @@ function chooseProfile(analysis: BriefAnalysis, plan: DesignPlan, script: Typogr
       ? ARABIC_PROFILES[1]
       : ARABIC_PROFILES[0];
   }
+  // A selected, licensed display family is an intentional art-direction choice.
+  // Domain defaults apply only when the plan has no supported family yet.
+  const selectedDirection = plan.directionPortfolio?.candidates.find((candidate) => candidate.id === plan.directionPortfolio?.selectedDirectionId);
+  const preferred = selectedDirection?.identity.displayTypeface === plan.typePairing.display ? plan.typePairing.display.toLowerCase() : "";
+  if (/ibm plex mono/.test(preferred)) return LATIN_PROFILES[3];
+  if (/fraunces/.test(preferred)) return LATIN_PROFILES[1];
+  if (/bricolage grotesque/.test(preferred)) return LATIN_PROFILES[2];
+  if (/instrument serif/.test(preferred)) return LATIN_PROFILES[5];
+  if (/newsreader/.test(preferred)) return LATIN_PROFILES[0];
+  if (/manrope variable/.test(preferred)) return LATIN_PROFILES[4];
   if (/ibm plex|mono|data|technical|developer|analytics|engineering|workbench|operations/.test(haystack)) return LATIN_PROFILES[3];
   if (/fraunces|material|print|letterpress|paper|fashion|food|restaurant|beauty|tactile/.test(haystack)) return LATIN_PROFILES[1];
   if (/bricolage|playful|laboratory|collection|experimental|kinetic|interactive/.test(haystack)) return LATIN_PROFILES[2];

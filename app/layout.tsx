@@ -4,6 +4,10 @@ import "@fontsource/instrument-serif/400.css";
 import "@fontsource/instrument-serif/400-italic.css";
 import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/500.css";
+import "@fontsource-variable/fraunces/wght.css";
+import "@fontsource-variable/newsreader/wght.css";
+import "@fontsource-variable/bricolage-grotesque/wght.css";
+import "@fontsource-variable/noto-kufi-arabic/wght.css";
 import "./globals.css";
 import { REPOSITORY_URL, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 
