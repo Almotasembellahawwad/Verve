@@ -114,9 +114,10 @@ benchmark against Lovable or v0. Claims of superior quality must wait for it.
   This does not yet bind persisted render evidence to source and asset revisions.
 - **Persisted evidence needs revision binding.** A history render summary should
   name a content digest, asset-manifest digest, probe version and tested surfaces.
-  Local editor matrices invalidate on edit, but persisted history evidence does
-  not yet provide that complete cross-session binding. Restored binary-stripped
-  history also needs a reliable link to complete editor storage.
+  Local editor matrices invalidate on edit. Restored history now discards its old
+  browser verdict and reruns the three viewport checks; omitted binaries hold the
+  creative claim provisional. History still needs a reliable link to complete
+  editor storage and an explicit content-bound receipt for provenance.
 - **Heuristics are not expert judgment.** Restraint scans keywords and purpose
   phrases; repeated scores can be deterministic behavior, not a meaningful
   perceptual diagnosis. Source markers and DOM geometry have similar limits.

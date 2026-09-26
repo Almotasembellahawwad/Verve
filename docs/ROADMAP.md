@@ -12,6 +12,7 @@ competitive context and acceptance criteria. Stabilize evidence before adding me
 - [x] Atomic local history replacement and explicit photography exclusions
 - [x] Production-build browser coverage in CI
 - [x] Self-excluding local visual memory by opaque project identity
+- [x] History restoration starts with browser evidence unavailable and requires a fresh three-width check
 - [ ] Revision-bound render receipts and asset-aware restored projects
 - [ ] Candidate-to-delivery typography consistency
 - [ ] Six rebuilt, genuinely distinct public examples with real task completion

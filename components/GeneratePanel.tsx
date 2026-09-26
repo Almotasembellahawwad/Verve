@@ -43,6 +43,7 @@ import {
 } from "@/lib/client/design-memory";
 import {
   applyRenderedEvaluationEvidence,
+  prepareRestoredEvaluation,
   type RenderedEvaluationEvidence,
 } from "@/lib/engine/evaluation-coherence";
 
@@ -819,14 +820,14 @@ export default function GeneratePanel() {
     setActiveHistoryId(entry.id);
     if (entry.fullResult) {
       const restored = entry.fullResult as PipelineResult;
-      const threshold = restored.execution?.effectiveMode.startsWith("creative") ? 0.45 : 0.35;
-      setResult(entry.renderAudit && restored.evaluationCoherence
-        ? {
-            ...restored,
-            renderAudit: entry.renderAudit,
-            evaluationCoherence: applyRenderedEvaluationEvidence(restored.evaluationCoherence, entry.renderAudit, threshold),
-          }
-        : restored);
+      const assetsOmitted = restored.project.warnings.some((warning) => warning.startsWith("Binary image bytes are omitted from lightweight localStorage history."));
+      setResult({
+        ...restored,
+        renderAudit: undefined,
+        evaluationCoherence: restored.evaluationCoherence
+          ? prepareRestoredEvaluation(restored.evaluationCoherence, assetsOmitted)
+          : restored.evaluationCoherence,
+      });
       setActiveView("project");
     }
   };
