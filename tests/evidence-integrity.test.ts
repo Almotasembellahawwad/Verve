@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyRenderedEvaluationEvidence, type EvaluationCoherenceReport, type RenderedEvaluationEvidence } from "../lib/engine/evaluation-coherence";
+import { applyRenderedEvaluationEvidence, prepareRestoredEvaluation, type EvaluationCoherenceReport, type RenderedEvaluationEvidence } from "../lib/engine/evaluation-coherence";
 import { BrowserHistoryRepository } from "../lib/adapters/storage/browser-history-repository";
 import { assessMediaRequirement } from "../lib/engine/media-requirement";
 import { analyzeBriefLocally } from "../lib/engine/brief-analyzer";
@@ -108,6 +108,21 @@ test("one failed surface blocks immediately and a later successful recheck can r
   assert.equal(recovered.releaseDecision, "ready");
   assert.equal(recovered.creativeClaim, "eligible");
   assert.equal(recovered.findings.some((finding) => finding.id === "render-gate-review"), false);
+});
+
+test("restored history cannot inherit a past browser verdict or omitted binary assets", () => {
+  const previous = applyRenderedEvaluationEvidence(report(), evidence(), .45);
+  assert.equal(previous.creativeClaim, "eligible");
+  const restored = prepareRestoredEvaluation(previous, false);
+  assert.equal(restored.releaseDecision, "review-required");
+  assert.equal(restored.creativeClaim, "provisional");
+  assert.equal(restored.signals.find((signal) => signal.id === "render-evidence")?.status, "unavailable");
+  assert.equal(applyRenderedEvaluationEvidence(restored, evidence(), .45).creativeClaim, "eligible");
+
+  const missingAssets = prepareRestoredEvaluation(previous, true);
+  assert.equal(missingAssets.releaseDecision, "review-required");
+  assert.ok(missingAssets.findings.some((finding) => finding.id === "restored-assets-missing"));
+  assert.equal(applyRenderedEvaluationEvidence(missingAssets, evidence(), .45).creativeClaim, "provisional");
 });
 
 test("empty archive permits a technical release but cannot prove visual distinctiveness", () => {

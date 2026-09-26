@@ -60,6 +60,35 @@ export type RenderedEvaluationEvidence = {
   privacy: "numeric-and-hashed-render-summary-only";
 };
 
+/** A saved browser result describes a past session, not the restored files now open. */
+export function prepareRestoredEvaluation(report: EvaluationCoherenceReport, assetsOmitted: boolean): EvaluationCoherenceReport {
+  const signals = report.signals.map((signal) => {
+    if (signal.id === "render-evidence") return {
+      ...signal, status: "unavailable" as const, score: null,
+      summary: "Restored history has not been checked in this browser session.",
+    };
+    if (assetsOmitted && ["release-readiness", "asset-binary-delivery", "typography-delivery"].includes(signal.id)
+      && signal.status === "pass") return { ...signal, status: "review" as const, summary: `${signal.summary} The lightweight history omits binary assets.` };
+    return signal;
+  });
+  const findings = report.findings.filter((finding) => !["render-evidence-pending", "render-gate-review", "render-direction-review", "render-archive-review", "restored-assets-missing"].includes(finding.id));
+  findings.push({
+    id: "render-evidence-pending", severity: "explanation", signalIds: ["render-evidence"],
+    message: "A saved render receipt is historical; verify the restored project again at all three viewport widths.",
+  });
+  if (assetsOmitted) findings.push({
+    id: "restored-assets-missing", severity: "warning", signalIds: ["release-readiness", "asset-binary-delivery", "typography-delivery"],
+    message: "Binary assets were omitted from lightweight history. Reopen the complete project or restore its assets before launch.",
+  });
+  const sourceRelease = sourceDecision(signals);
+  return {
+    ...report, signals, findings,
+    releaseDecision: sourceRelease === "blocked" ? "blocked" : "review-required",
+    creativeClaim: report.creativeClaim === "withheld" || sourceRelease === "blocked" ? "withheld" : "provisional",
+    status: findings.some((finding) => finding.severity === "blocking") ? "incoherent" : "review",
+  };
+}
+
 function releaseStatus(status: GeneratedProject["readiness"]["status"]): EvaluationSignalStatus {
   return status === "ready" ? "pass" : status === "blocked" ? "fail" : "review";
 }
