@@ -6,6 +6,8 @@ import { assessMediaRequirement } from "../lib/engine/media-requirement";
 import { analyzeBriefLocally } from "../lib/engine/brief-analyzer";
 import { generateDirectionBoard, selectDirectionCells } from "../lib/engine/direction-board";
 import { StaticReferenceLibraryRepository } from "../lib/adapters/storage/static-content-repositories";
+import { selectVisualArchive, updateVisualArchive } from "../lib/client/design-memory";
+import type { VisualFingerprint } from "../lib/project/render-gate";
 
 function report(): EvaluationCoherenceReport {
   return {
@@ -52,6 +54,24 @@ test("provider cells are reordered atomically and mismatches use a coherent fall
   const invalid = await generateDirectionBoard({ ...input, llm: { async complete() { return JSON.stringify({ candidates: providerCandidates }); } } });
   assert.equal(invalid.portfolio.source, "local-fallback");
   assert.ok(invalid.portfolio.candidates.every((candidate) => !candidate.concept.startsWith("Provider authored:")));
+});
+
+test("visual memory excludes this project's revisions but retains identical work from other projects", () => {
+  const fingerprint: VisualFingerprint = {
+    occupancyGrid: Array(144).fill(0), typographyScale: [0, 0, 1, 0, 0, 0],
+    colorHistogram: [], mediaCoverage: 0, interactionDensity: 0,
+    roundedness: 0, sectionRhythm: [], routeCount: 1,
+  };
+  const first = updateVisualArchive([], fingerprint, "history-project-a", 100);
+  const revised = updateVisualArchive(first, { ...fingerprint, routeCount: 2 }, "history-project-a", 200);
+  assert.equal(revised.length, 1);
+  assert.deepEqual(selectVisualArchive(revised, 24, "history-project-a"), []);
+  const duplicated = updateVisualArchive(revised, fingerprint, "history-project-b", 300);
+  assert.equal(selectVisualArchive(duplicated, 24, "history-project-a").length, 1);
+  assert.equal(selectVisualArchive(duplicated, 24, "history-project-b").length, 1);
+  const legacy = updateVisualArchive(duplicated, fingerprint, undefined, 400);
+  assert.equal(selectVisualArchive(legacy, 24, "history-project-a").length, 1);
+  assert.doesNotMatch(JSON.stringify(legacy), /history-project-[ab]/);
 });
 function evidence(overrides: Partial<RenderedEvaluationEvidence> = {}): RenderedEvaluationEvidence {
   return {

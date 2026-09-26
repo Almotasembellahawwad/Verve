@@ -415,6 +415,7 @@ export default function GeneratePanel() {
   const latestCheckpointRef = useRef<PipelineCheckpoint | null>(null);
   const creativeVisualRetryRef = useRef(0);
   const activeHistoryIdRef = useRef<string | null>(null);
+  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
 
   const currentDirectionSnapshot = JSON.stringify({ brief: brief.trim(), framework, mode, provider, model, brandProfile });
   const activeDirectionBoard = directionSnapshot === currentDirectionSnapshot ? directionBoard : null;
@@ -515,6 +516,7 @@ export default function GeneratePanel() {
     setError(null);
     setMissingKey(false);
     activeHistoryIdRef.current = null;
+    setActiveHistoryId(null);
     setResult(null);
     try {
       const response = await fetch("/api/directions/stream", {
@@ -590,6 +592,8 @@ export default function GeneratePanel() {
     setLoading(true);
     setError(null);
     setMissingKey(false);
+    activeHistoryIdRef.current = null;
+    setActiveHistoryId(null);
     setResult(null);
     setRecoveryProject(null);
     setRecoveryMessage(null);
@@ -713,6 +717,7 @@ export default function GeneratePanel() {
               const historyResult = { ...enriched, project: stripBinaryAssetContent(enriched.project) };
               const historyEntry = addHistory(entryFromResult(brief, historyResult));
               activeHistoryIdRef.current = historyEntry.id;
+              setActiveHistoryId(historyEntry.id);
             } catch {}
           } else if (eventType === "heartbeat") {
             const stageElapsed = Math.max(1, Math.round(Number(payload.stageElapsedMs ?? 0) / 1000));
@@ -811,6 +816,7 @@ export default function GeneratePanel() {
     setHistoryOpen(false);
     setBrief(entry.brief);
     activeHistoryIdRef.current = entry.id;
+    setActiveHistoryId(entry.id);
     if (entry.fullResult) {
       const restored = entry.fullResult as PipelineResult;
       const threshold = restored.execution?.effectiveMode.startsWith("creative") ? 0.45 : 0.35;
@@ -1237,6 +1243,7 @@ export default function GeneratePanel() {
                 <ProjectWorkbench
                   project={result.project}
                   projectSpec={result.projectSpec}
+                  memoryProjectId={activeHistoryId ?? undefined}
                   visualDiversityThreshold={result.execution?.effectiveMode.startsWith("creative") ? 0.45 : 0.35}
                   onVisualDiversity={handleVisualDiversity}
                   onRenderAudit={handleRenderAudit}

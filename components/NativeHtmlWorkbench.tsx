@@ -46,11 +46,12 @@ type Props = {
   focusMode?: WorkbenchFocusMode;
   showDiagnostics?: boolean;
   visualDiversityThreshold?: number;
+  memoryProjectId?: string;
   onVisualDiversity?: (distance: number | null) => void;
   onRenderAudit?: (audit: RenderedEvaluationEvidence) => void;
 };
 
-export default function NativeHtmlWorkbench({ project, projectSpec, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, onVisualDiversity, onRenderAudit }: Props) {
+export default function NativeHtmlWorkbench({ project, projectSpec, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, memoryProjectId, onVisualDiversity, onRenderAudit }: Props) {
   const baseProbeId = useId();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [files, setFiles] = useState(project.files);
@@ -102,13 +103,13 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
     if (message.source !== iframeRef.current?.contentWindow) return;
     if (isRenderGateReport(message.data, activeProbeId)) {
       const report = message.data;
-      if (!readOnly && Math.abs(report.viewport.width - 1440) <= 2 && visualMeasuredProbeRef.current !== activeProbeId) {
+      if (!readOnly && memoryProjectId && Math.abs(report.viewport.width - 1440) <= 2 && visualMeasuredProbeRef.current !== activeProbeId) {
         visualMeasuredProbeRef.current = activeProbeId;
-        const archive = getRecentVisualFingerprints();
+        const archive = getRecentVisualFingerprints(24, memoryProjectId);
         const distance = archive.length ? Math.min(...archive.map((fingerprint) => visualFingerprintDistance(report.fingerprint, fingerprint))) : null;
         setVisualArchiveDistance(distance);
         onVisualDiversity?.(distance);
-        rememberVisualFingerprint(report.fingerprint);
+        rememberVisualFingerprint(report.fingerprint, memoryProjectId);
       }
       setRenderEvidence((current) => recordRenderEvidence(current, report));
       setVisualTruth((current) => recordVisualTruth(current, report));
@@ -129,6 +130,7 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
   }, [directionRealization, onRenderAudit, readOnly, renderEvidence, visualArchiveDistance]);
 
   const updateSelectedFile = (content: string) => {
+    setVisualArchiveDistance(null);
     setRenderEvidence(createRenderEvidenceMatrix());
     setVisualTruth(createVisualTruthMatrix(projectSpec));
     setPreviewRevision((revision) => revision + 1);
@@ -136,6 +138,7 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
   };
 
   const resetFiles = () => {
+    setVisualArchiveDistance(null);
     setFiles(project.files);
     setSelectedPath(project.entryFile);
     setRenderEvidence(createRenderEvidenceMatrix());
