@@ -237,7 +237,8 @@ function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, 
   const directionReviewRequired = Boolean(projectSpec && renderEvidence.complete && directionRealization?.status !== "pass");
   const renderScore = renderEvidence.covered > 0 ? renderEvidence.score : 85;
   const readinessScore = Math.min(validation.score, riskScore, renderScore);
-  const readinessStatus = validation.status === "blocked" || renderFailures > 0 || runtimeError
+  const riskBlocked = project.readiness.status === "blocked" || project.warnings.some((warning) => warning.startsWith("BLOCKING:"));
+  const readinessStatus = validation.status === "blocked" || renderFailures > 0 || runtimeError || riskBlocked
     ? "blocked"
     : !renderEvidence.complete
       ? "verifying"

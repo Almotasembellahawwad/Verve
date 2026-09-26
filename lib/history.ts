@@ -32,9 +32,7 @@ function repository(): BrowserHistoryRepository<HistoryEntry> {
 }
 
 function replaceHistory(entries: HistoryEntry[]): void {
-  const target = repository();
-  target.clear();
-  [...entries].reverse().forEach((entry) => target.put(entry));
+  repository().replace(entries);
 }
 
 function load(): HistoryEntry[] {
@@ -47,7 +45,7 @@ function save(entries: HistoryEntry[]): void {
     replaceHistory(entries);
   } catch {
     // localStorage full — evict oldest and retry
-    const trimmed = entries.slice(-10);
+    const trimmed = entries.slice(0, 10);
     try {
       replaceHistory(trimmed);
     } catch {

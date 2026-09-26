@@ -8,6 +8,20 @@ Verve is an open-source project intelligence engine for generating distinctive w
 
 ## Verve Creative Engine v3 (beta)
 
+### Current engineering focus: trustworthy design decisions
+
+The [next-stage audit and delivery plan](docs/VERVE_NEXT_STAGE.md) separates verified
+fixes from the product work still needed. This update adds visual composition
+sketches before generation, keeps fallback direction identities coherent, prevents
+missing render evidence from counting as a creative pass, preserves history on
+storage failure, and respects explicit photography exclusions. CI browser tests
+now exercise the production build. Sketches are decision aids, not final screenshots.
+
+The public examples still miss the recorded visual-distance target. Improving them,
+binding evidence to exact revisions, and preserving identity during scene-level
+refinement are the next priorities; passing automated checks alone does not prove
+world-class design.
+
 - **Executable Typography Contract** — after the final direction is selected, Verve assigns a brief- and script-sensitive display/body/mono profile, bundles exact Latin or Arabic+Latin WOFF2 subsets locally, injects deterministic `@font-face` rules, and ships OFL text plus SHA-256 receipts. Runtime font CDNs and undocumented system-font defaults are rejected.
 - **Scene Asset Director** — every story scene receives an explicit visual function, expected layers, approved source policy, asset assignment, responsive framing, alt intent, and honest fallback. Generated `ASSETS.md` records the exact scene/source/license relationship.
 - **Licensed Asset Delivery** — a used Pexels image is copied only from the allowlisted image host, bounded to 1.2 MB per file and 2.4 MB per project, verified by media signature, hashed with SHA-256, written under the framework-correct local asset path, and recorded in `ASSETS.md`. Unused search results are never downloaded.

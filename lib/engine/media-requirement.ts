@@ -53,6 +53,15 @@ const DEFAULT_REQUIREMENT: MediaRequirement = {
 
 /** Deterministic pre-generation policy: no model call and no invented business facts. */
 export function assessMediaRequirement(analysis: BriefAnalysis): MediaRequirement {
+  // Match a complete exclusion, not a scoped ban such as "no photos of people".
+  const explicitDirection = [analysis.rawBrief, ...(analysis.constraints ?? [])].join("\n");
+  if (/\b(?:no|without|avoid|exclude|do not use)\s+(?:any\s+|all\s+)?(?:photography|photographs?|photos?)(?=\s*(?:$|[.;,!؟،؛\n]))|\b(?:photography|photographs?|photos?)\s+(?:are\s+)?(?:not allowed|prohibited)(?=\s*(?:$|[.;,!؟،؛\n]))|(?:بدون|دون|تجنب|لا تستخدم)\s+(?:أي\s+)?(?:صور فوتوغرافية|التصوير الفوتوغرافي|صور|الصور)(?=\s*(?:$|[.;,!؟،؛\n]))/im.test(explicitDirection)) {
+    return {
+      level: "avoid", minimumAssets: 0,
+      reason: "The brief explicitly excludes photography. Use the supplied content, original graphics, data, and interactions as evidence.",
+      suggestedSubjects: ["original diagram", "verified data", "working interaction"],
+    };
+  }
   const evidence = [
     analysis.industry,
     analysis.subject,
