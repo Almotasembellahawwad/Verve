@@ -157,7 +157,7 @@ export default function HistoryDrawer({ open, onClose, onRestore }: Props) {
                       </span>
                     )}
                     {entry.renderAudit && (
-                      <span className={styles.normanMini} title={`Render ${entry.renderAudit.status}; FVE ${entry.renderAudit.firstViewportScore ?? "pending"}; FVF ${entry.renderAudit.functionalVisualScore ?? "pending"}`}>
+                      <span className={styles.normanMini} title={`Last saved render, rechecked on restore: ${entry.renderAudit.status}; FVE ${entry.renderAudit.firstViewportScore ?? "pending"}; FVF ${entry.renderAudit.functionalVisualScore ?? "pending"}`}>
                         R {entry.renderAudit.covered}/3
                       </span>
                     )}

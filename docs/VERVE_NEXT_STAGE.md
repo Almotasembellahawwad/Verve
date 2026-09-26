@@ -102,19 +102,23 @@ benchmark against Lovable or v0. Claims of superior quality must wait for it.
 - **The board still has a small hand-authored search space.** Six experience models
   and 18 structural cells prevent some repetition but do not constitute open-ended
   art direction. The new sketches make that structure inspectable, not limitless.
-- **Candidate fonts and delivered fonts can diverge.** Board prompting still asks
-  for system-safe stacks; the later Typography Contract chooses bundled families.
-  Move licensed typography selection into the candidate identity, then carry it
-  through plan, sketch, generation, export and edits without reassignment surprises.
-- **Archive comparison can include the same project.** Both workbenches record
-  fingerprints during preview. Reopening or revising can compare against the
-  project's own earlier entry. Add project/revision identity and an explicit
-  comparison exclusion policy before interpreting proximity as convergence.
+- **Candidate fonts and delivered fonts previously diverged.** The board now
+  resolves every candidate through the same local licensed Typography Contract
+  used by generation, including Arabic and Latin subsets. It previews the selected
+  family in the card. Further art-direction work must test whether this improves
+  human choice; matching a font name does not establish visual quality by itself.
+- **Archive comparison previously included the same project.** Both workbenches used to
+  record fingerprints without ownership. This local-memory change excludes
+  the current project's prior revisions using a hashed local ID. Unowned legacy
+  entries cannot be attributed safely and are excluded from owned comparisons;
+  identical results from *different* identified projects remain detectable.
+  This does not yet bind persisted render evidence to source and asset revisions.
 - **Persisted evidence needs revision binding.** A history render summary should
   name a content digest, asset-manifest digest, probe version and tested surfaces.
-  Local editor matrices invalidate on edit, but persisted history evidence does
-  not yet provide that complete cross-session binding. Restored binary-stripped
-  history also needs a reliable link to complete editor storage.
+  Local editor matrices invalidate on edit. Restored history now discards its old
+  browser verdict and reruns the three viewport checks; omitted binaries hold the
+  creative claim provisional. History still needs a reliable link to complete
+  editor storage and an explicit content-bound receipt for provenance.
 - **Heuristics are not expert judgment.** Restraint scans keywords and purpose
   phrases; repeated scores can be deterministic behavior, not a meaningful
   perceptual diagnosis. Source markers and DOM geometry have similar limits.
@@ -181,8 +185,9 @@ This milestone does not imply improved generated-site aesthetics by itself.
 ### 1. Make observations trustworthy — next engineering slice
 
 - Bind render receipts and archive entries to exact project/source/asset revisions.
-- Exclude the current project from archive comparisons without excluding genuinely
-  duplicated work from other projects. Migrate legacy numeric records conservatively.
+- [Implemented in the first slice] Exclude the current project from archive
+  comparisons without excluding genuinely duplicated work from other projects.
+  Unowned legacy records are retained but not used for owned comparisons.
 - Unify preview status and history status under the same release-decision adapter.
 - Collect 15–24 consented real runs: brief family, mode, provider/model version,
   per-stage duration, fallback reason, repair count, source gates, browser surfaces,

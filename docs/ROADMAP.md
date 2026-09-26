@@ -11,8 +11,10 @@ competitive context and acceptance criteria. Stabilize evidence before adding me
 - [x] Missing-evidence-safe creative eligibility and recoverable browser rechecks
 - [x] Atomic local history replacement and explicit photography exclusions
 - [x] Production-build browser coverage in CI
-- [ ] Revision-bound render receipts and self-excluding design memory
-- [ ] Candidate-to-delivery typography consistency
+- [x] Self-excluding local visual memory by opaque project identity
+- [x] History restoration starts with browser evidence unavailable and requires a fresh three-width check
+- [ ] Revision-bound render receipts and asset-aware restored projects
+- [x] Candidate-to-delivery typography consistency for supported bundled families
 - [ ] Six rebuilt, genuinely distinct public examples with real task completion
 - [ ] Scene-scoped refinement with identity locks and verified affected surfaces
 - [ ] Consented real-run reliability corpus and blinded comparative design evaluation

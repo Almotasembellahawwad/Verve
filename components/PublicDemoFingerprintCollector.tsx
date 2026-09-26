@@ -12,7 +12,7 @@ export function PublicDemoFingerprintCollector() {
       const probeId = String((event.data as { probeId?: unknown }).probeId ?? "");
       if (!probeId.startsWith("gallery-")) return;
       if (isRenderGateReport(event.data, probeId) && Math.abs(event.data.viewport.width - 1440) <= 2) {
-        rememberVisualFingerprint(event.data.fingerprint);
+        rememberVisualFingerprint(event.data.fingerprint, probeId);
       }
     };
     window.addEventListener("message", receive);

@@ -22,6 +22,11 @@ binding evidence to exact revisions, and preserving identity during scene-level
 refinement are the next priorities; passing automated checks alone does not prove
 world-class design.
 
+The Direction Board now resolves candidate typography through the same locally
+bundled OFL contract used for the generated project, and previews the selected
+family. This keeps the visible choice and delivered type system consistent without
+adding a model call.
+
 - **Executable Typography Contract** — after the final direction is selected, Verve assigns a brief- and script-sensitive display/body/mono profile, bundles exact Latin or Arabic+Latin WOFF2 subsets locally, injects deterministic `@font-face` rules, and ships OFL text plus SHA-256 receipts. Runtime font CDNs and undocumented system-font defaults are rejected.
 - **Scene Asset Director** — every story scene receives an explicit visual function, expected layers, approved source policy, asset assignment, responsive framing, alt intent, and honest fallback. Generated `ASSETS.md` records the exact scene/source/license relationship.
 - **Licensed Asset Delivery** — a used Pexels image is copied only from the allowlisted image host, bounded to 1.2 MB per file and 2.4 MB per project, verified by media signature, hashed with SHA-256, written under the framework-correct local asset path, and recorded in `ASSETS.md`. Unused search results are never downloaded.

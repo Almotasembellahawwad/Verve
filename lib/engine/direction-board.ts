@@ -25,6 +25,7 @@ import {
 import { fingerprintPipelineInput } from "./pipeline-checkpoint";
 import { formatReferencePatternsForPrompt, selectReferencePatterns } from "./reference-retrieval";
 import type { DesignPlan } from "./plan-generator";
+import { buildTypographyContract } from "./typography-contract";
 
 const HexColor = z.string().regex(/^#[0-9a-f]{6}$/i);
 const CandidateSchema = z.object({
@@ -242,7 +243,7 @@ async function requestCandidates(
       "You are the divergent ideation stage of Verve Creative Engine v3.",
       "Return structural alternatives, not six skins of a landing page. Every direction must use its required experience/opening/navigation cell.",
       "Never reward statistical likelihood. Do not treat opening size as a quality proxy: a large visual opening is valid when it carries task information and an immediate action. Avoid the generic pattern of an atmospheric slogan that postpones the job into stacked manifesto sections, as well as the retired editorial register or one-accent-line default.",
-      "Use system-safe typeface stacks unless assets are explicitly supplied. Do not invent claims, people, metrics, addresses, testimonials, products, or awards.",
+      "Choose display and body typefaces only from locally bundled OFL families: Fraunces Variable, Newsreader Variable, Bricolage Grotesque Variable, Instrument Serif, Manrope Variable, IBM Plex Mono, Noto Kufi Arabic Variable, Noto Sans Arabic Variable, or Readex Pro Variable. A local typography contract will enforce available script subsets. Do not invent claims, people, metrics, addresses, testimonials, products, or awards.",
       "Each signature mechanism must change how the audience understands or acts; it cannot be a decorative line, glow, grain, or cursor alone.",
     ].join("\n"),
     temperature: effectiveMode === "creative" ? 0.95 : 0.78,
@@ -312,6 +313,30 @@ export async function generateDirectionBoard(input: {
     usedFallback = true;
   }
   candidates = enforceCells(candidates, fallback, boardCells, usedFallback);
+  candidates = candidates.map((candidate) => {
+    const contract = buildTypographyContract(input.analysis, {
+      ...fallbackPlan,
+      typePairing: {
+        display: candidate.identity.displayTypeface,
+        body: candidate.identity.bodyTypeface,
+        rationale: candidate.descriptors.typographyVoice,
+      },
+      directionPortfolio: {
+        source: usedFallback ? "local-fallback" : "provider",
+        candidates: [candidate],
+        selectedDirectionId: candidate.id,
+        selectionRationale: "Preview the licensed typography of this structural candidate.",
+      },
+    });
+    return {
+      ...candidate,
+      identity: {
+        ...candidate.identity,
+        displayTypeface: contract.display.stack,
+        bodyTypeface: contract.body.stack,
+      },
+    };
+  });
   const portfolio: DirectionPortfolio = normalizeDirectionPortfolio({
     source: usedFallback ? "local-fallback" : effectiveMode === "creative" ? "provider-creative" : "provider",
     candidates,

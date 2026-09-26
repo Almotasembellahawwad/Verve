@@ -43,6 +43,7 @@ import {
 } from "@/lib/client/design-memory";
 import {
   applyRenderedEvaluationEvidence,
+  prepareRestoredEvaluation,
   type RenderedEvaluationEvidence,
 } from "@/lib/engine/evaluation-coherence";
 
@@ -415,6 +416,7 @@ export default function GeneratePanel() {
   const latestCheckpointRef = useRef<PipelineCheckpoint | null>(null);
   const creativeVisualRetryRef = useRef(0);
   const activeHistoryIdRef = useRef<string | null>(null);
+  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
 
   const currentDirectionSnapshot = JSON.stringify({ brief: brief.trim(), framework, mode, provider, model, brandProfile });
   const activeDirectionBoard = directionSnapshot === currentDirectionSnapshot ? directionBoard : null;
@@ -515,6 +517,7 @@ export default function GeneratePanel() {
     setError(null);
     setMissingKey(false);
     activeHistoryIdRef.current = null;
+    setActiveHistoryId(null);
     setResult(null);
     try {
       const response = await fetch("/api/directions/stream", {
@@ -590,6 +593,8 @@ export default function GeneratePanel() {
     setLoading(true);
     setError(null);
     setMissingKey(false);
+    activeHistoryIdRef.current = null;
+    setActiveHistoryId(null);
     setResult(null);
     setRecoveryProject(null);
     setRecoveryMessage(null);
@@ -713,6 +718,7 @@ export default function GeneratePanel() {
               const historyResult = { ...enriched, project: stripBinaryAssetContent(enriched.project) };
               const historyEntry = addHistory(entryFromResult(brief, historyResult));
               activeHistoryIdRef.current = historyEntry.id;
+              setActiveHistoryId(historyEntry.id);
             } catch {}
           } else if (eventType === "heartbeat") {
             const stageElapsed = Math.max(1, Math.round(Number(payload.stageElapsedMs ?? 0) / 1000));
@@ -811,16 +817,17 @@ export default function GeneratePanel() {
     setHistoryOpen(false);
     setBrief(entry.brief);
     activeHistoryIdRef.current = entry.id;
+    setActiveHistoryId(entry.id);
     if (entry.fullResult) {
       const restored = entry.fullResult as PipelineResult;
-      const threshold = restored.execution?.effectiveMode.startsWith("creative") ? 0.45 : 0.35;
-      setResult(entry.renderAudit && restored.evaluationCoherence
-        ? {
-            ...restored,
-            renderAudit: entry.renderAudit,
-            evaluationCoherence: applyRenderedEvaluationEvidence(restored.evaluationCoherence, entry.renderAudit, threshold),
-          }
-        : restored);
+      const assetsOmitted = restored.project.warnings.some((warning) => warning.startsWith("Binary image bytes are omitted from lightweight localStorage history."));
+      setResult({
+        ...restored,
+        renderAudit: undefined,
+        evaluationCoherence: restored.evaluationCoherence
+          ? prepareRestoredEvaluation(restored.evaluationCoherence, assetsOmitted)
+          : restored.evaluationCoherence,
+      });
       setActiveView("project");
     }
   };
@@ -1135,9 +1142,9 @@ export default function GeneratePanel() {
                 <label key={candidate.id} className={`${styles.directionCard} ${selectedDirectionId === candidate.id ? styles.directionCardActive : ""}`}>
                   <input type="radio" name="selected-direction" value={candidate.id} checked={selectedDirectionId === candidate.id} onChange={() => setSelectedDirectionId(candidate.id)} disabled={busy} />
                   <span className={styles.directionMeta}>{candidate.descriptors.creativityClass} / {candidate.descriptors.experienceModel}</span>
-                  <strong>{candidate.concept}</strong><p>{candidate.distinction}</p>
+                  <strong style={selectedDirectionId === candidate.id ? { fontFamily: candidate.identity.displayTypeface } : undefined}>{candidate.concept}</strong><p>{candidate.distinction}</p>
                   <DirectionSketch candidate={candidate} />
-                  <dl><div><dt>Opening</dt><dd>{candidate.descriptors.openingMode}</dd></div><div><dt>Navigation</dt><dd>{candidate.descriptors.navigationModel}</dd></div><div><dt>Media</dt><dd>{candidate.descriptors.mediaRole}</dd></div></dl>
+                  <dl><div><dt>Opening</dt><dd>{candidate.descriptors.openingMode}</dd></div><div><dt>Navigation</dt><dd>{candidate.descriptors.navigationModel}</dd></div><div><dt>Media</dt><dd>{candidate.descriptors.mediaRole}</dd></div><div><dt>Typeface</dt><dd>{candidate.identity.displayTypeface.match(/^"([^"]+)"/)?.[1] ?? candidate.identity.displayTypeface}</dd></div></dl>
                   <div className={styles.directionPalette} aria-label="Direction palette">{candidate.identity.palette.map((color) => <i key={`${candidate.id}-${color.hex}`} style={{ background: color.hex }} title={`${color.name}: ${color.role}`} />)}</div>
                   <small>{candidate.quality.passed ? "Quality floor passed" : "Needs review"}</small>
                 </label>
@@ -1237,6 +1244,7 @@ export default function GeneratePanel() {
                 <ProjectWorkbench
                   project={result.project}
                   projectSpec={result.projectSpec}
+                  memoryProjectId={activeHistoryId ?? undefined}
                   visualDiversityThreshold={result.execution?.effectiveMode.startsWith("creative") ? 0.45 : 0.35}
                   onVisualDiversity={handleVisualDiversity}
                   onRenderAudit={handleRenderAudit}

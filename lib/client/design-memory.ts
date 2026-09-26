@@ -81,7 +81,7 @@ export function clearLocalDesignMemory(): void {
   } catch { /* local memory is optional */ }
 }
 
-type VisualMemoryEntry = { schemaVersion: 1; id: string; createdAt: number; fingerprint: VisualFingerprint };
+export type VisualMemoryEntry = { schemaVersion: 1; id: string; createdAt: number; fingerprint: VisualFingerprint; projectKey?: string };
 
 function visualKey(fingerprint: VisualFingerprint): string {
   const source = JSON.stringify(fingerprint);
@@ -91,6 +91,16 @@ function visualKey(fingerprint: VisualFingerprint): string {
     hash = Math.imul(hash, 16777619);
   }
   return `visual-${(hash >>> 0).toString(36)}`;
+}
+
+/** Only opaque local IDs are accepted; never persist a project name or brief. */
+function projectKey(projectId: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < projectId.length; index++) {
+    hash ^= projectId.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `project-${(hash >>> 0).toString(36)}`;
 }
 
 function validVisualFingerprint(value: unknown): value is VisualFingerprint {
@@ -118,26 +128,45 @@ function validVisualFingerprint(value: unknown): value is VisualFingerprint {
     && boundedUnit(candidate.alignmentDiversity);
 }
 
-export function getRecentVisualFingerprints(limit = 24): VisualFingerprint[] {
+function readVisualMemoryEntries(): VisualMemoryEntry[] {
   try {
     const parsed: unknown = JSON.parse(storage()?.getItem(VISUAL_STORAGE_KEY) ?? "[]");
     if (!Array.isArray(parsed)) return [];
     return parsed
-      .filter((entry): entry is VisualMemoryEntry => Boolean(entry && typeof entry === "object" && validVisualFingerprint((entry as VisualMemoryEntry).fingerprint)))
-      .sort((left, right) => right.createdAt - left.createdAt)
-      .slice(0, Math.max(0, Math.min(24, limit)))
-      .map((entry) => entry.fingerprint);
+      .filter((entry): entry is VisualMemoryEntry => Boolean(entry && typeof entry === "object"
+        && typeof (entry as VisualMemoryEntry).id === "string"
+        && Number.isFinite((entry as VisualMemoryEntry).createdAt)
+        && validVisualFingerprint((entry as VisualMemoryEntry).fingerprint)));
   } catch {
     return [];
   }
 }
 
-export function rememberVisualFingerprint(fingerprint: VisualFingerprint): void {
+/** Unowned legacy records cannot prove that a project is distinct from itself. */
+export function selectVisualArchive(entries: VisualMemoryEntry[], limit = 24, projectId?: string): VisualMemoryEntry[] {
+  const owner = projectId ? projectKey(projectId) : null;
+  return entries
+    .filter((entry) => owner === null || (entry.projectKey !== undefined && entry.projectKey !== owner))
+    .sort((left, right) => right.createdAt - left.createdAt)
+    .slice(0, Math.max(0, Math.min(24, limit)));
+}
+
+export function getRecentVisualFingerprints(limit = 24, excludeProjectId?: string): VisualFingerprint[] {
+  return selectVisualArchive(readVisualMemoryEntries(), limit, excludeProjectId).map((entry) => entry.fingerprint);
+}
+
+export function updateVisualArchive(entries: VisualMemoryEntry[], fingerprint: VisualFingerprint, projectId?: string, now = Date.now()): VisualMemoryEntry[] {
+  const owner = projectId ? projectKey(projectId) : undefined;
+  const id = owner ? `${owner}:${visualKey(fingerprint)}` : visualKey(fingerprint);
+  return [
+    { schemaVersion: 1 as const, id, projectKey: owner, createdAt: now, fingerprint },
+    ...entries.filter((entry) => owner ? entry.projectKey !== owner : entry.id !== id),
+  ].slice(0, 24);
+}
+
+export function rememberVisualFingerprint(fingerprint: VisualFingerprint, projectId?: string): void {
   try {
-    const current = getRecentVisualFingerprints(24).map((item) => ({ schemaVersion: 1 as const, id: visualKey(item), createdAt: Date.now(), fingerprint: item }));
-    const id = visualKey(fingerprint);
-    const next = [{ schemaVersion: 1 as const, id, createdAt: Date.now(), fingerprint }, ...current.filter((entry) => entry.id !== id)].slice(0, 24);
-    storage()?.setItem(VISUAL_STORAGE_KEY, JSON.stringify(next));
+    storage()?.setItem(VISUAL_STORAGE_KEY, JSON.stringify(updateVisualArchive(readVisualMemoryEntries(), fingerprint, projectId)));
   } catch {
     // Visual memory is private, local, and optional.
   }
