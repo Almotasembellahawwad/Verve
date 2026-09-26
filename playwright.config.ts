@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const port = 4321;
 const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
+const productionServer = Boolean(process.env.CI) || process.env.PLAYWRIGHT_PRODUCTION === "1";
 const baseURL = externalBaseUrl ?? `http://127.0.0.1:${port}`;
 
 export default defineConfig({
@@ -28,9 +29,9 @@ export default defineConfig({
     },
   ],
   webServer: externalBaseUrl ? undefined : {
-    command: `npm run dev -- --hostname 127.0.0.1 --port ${port}`,
+    command: `node node_modules/next/dist/bin/next ${productionServer ? "start" : "dev"} --hostname 127.0.0.1 --port ${port}`,
     url: `http://127.0.0.1:${port}`,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: !productionServer,
     timeout: 120_000,
   },
 });

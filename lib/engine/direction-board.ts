@@ -194,13 +194,22 @@ function scoreQuality(candidate: z.infer<typeof CandidateSchema>, analysis: Brie
   };
 }
 
-function enforceCells(candidates: DesignDirectionCandidate[], fallback: DesignDirectionCandidate[], cells: DirectionCell[]): DesignDirectionCandidate[] {
+function enforceCells(candidates: DesignDirectionCandidate[], fallback: DesignDirectionCandidate[], cells: DirectionCell[], usedFallback: boolean): DesignDirectionCandidate[] {
   return cells.map((cell, index) => {
-    const candidate = candidates[index] ?? fallback.find((entry) => entry.descriptors.experienceModel === cell.experienceModel) ?? fallback[index];
+    // Local seeds have a fixed order; board cells do not. Keep the whole identity
+    // and mechanism together instead of relabelling a different experience.
+    const candidate = usedFallback
+      ? fallback.find((entry) => entry.descriptors.experienceModel === cell.experienceModel)!
+      : candidates[index];
     return {
       ...candidate,
       id: `${cell.creativityClass}-${cell.experienceModel}`,
       descriptors: { ...candidate.descriptors, ...cell },
+      dimensions: usedFallback ? {
+        ...candidate.dimensions,
+        hierarchy: `${cell.openingMode} prioritizes the primary job before contextual explanation`,
+        interactionMetaphor: `${cell.navigationModel} navigation within a ${cell.experienceModel}`,
+      } : candidate.dimensions,
     };
   });
 }
@@ -243,7 +252,17 @@ async function requestCandidates(
     responseFormat: { name: `verve_direction_board_${count}`, schema: candidateJsonSchema(count) },
   });
   const parsed = z.object({ candidates: z.array(CandidateSchema).length(count) }).parse(extractJSON(response, "DirectionBoard"));
-  return parsed.candidates;
+  // Accept reordered cells, but never silently overwrite a provider's declared
+  // structure while retaining prose and identity authored for another one.
+  return cells.map((cell) => {
+    const candidate = parsed.candidates.find(({ descriptors }) =>
+      descriptors.creativityClass === cell.creativityClass
+      && descriptors.experienceModel === cell.experienceModel
+      && descriptors.openingMode === cell.openingMode
+      && descriptors.navigationModel === cell.navigationModel);
+    if (!candidate) throw new Error("DirectionBoard candidate does not fulfill its requested structural cell.");
+    return candidate;
+  });
 }
 
 export function fingerprintDirectionRequest(input: { brief: string; framework: string; mode: GenerationMode; brandContext?: string }): string {
@@ -292,7 +311,7 @@ export async function generateDirectionBoard(input: {
     candidates = fallback;
     usedFallback = true;
   }
-  candidates = enforceCells(candidates, fallback, boardCells);
+  candidates = enforceCells(candidates, fallback, boardCells, usedFallback);
   const portfolio: DirectionPortfolio = normalizeDirectionPortfolio({
     source: usedFallback ? "local-fallback" : effectiveMode === "creative" ? "provider-creative" : "provider",
     candidates,

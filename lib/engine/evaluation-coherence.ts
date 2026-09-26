@@ -73,6 +73,12 @@ function deliveryStatus(status: AssetDeliveryReceipt["status"]): EvaluationSigna
   return status === "failed" ? "fail" : "review";
 }
 
+function sourceDecision(signals: EvaluationSignal[]): GeneratedProject["readiness"]["status"] {
+  const gates = signals.filter((signal) => signal.authority === "release-gate" || signal.authority === "delivered-source");
+  if (gates.some((signal) => signal.status === "fail")) return "blocked";
+  return gates.every((signal) => signal.status === "pass") ? "ready" : "review-required";
+}
+
 /**
  * Reconciles unlike signals without averaging them into a misleading score.
  * Release gates have veto power; plan diagnostics remain hypotheses until the
@@ -278,18 +284,17 @@ export function buildEvaluationCoherence(input: {
 
   const blocking = findings.some((finding) => finding.severity === "blocking");
   const warning = findings.some((finding) => finding.severity === "warning");
-  const creativeClaim = input.project.readiness.status === "blocked"
+  const releaseDecision = sourceDecision(signals);
+  const creativeClaim = blocking || releaseDecision === "blocked"
     || !input.directionDiversity.passed
     || !input.diversityResult.passed
       ? "withheld" as const
-      : input.execution.effectiveMode === "creative-degraded"
-        ? "provisional" as const
-        : "provisional" as const;
+      : "provisional" as const;
 
   return {
     version: 1,
     status: blocking ? "incoherent" : warning ? "review" : "coherent",
-    releaseDecision: input.project.readiness.status,
+    releaseDecision,
     creativeClaim,
     signals,
     findings,
@@ -307,13 +312,13 @@ export function applyRenderedEvaluationEvidence(
   evidence: RenderedEvaluationEvidence,
   visualDiversityThreshold: number
 ): EvaluationCoherenceReport {
-  const renderStatus: EvaluationSignalStatus = !evidence.complete
-    ? "unavailable"
-    : evidence.status === "pass"
-      ? "pass"
-      : evidence.status === "fail"
-        ? "fail"
-        : "review";
+  // A failure on one observed surface is actionable even before all widths
+  // arrive. Missing measurements never count as passing measurements.
+  const complete = evidence.complete && evidence.covered === 3;
+  const renderStatus: EvaluationSignalStatus = evidence.status === "fail" || evidence.failures > 0
+    ? "fail"
+    : !complete ? "unavailable"
+      : evidence.status === "pass" && evidence.warnings === 0 ? "pass" : "review";
   const signals = report.signals.map((signal) => signal.id === "render-evidence"
     ? {
         ...signal,
@@ -322,15 +327,17 @@ export function applyRenderedEvaluationEvidence(
         summary: `${evidence.covered}/3 viewports; FVE ${evidence.firstViewportScore ?? "pending"}, FVF ${evidence.functionalVisualScore ?? "pending"}, RES ${evidence.renderedEvidenceScore ?? "pending"}, RCR ${evidence.renderedCompositionScore ?? "pending"}, DF ${evidence.directionFidelity ?? "pending"}.`,
       }
     : signal);
-  const findings = report.findings.filter((finding) => finding.id !== "render-evidence-pending" && finding.id !== "render-gate-review");
-  if (!evidence.complete) {
+  const renderFindingIds = new Set(["render-evidence-pending", "render-gate-review", "render-direction-review", "render-archive-review"]);
+  const findings = report.findings.filter((finding) => !renderFindingIds.has(finding.id));
+  if (!complete) {
     findings.push({
       id: "render-evidence-pending",
       severity: "explanation",
       signalIds: ["render-evidence"],
       message: `Browser evidence is persisted but incomplete (${evidence.covered}/3 viewports).`,
     });
-  } else if (renderStatus !== "pass") {
+  }
+  if (renderStatus === "fail" || renderStatus === "review") {
     findings.push({
       id: "render-gate-review",
       severity: "warning",
@@ -338,22 +345,43 @@ export function applyRenderedEvaluationEvidence(
       message: "The delivered browser render did not fully pass; the initial server release decision cannot establish visual readiness by itself.",
     });
   }
-  const archivePass = evidence.visualArchiveDistance === null || evidence.visualArchiveDistance >= visualDiversityThreshold;
-  const directionPass = evidence.directionStatus === null || evidence.directionStatus === "pass";
-  const hasPriorVeto = report.releaseDecision === "blocked"
+  const archiveMeasured = evidence.visualArchiveDistance !== null && Number.isFinite(evidence.visualArchiveDistance)
+    && evidence.visualArchiveDistance >= 0 && evidence.visualArchiveDistance <= 1;
+  const archivePass = archiveMeasured && evidence.visualArchiveDistance! >= visualDiversityThreshold;
+  const directionMeasured = evidence.directionFidelity !== null && Number.isFinite(evidence.directionFidelity)
+    && evidence.directionFidelity >= 0 && evidence.directionFidelity <= 1;
+  const directionPass = directionMeasured && evidence.directionStatus === "pass";
+  if (!directionPass) findings.push({
+    id: "render-direction-review", severity: directionMeasured ? "warning" : "explanation",
+    signalIds: ["render-evidence"],
+    message: directionMeasured ? "Direction realization needs review before a creative claim is eligible." : "Direction realization has not been measured; missing evidence is not a pass.",
+  });
+  if (!archivePass) findings.push({
+    id: "render-archive-review", severity: archiveMeasured ? "warning" : "explanation",
+    signalIds: ["render-evidence"],
+    message: archiveMeasured ? "Rendered distance is below the mode threshold; distinctiveness is not established." : "No measured archive comparison is available; distinctiveness remains provisional.",
+  });
+  const sourceRelease = sourceDecision(report.signals);
+  const hasPriorVeto = sourceRelease === "blocked"
     || report.findings.some((finding) => finding.severity === "blocking")
     || report.signals.some((signal) => signal.id === "direction-diversity" && signal.status === "fail")
     || report.signals.some((signal) => signal.id === "template-diversity" && signal.status === "fail");
   const degraded = report.findings.some((finding) => finding.id === "creative-degraded-evidence");
-  const creativeClaim = hasPriorVeto || renderStatus === "fail" || !archivePass || !directionPass
+  const creativeClaim = hasPriorVeto || renderStatus === "fail"
+    || (archiveMeasured && !archivePass) || evidence.directionStatus === "fail"
     ? "withheld" as const
-    : evidence.complete && renderStatus === "pass" && !degraded
+    : sourceRelease === "ready" && complete && renderStatus === "pass" && archivePass && directionPass && !degraded
+      && !report.signals.some((signal) => signal.id === "critique-provenance" && signal.status !== "pass")
       ? "eligible" as const
       : "provisional" as const;
   const blocking = findings.some((finding) => finding.severity === "blocking");
   const warning = findings.some((finding) => finding.severity === "warning");
   return {
     ...report,
+    releaseDecision: sourceRelease === "blocked" || renderStatus === "fail" || evidence.directionStatus === "fail"
+      ? "blocked"
+      : sourceRelease !== "ready" || renderStatus !== "pass" || !directionPass || (archiveMeasured && !archivePass)
+        ? "review-required" : "ready",
     status: blocking ? "incoherent" : warning ? "review" : "coherent",
     creativeClaim,
     signals,

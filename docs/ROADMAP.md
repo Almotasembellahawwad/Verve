@@ -2,11 +2,26 @@
 
 This document tracks shipped foundations and the next evidence-driven product work.
 
+## Current priority — September 2026
+
+See [the audited next-stage plan](VERVE_NEXT_STAGE.md) for findings, ownership boundaries,
+competitive context and acceptance criteria. Stabilize evidence before adding metrics.
+
+- [x] Coherent fallback direction identities and visual composition sketches
+- [x] Missing-evidence-safe creative eligibility and recoverable browser rechecks
+- [x] Atomic local history replacement and explicit photography exclusions
+- [x] Production-build browser coverage in CI
+- [ ] Revision-bound render receipts and self-excluding design memory
+- [ ] Candidate-to-delivery typography consistency
+- [ ] Six rebuilt, genuinely distinct public examples with real task completion
+- [ ] Scene-scoped refinement with identity locks and verified affected surfaces
+- [ ] Consented real-run reliability corpus and blinded comparative design evaluation
+
 ## Phase 1 — MVP foundation (shipped)
 
 - [x] Nine observable pipeline stages (`lib/application/run-generation-use-case.ts`)
 - [x] Cliché blocklist engine (`data/cliches.json`, 21 families / 67 signals)
-- [x] Reference library RAG context (`data/reference-library.json`, 30 entries)
+- [x] Reference library RAG context (`data/reference-library.json`, now 72 abstract patterns)
 - [x] Adversarial self-critique loop with one bounded revision
 - [x] Standalone Design Critic mode (Module E)
 - [x] Landing page dogfooding its own rules
@@ -78,7 +93,7 @@ This document tracks shipped foundations and the next evidence-driven product wo
 - [ ] **Authenticated heavy-use API tiers** — Application API keys, account quotas, and usage reporting remain separate product/security work.
 - [ ] **Distinctiveness scoring v2** — Calibrate scores against real usage data while keeping project readiness a separate axis.
 - [x] **CI** — GitHub Actions: typecheck, lint, engine tests, production build, and Playwright on PRs and `main`.
-- [ ] **Deploy previews** — Keep Vercel preview deployments attached to pull requests and expose their status in GitHub.
+- [x] **Deploy previews** — Vercel preview deployments are attached to pull requests and expose their status in GitHub.
 - [ ] **More cliché entries** — Target: 50 entries. Focus areas: motion (more specific timing patterns), copy (more LLM-specific phrasing tells), component-level layout tells (pricing table layouts, testimonial patterns).
 
 ## Phase 3 — After real traction

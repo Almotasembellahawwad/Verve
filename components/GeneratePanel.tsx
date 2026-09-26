@@ -24,6 +24,7 @@ import {
 } from "@/lib/engine/pipeline-checkpoint";
 import ResultShareKit from "./ResultShareKit";
 import BrandKitInput from "./BrandKitInput";
+import DirectionSketch from "./DirectionSketch";
 import { launchProjectEditor } from "@/lib/client/editor-workspace";
 import {
   attachOwnedAssets,
@@ -1095,7 +1096,7 @@ export default function GeneratePanel() {
                 rel="noopener noreferrer"
                 className={styles.apiKeyBannerGetLink}
               >
-                Get a free key at console.anthropic.com ↗
+                Manage API keys at console.anthropic.com ↗
               </a>
             </div>
             <button
@@ -1135,6 +1136,7 @@ export default function GeneratePanel() {
                   <input type="radio" name="selected-direction" value={candidate.id} checked={selectedDirectionId === candidate.id} onChange={() => setSelectedDirectionId(candidate.id)} disabled={busy} />
                   <span className={styles.directionMeta}>{candidate.descriptors.creativityClass} / {candidate.descriptors.experienceModel}</span>
                   <strong>{candidate.concept}</strong><p>{candidate.distinction}</p>
+                  <DirectionSketch candidate={candidate} />
                   <dl><div><dt>Opening</dt><dd>{candidate.descriptors.openingMode}</dd></div><div><dt>Navigation</dt><dd>{candidate.descriptors.navigationModel}</dd></div><div><dt>Media</dt><dd>{candidate.descriptors.mediaRole}</dd></div></dl>
                   <div className={styles.directionPalette} aria-label="Direction palette">{candidate.identity.palette.map((color) => <i key={`${candidate.id}-${color.hex}`} style={{ background: color.hex }} title={`${color.name}: ${color.role}`} />)}</div>
                   <small>{candidate.quality.passed ? "Quality floor passed" : "Needs review"}</small>

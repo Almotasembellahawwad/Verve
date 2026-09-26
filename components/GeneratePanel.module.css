@@ -1831,12 +1831,15 @@
 .directionGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .directionCard { position: relative; min-width: 0; display: grid; align-content: start; gap: 12px; padding: 18px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; transition: border-color .16s, transform .16s, background .16s; }
 .directionCard:hover { transform: translateY(-2px); border-color: var(--text-muted); }
+.directionCard:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
 .directionCardActive { border-color: var(--accent); background: color-mix(in srgb, var(--surface) 90%, var(--accent) 10%); }
 .directionCard input { position: absolute; inset: 14px 14px auto auto; accent-color: var(--accent); }
 .directionCard strong { max-width: 90%; font-size: 1rem; line-height: 1.2; }
 .directionCard p { min-height: 4.5em; margin: 0; color: var(--text-muted); font-size: .76rem; line-height: 1.5; }
 .directionCard dl { display: grid; gap: 5px; margin: 0; }
-.directionCard dl div { display: grid; grid-template-columns: 70px 1fr; gap: 8px; font: .6rem var(--font-plex-mono), monospace; }
+.directionCard dl div { display: grid; grid-template-columns: 10ch minmax(0, 1fr); gap: 8px; font: .6rem var(--font-plex-mono), monospace; }
+.directionCard dd { overflow-wrap: anywhere; }
+.directionBoard { --accent: var(--brand); --line: var(--border-subtle); --surface: var(--bg-surface); --surface-raised: var(--bg-raised); --text: var(--text-primary); }
 .directionCard dt { color: var(--text-muted); }.directionCard dd { margin: 0; color: var(--text); }
 .directionPalette { height: 22px; display: flex; overflow: clip; border: 1px solid var(--line); }
 .directionPalette i { flex: 1; display: block; }
