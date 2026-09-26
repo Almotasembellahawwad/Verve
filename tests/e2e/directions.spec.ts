@@ -30,6 +30,13 @@ test("direction sketches expose six structures and preserve manual and recommend
   const manual = section.locator(`input[value="${other.id}"]`);
   await manual.check();
   await expect(manual).toBeChecked();
+  const selectedCardTypeface = await manual.locator("..").locator("strong").evaluate((element) => getComputedStyle(element).fontFamily);
+  expect(selectedCardTypeface).toBe(other.identity.displayTypeface);
+  const selectedFamily = other.identity.displayTypeface.match(/^"([^"]+)"/)?.[1];
+  if (selectedFamily) {
+    await page.evaluate(() => document.fonts.ready);
+    expect(await page.evaluate((family) => document.fonts.check(`24px "${family}"`, "Direction"), selectedFamily)).toBe(true);
+  }
   await section.getByRole("button", { name: "Use Verve's most novel" }).click();
   await expect(section.locator(`input[value="${board.diversity.recommendedDirectionId}"]`)).toBeChecked();
   await manual.check();

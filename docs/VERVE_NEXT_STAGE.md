@@ -102,10 +102,11 @@ benchmark against Lovable or v0. Claims of superior quality must wait for it.
 - **The board still has a small hand-authored search space.** Six experience models
   and 18 structural cells prevent some repetition but do not constitute open-ended
   art direction. The new sketches make that structure inspectable, not limitless.
-- **Candidate fonts and delivered fonts can diverge.** Board prompting still asks
-  for system-safe stacks; the later Typography Contract chooses bundled families.
-  Move licensed typography selection into the candidate identity, then carry it
-  through plan, sketch, generation, export and edits without reassignment surprises.
+- **Candidate fonts and delivered fonts previously diverged.** The board now
+  resolves every candidate through the same local licensed Typography Contract
+  used by generation, including Arabic and Latin subsets. It previews the selected
+  family in the card. Further art-direction work must test whether this improves
+  human choice; matching a font name does not establish visual quality by itself.
 - **Archive comparison previously included the same project.** Both workbenches used to
   record fingerprints without ownership. This local-memory change excludes
   the current project's prior revisions using a hashed local ID. Unowned legacy

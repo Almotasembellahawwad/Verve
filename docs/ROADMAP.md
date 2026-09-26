@@ -14,7 +14,7 @@ competitive context and acceptance criteria. Stabilize evidence before adding me
 - [x] Self-excluding local visual memory by opaque project identity
 - [x] History restoration starts with browser evidence unavailable and requires a fresh three-width check
 - [ ] Revision-bound render receipts and asset-aware restored projects
-- [ ] Candidate-to-delivery typography consistency
+- [x] Candidate-to-delivery typography consistency for supported bundled families
 - [ ] Six rebuilt, genuinely distinct public examples with real task completion
 - [ ] Scene-scoped refinement with identity locks and verified affected surfaces
 - [ ] Consented real-run reliability corpus and blinded comparative design evaluation

@@ -4,8 +4,9 @@ import { applyRenderedEvaluationEvidence, prepareRestoredEvaluation, type Evalua
 import { BrowserHistoryRepository } from "../lib/adapters/storage/browser-history-repository";
 import { assessMediaRequirement } from "../lib/engine/media-requirement";
 import { analyzeBriefLocally } from "../lib/engine/brief-analyzer";
-import { generateDirectionBoard, selectDirectionCells } from "../lib/engine/direction-board";
+import { buildPlanFromDirectionBoard, generateDirectionBoard, selectDirectionCells } from "../lib/engine/direction-board";
 import { StaticReferenceLibraryRepository } from "../lib/adapters/storage/static-content-repositories";
+import { buildTypographyContract } from "../lib/engine/typography-contract";
 import { selectVisualArchive, updateVisualArchive } from "../lib/client/design-memory";
 import type { VisualFingerprint } from "../lib/project/render-gate";
 
@@ -108,6 +109,28 @@ test("one failed surface blocks immediately and a later successful recheck can r
   assert.equal(recovered.releaseDecision, "ready");
   assert.equal(recovered.creativeClaim, "eligible");
   assert.equal(recovered.findings.some((finding) => finding.id === "render-gate-review"), false);
+});
+
+test("each offered direction shows the exact licensed display and body families it will deliver", async () => {
+  for (const brief of [
+    "A Cairo print studio comparing notebook paper and binding specifications.",
+    "مختبر تعليمي عربي يشرح التجارب التفاعلية للطلاب.",
+  ]) {
+    const analysis = analyzeBriefLocally(brief);
+    const board = await generateDirectionBoard({
+      llm: { async complete() { throw new Error("offline"); } }, analysis,
+      mode: "fast", framework: "html", referenceRepository: new StaticReferenceLibraryRepository(),
+    });
+    for (const candidate of board.portfolio.candidates) {
+      const plan = buildPlanFromDirectionBoard(analysis, board, candidate.id);
+      const contract = buildTypographyContract(analysis, plan);
+      assert.equal(candidate.identity.displayTypeface, contract.display.stack);
+      assert.equal(candidate.identity.bodyTypeface, contract.body.stack);
+    }
+    if (!/[\u0600-\u06ff]/.test(brief)) {
+      assert.ok(new Set(board.portfolio.candidates.map((candidate) => candidate.identity.displayTypeface)).size >= 4);
+    }
+  }
 });
 
 test("restored history cannot inherit a past browser verdict or omitted binary assets", () => {

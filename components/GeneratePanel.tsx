@@ -1142,9 +1142,9 @@ export default function GeneratePanel() {
                 <label key={candidate.id} className={`${styles.directionCard} ${selectedDirectionId === candidate.id ? styles.directionCardActive : ""}`}>
                   <input type="radio" name="selected-direction" value={candidate.id} checked={selectedDirectionId === candidate.id} onChange={() => setSelectedDirectionId(candidate.id)} disabled={busy} />
                   <span className={styles.directionMeta}>{candidate.descriptors.creativityClass} / {candidate.descriptors.experienceModel}</span>
-                  <strong>{candidate.concept}</strong><p>{candidate.distinction}</p>
+                  <strong style={selectedDirectionId === candidate.id ? { fontFamily: candidate.identity.displayTypeface } : undefined}>{candidate.concept}</strong><p>{candidate.distinction}</p>
                   <DirectionSketch candidate={candidate} />
-                  <dl><div><dt>Opening</dt><dd>{candidate.descriptors.openingMode}</dd></div><div><dt>Navigation</dt><dd>{candidate.descriptors.navigationModel}</dd></div><div><dt>Media</dt><dd>{candidate.descriptors.mediaRole}</dd></div></dl>
+                  <dl><div><dt>Opening</dt><dd>{candidate.descriptors.openingMode}</dd></div><div><dt>Navigation</dt><dd>{candidate.descriptors.navigationModel}</dd></div><div><dt>Media</dt><dd>{candidate.descriptors.mediaRole}</dd></div><div><dt>Typeface</dt><dd>{candidate.identity.displayTypeface.match(/^"([^"]+)"/)?.[1] ?? candidate.identity.displayTypeface}</dd></div></dl>
                   <div className={styles.directionPalette} aria-label="Direction palette">{candidate.identity.palette.map((color) => <i key={`${candidate.id}-${color.hex}`} style={{ background: color.hex }} title={`${color.name}: ${color.role}`} />)}</div>
                   <small>{candidate.quality.passed ? "Quality floor passed" : "Needs review"}</small>
                 </label>
