@@ -359,6 +359,7 @@ export default function EditorClient({ initialProjectId, initialDemoId }: { init
             <ProjectWorkbench
               key={`${activeRecord.id}-${workspaceVersion}-${aiProposal?.id ?? "accepted"}`}
               project={aiProposal?.project ?? workingProject}
+              memoryProjectId={activeRecord.id}
               onProjectChange={aiProposal ? undefined : handleProjectChange}
               readOnly={Boolean(aiProposal)}
               focusMode={workspaceView}

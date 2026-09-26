@@ -49,6 +49,7 @@ type ProjectWorkbenchProps = {
   focusMode?: WorkbenchFocusMode;
   showDiagnostics?: boolean;
   visualDiversityThreshold?: number;
+  memoryProjectId?: string;
   onVisualDiversity?: (distance: number | null) => void;
   onRenderAudit?: (audit: RenderedEvaluationEvidence) => void;
 };
@@ -189,14 +190,15 @@ function NextProjectInspector({ project, onProjectChange, readOnly = false, show
   );
 }
 
-function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, onVisualDiversity, onRenderAudit }: ProjectWorkbenchProps & { probeId: string }) {
+function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, memoryProjectId, onVisualDiversity, onRenderAudit }: ProjectWorkbenchProps & { probeId: string }) {
   const { sandpack } = useSandpack();
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [bottomPanel, setBottomPanel] = useState<BottomPanel>("problems");
   const [downloading, setDownloading] = useState(false);
-  const [visualArchiveDistance, setVisualArchiveDistance] = useState<number | null>(null);
+  const [visualArchiveMeasurement, setVisualArchiveMeasurement] = useState<{ revision: number; distance: number | null }>({ revision: -1, distance: null });
   const visualMeasuredRevisionRef = useRef<number | null>(null);
   const filesRevision = useMemo(() => sandboxFilesRevision(sandpack.files), [sandpack.files]);
+  const measuredDistance = visualArchiveMeasurement.revision === filesRevision ? visualArchiveMeasurement.distance : null;
   const [renderEvidenceState, setRenderEvidenceState] = useState(() => ({
     revision: filesRevision,
     evidence: createRenderEvidenceMatrix(),
@@ -233,7 +235,7 @@ function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, 
   );
   const totalProblems = problemChecks.length + renderProblems.length + (runtimeError ? 1 : 0);
   const riskScore = Math.max(0, 100 - project.warnings.length * 18);
-  const visualReviewRequired = visualArchiveDistance !== null && visualArchiveDistance < visualDiversityThreshold;
+  const visualReviewRequired = measuredDistance !== null && measuredDistance < visualDiversityThreshold;
   const directionReviewRequired = Boolean(projectSpec && renderEvidence.complete && directionRealization?.status !== "pass");
   const renderScore = renderEvidence.covered > 0 ? renderEvidence.score : 85;
   const readinessScore = Math.min(validation.score, riskScore, renderScore);
@@ -251,13 +253,13 @@ function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, 
     const receiveReport = (event: MessageEvent<unknown>) => {
       if (isRenderGateReport(event.data, probeId)) {
         const report = event.data;
-        if (!readOnly && Math.abs(report.viewport.width - 1440) <= 2 && visualMeasuredRevisionRef.current !== filesRevision) {
+        if (!readOnly && memoryProjectId && Math.abs(report.viewport.width - 1440) <= 2 && visualMeasuredRevisionRef.current !== filesRevision) {
           visualMeasuredRevisionRef.current = filesRevision;
-          const archive = getRecentVisualFingerprints();
+          const archive = getRecentVisualFingerprints(24, memoryProjectId);
           const distance = archive.length ? Math.min(...archive.map((fingerprint) => visualFingerprintDistance(report.fingerprint, fingerprint))) : null;
-          setVisualArchiveDistance(distance);
+          setVisualArchiveMeasurement({ revision: filesRevision, distance });
           onVisualDiversity?.(distance);
-          rememberVisualFingerprint(report.fingerprint);
+          rememberVisualFingerprint(report.fingerprint, memoryProjectId);
         }
         setRenderEvidenceState((current) => ({
           revision: filesRevision,
@@ -277,15 +279,15 @@ function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, 
     };
     window.addEventListener("message", receiveReport);
     return () => window.removeEventListener("message", receiveReport);
-  }, [filesRevision, onVisualDiversity, probeId, projectSpec, readOnly]);
+  }, [filesRevision, memoryProjectId, onVisualDiversity, probeId, projectSpec, readOnly]);
 
   useEffect(() => {
     onProjectChange?.(editedProject);
   }, [editedProject, onProjectChange]);
 
   useEffect(() => {
-    if (!readOnly) onRenderAudit?.(summarizeRenderAudit(renderEvidence, directionRealization, visualArchiveDistance));
-  }, [directionRealization, onRenderAudit, readOnly, renderEvidence, visualArchiveDistance]);
+    if (!readOnly) onRenderAudit?.(summarizeRenderAudit(renderEvidence, directionRealization, measuredDistance));
+  }, [directionRealization, measuredDistance, onRenderAudit, readOnly, renderEvidence]);
 
   const downloadProject = async () => {
     setDownloading(true);
@@ -338,7 +340,7 @@ function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, 
       {visualReviewRequired && (
         <div className={styles.warning} role="status">
           <strong>Visual diversity review</strong>
-          <p>This render is close to a recent local result ({visualArchiveDistance.toFixed(2)} distance). Fast results should be reviewed; Creative results should be regenerated from another direction.</p>
+          <p>This render is close to a recent local result ({measuredDistance?.toFixed(2)} distance). Fast results should be reviewed; Creative results should be regenerated from another direction.</p>
         </div>
       )}
       {directionReviewRequired && directionRealization && (
@@ -410,7 +412,7 @@ function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, 
   );
 }
 
-export default function ProjectWorkbench({ project, projectSpec, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, onVisualDiversity, onRenderAudit }: ProjectWorkbenchProps) {
+export default function ProjectWorkbench({ project, projectSpec, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, memoryProjectId, onVisualDiversity, onRenderAudit }: ProjectWorkbenchProps) {
   const probeId = useId();
   const projectRevision = useMemo(() => sandboxFilesRevision(Object.fromEntries(
     project.files.map((file) => [file.path, { code: file.content }])
@@ -425,7 +427,7 @@ export default function ProjectWorkbench({ project, projectSpec, onProjectChange
   }
 
   if (project.framework === "html") {
-    return <NativeHtmlWorkbench key={`${project.name}-${projectRevision}`} project={project} projectSpec={projectSpec} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} visualDiversityThreshold={visualDiversityThreshold} onVisualDiversity={onVisualDiversity} onRenderAudit={onRenderAudit} />;
+    return <NativeHtmlWorkbench key={`${project.name}-${projectRevision}`} project={project} projectSpec={projectSpec} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} visualDiversityThreshold={visualDiversityThreshold} memoryProjectId={memoryProjectId} onVisualDiversity={onVisualDiversity} onRenderAudit={onRenderAudit} />;
   }
 
   return (
@@ -462,7 +464,7 @@ export default function ProjectWorkbench({ project, projectSpec, onProjectChange
       }}
       options={{ activeFile: `/${project.entryFile}`, visibleFiles: project.files.map((item) => `/${item.path}`) }}
     >
-      <ProjectWorkspaceBody project={project} projectSpec={projectSpec} probeId={probeId} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} visualDiversityThreshold={visualDiversityThreshold} onVisualDiversity={onVisualDiversity} onRenderAudit={onRenderAudit} />
+      <ProjectWorkspaceBody project={project} projectSpec={projectSpec} probeId={probeId} onProjectChange={onProjectChange} readOnly={readOnly} focusMode={focusMode} showDiagnostics={showDiagnostics} visualDiversityThreshold={visualDiversityThreshold} memoryProjectId={memoryProjectId} onVisualDiversity={onVisualDiversity} onRenderAudit={onRenderAudit} />
     </SandpackProvider>
   );
 }
