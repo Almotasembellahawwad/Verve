@@ -137,6 +137,15 @@ test("all six frozen examples pass the three-width render contract", async ({ pa
     };
   });
   const visualTruthReceipt = { version: 1, generatedBy: "playwright-render-gate-v2", examples: receipt };
+  if (process.env.CI) {
+    console.log("VISUAL_TRUTH_MEASURED", JSON.stringify(receipt.map((entry) => ({
+      demoId: entry.demoId,
+      nearestMeasuredExampleDistance: entry.nearestMeasuredExampleDistance,
+      fontFamilies: entry.desktopFingerprint.fontHistogram?.map((font) => font.family),
+      observedLayers: entry.desktopFingerprint.visualLayerHistogram?.map((layer) => layer.layer),
+      warnings: entry.warnings,
+    }))));
+  }
   const artifactDirectory = resolve(process.cwd(), "test-results");
   const artifactPath = resolve(artifactDirectory, "public-demo-visual-truth.json");
   await mkdir(artifactDirectory, { recursive: true });
@@ -150,7 +159,7 @@ test("all six frozen examples pass the three-width render contract", async ({ pa
     const baseline = visualTruthBaseline.examples[example.demoId as keyof typeof visualTruthBaseline.examples];
     expect(
       Math.abs(example.nearestMeasuredExampleDistance - baseline.nearestMeasuredExampleDistance),
-      `${example.demoId} visual distance drifted beyond the cross-platform tolerance`
+      `${example.demoId} visual distance drifted: measured=${example.nearestMeasuredExampleDistance}, baseline=${baseline.nearestMeasuredExampleDistance}, tolerance=${visualTruthBaseline.crossPlatformDistanceTolerance}`
     ).toBeLessThanOrEqual(visualTruthBaseline.crossPlatformDistanceTolerance);
     expect(
       example.nearestMeasuredExampleDistance >= visualTruthBaseline.releaseDistanceThreshold,
