@@ -20,6 +20,8 @@ test("public examples disclose that their curated projects are not live generato
   await expect(page.getByText(/hand-curated, runnable references/i)).toBeVisible();
   await page.goto("/examples/carbon");
   await expect(page.getByText(/it is not evidence that the live generator produced this exact project/i)).toBeVisible();
+  await page.getByText("Inspect the curated design receipt").click();
+  await expect(page.getByText("Windows 0.296 / Linux 0.314")).toBeVisible();
 });
 
 test("carbon workbench lets a visitor trace and assign a sample exception", async ({ page }, testInfo) => {
@@ -157,14 +159,18 @@ test("all six frozen examples pass the three-width render contract", async ({ pa
   expect(receipt).toHaveLength(6);
   for (const example of receipt) {
     const baseline = visualTruthBaseline.examples[example.demoId as keyof typeof visualTruthBaseline.examples];
+    const platform = process.platform === "win32" ? "win32" : process.platform === "linux" ? "linux" : null;
+    const expectedDistance = platform ? baseline.platformDistances[platform] : baseline.nearestMeasuredExampleDistance;
+    expect(baseline.nearestMeasuredExampleDistance, `${example.demoId} public distance must be the conservative platform minimum`)
+      .toBe(Math.min(...Object.values(baseline.platformDistances)));
     expect(
-      Math.abs(example.nearestMeasuredExampleDistance - baseline.nearestMeasuredExampleDistance),
-      `${example.demoId} visual distance drifted: measured=${example.nearestMeasuredExampleDistance}, baseline=${baseline.nearestMeasuredExampleDistance}, tolerance=${visualTruthBaseline.crossPlatformDistanceTolerance}`
+      Math.abs(example.nearestMeasuredExampleDistance - expectedDistance),
+      `${example.demoId} visual distance drifted on ${process.platform}: measured=${example.nearestMeasuredExampleDistance}, baseline=${expectedDistance}, tolerance=${visualTruthBaseline.crossPlatformDistanceTolerance}`
     ).toBeLessThanOrEqual(visualTruthBaseline.crossPlatformDistanceTolerance);
-    expect(
-      example.nearestMeasuredExampleDistance >= visualTruthBaseline.releaseDistanceThreshold,
-      `${example.demoId} crossed the published diversity release threshold`
-    ).toBe(baseline.nearestMeasuredExampleDistance >= visualTruthBaseline.releaseDistanceThreshold);
+    if (baseline.nearestMeasuredExampleDistance >= visualTruthBaseline.releaseDistanceThreshold) {
+      expect(example.nearestMeasuredExampleDistance, `${example.demoId} failed the published diversity release threshold on ${process.platform}`)
+        .toBeGreaterThanOrEqual(visualTruthBaseline.releaseDistanceThreshold);
+    }
     expect(example.failures, `${example.demoId} render failures drifted from its published receipt`).toBe(baseline.failures);
     expect(example.warnings, `${example.demoId} render warnings drifted from its published receipt`).toBe(baseline.warnings);
     expect(example.desktopFingerprint.fontHistogram?.map((entry) => entry.family), `${example.demoId} font evidence drifted`).toEqual(baseline.fontFamilies);

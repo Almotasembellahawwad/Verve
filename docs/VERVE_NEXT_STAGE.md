@@ -99,7 +99,9 @@ benchmark against Lovable or v0. Claims of superior quality must wait for it.
   **0.212–0.285** at the initial audit, below **0.50**, despite zero mechanical
   failures/warnings in that baseline. The first Carbon workbench rebuild adds a
   working source-trail and local-only assignment. The new measured range is
-  **0.225–0.296**, still below target. Several use Arial/Georgia. These
+  **0.224–0.296** when taking the lower Windows/Linux measurement per example,
+  still below target. Carbon measures 0.296 on Windows and 0.314 on Linux;
+  the receipt exposes both while the public comparison uses 0.296. Several use Arial/Georgia. These
   hand-curated references do not prove that the latest font-delivery code fails.
   Passing overflow checks is not beauty.
 - **The board still has a small hand-authored search space.** Six experience models

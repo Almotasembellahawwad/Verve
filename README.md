@@ -106,7 +106,7 @@ Direction Fidelity (DF) is also evidence, not a taste score. It is the weighted 
 - **Visual Fingerprint v2** — distance now sees rendered font families, area-weighted surface color, functional visual-layer balance, depth signals, alignment diversity, and stateful controls instead of relying mainly on DOM frequency.
 - **Multi-surface evidence contract** — route and state identities are hashed inside the isolated preview and combined with the three release viewports. Raw routes, labels, copy, and form values are excluded from visual memory.
 - **Direction realization report** — the workbench exposes `DF` beside FVE and FVF, and moves a result to review when its three visible widths pass but declared routes, states, layers, scenes, or fonts remain unverified.
-- **Measured public-example receipts** — Playwright generates evidence for all 18 example/viewport renders and checks the committed receipt baseline. The initial measured range was 0.212–0.285, not the former hand-authored 0.66–0.81 claim. After the first Carbon workbench rebuild, the measured range is 0.225–0.296; all six still miss the 0.50 release target.
+- **Measured public-example receipts** — Playwright generates evidence for all 18 example/viewport renders and checks Windows/Linux baselines separately. The public distance is the smaller of the two measurements. The initial measured range was 0.212–0.285, not the former hand-authored 0.66–0.81 claim. After the first Carbon workbench rebuild, the conservative range is 0.224–0.296; all six still miss the 0.50 release target.
 
 ## What changed in 0.11 Licensed Asset Delivery
 
