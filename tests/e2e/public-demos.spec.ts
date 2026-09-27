@@ -20,8 +20,15 @@ test("public examples disclose that their curated projects are not live generato
   await expect(page.getByText(/hand-curated, runnable references/i)).toBeVisible();
   await page.goto("/examples/carbon");
   await expect(page.getByText(/it is not evidence that the live generator produced this exact project/i)).toBeVisible();
-  await page.getByText("Inspect the curated design receipt").click();
-  await expect(page.getByText("Windows 0.296 / Linux 0.314")).toBeVisible();
+  const receiptDrawer = page.locator("details").filter({ hasText: "Inspect the curated design receipt" });
+  await receiptDrawer.locator("summary").focus();
+  await page.keyboard.press("Enter");
+  await expect(receiptDrawer).toHaveAttribute("open", "");
+  await receiptDrawer.locator("summary").click();
+  await expect(receiptDrawer).not.toHaveAttribute("open", "");
+  await receiptDrawer.locator("summary").click();
+  await expect(receiptDrawer).toHaveAttribute("open", "");
+  await expect(receiptDrawer.getByText("Windows 0.296 / Linux 0.314")).toBeVisible();
 });
 
 test("carbon workbench lets a visitor trace and assign a sample exception", async ({ page }, testInfo) => {
