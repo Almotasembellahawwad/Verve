@@ -71,7 +71,7 @@ export const PUBLIC_DEMO_PROJECT: GeneratedProject = {
     { path: "index.html", content: demoHtml, language: "html", role: "source" },
     { path: "styles.css", content: demoCssV2, language: "css", role: "source" },
     { path: "script.js", content: demoScript, language: "javascript", role: "source" },
-    { path: "README.md", content: "# مائدة القاهرة — Verve public demo\n\nA pre-generated HTML/CSS project used to let visitors inspect Verve without an API key. Open `index.html` directly or serve the folder with any static server.\n", language: "markdown", role: "documentation" },
+    { path: "README.md", content: "# مائدة القاهرة — Verve public demo\n\nA hand-curated HTML/CSS reference that lets visitors inspect a runnable project without an API key. This exact project is not proof of a live provider run. Open `index.html` directly or serve the folder with any static server.\n", language: "markdown", role: "documentation" },
     { path: "ASSETS.md", content: "# Asset manifest\n\n- Typography: local system Arabic/Latin stack; no remote font request.\n- Shapes, service-sun artwork, and market-receipt composition: generated in CSS; Verve-authored.\n- Photography is intentionally absent from this fictional decision-journey direction; no image placeholder or remote request is used.\n- Icons: text and Unicode only.\n", language: "markdown", role: "documentation" },
   ],
   dependencies: {}, scripts: {}, warnings: [],
@@ -93,7 +93,7 @@ export const PUBLIC_DEMO_RESULT = {
     signatureElement: { name: "The Cairo Service Sun", description: "A measured lime disc cuts behind the hero and records the temperature before sunset.", justification: "It connects Cairo's heat and dinner service to a useful temporal marker instead of adding generic decoration." },
     referencesSampled: ["Egyptian market receipts", "Arabic editorial mastheads", "seasonal restaurant chalkboards"],
   },
-  critique: { passed: true, flaggedElements: [], positiveElements: ["Arabic-first hierarchy", "Dish provenance is part of the information architecture", "One controlled signature element"], verdict: "Public demo preflight: a deliberately constrained restaurant identity with a runnable multi-file project and no external runtime dependencies.", transcript: "Pre-generated demonstration. No provider call was used in this browser session." },
+  critique: { passed: true, flaggedElements: [], positiveElements: ["Arabic-first hierarchy", "Dish provenance is part of the information architecture", "One controlled signature element"], verdict: "Public demo preflight: a deliberately constrained restaurant identity with a runnable multi-file project and no external runtime dependencies.", transcript: "Hand-curated reference. No provider call was used to produce this exact project in this browser session." },
   code: { code: demoHtml, framework: "html", componentName: "index.html", setupNotes: "Public demo snapshot. Edit the files in Live Project and download the current ZIP." },
   archetype: { id: "everyman", name: "Everyman", secondaryId: "creator", confidence: 0.88, reasoning: "Familiar food language is made memorable through editorial composition rather than luxury signals.", emotionalJob: "Feel welcomed into a recognizably Egyptian meal without tourist clichés.", archetypeConflict: "Imported fine-dining codes, gold-on-black luxury, and generic food photography." },
   distinctivenessReport: {

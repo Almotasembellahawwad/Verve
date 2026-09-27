@@ -27,6 +27,10 @@ bundled OFL contract used for the generated project, and previews the selected
 family. This keeps the visible choice and delivered type system consistent without
 adding a model call.
 
+The six public examples are hand-curated, runnable engine-contract references,
+not output samples from a live provider run. Their browser-measured fingerprints
+and task checks are evidence about those specific projects only.
+
 - **Executable Typography Contract** — after the final direction is selected, Verve assigns a brief- and script-sensitive display/body/mono profile, bundles exact Latin or Arabic+Latin WOFF2 subsets locally, injects deterministic `@font-face` rules, and ships OFL text plus SHA-256 receipts. Runtime font CDNs and undocumented system-font defaults are rejected.
 - **Scene Asset Director** — every story scene receives an explicit visual function, expected layers, approved source policy, asset assignment, responsive framing, alt intent, and honest fallback. Generated `ASSETS.md` records the exact scene/source/license relationship.
 - **Licensed Asset Delivery** — a used Pexels image is copied only from the allowlisted image host, bounded to 1.2 MB per file and 2.4 MB per project, verified by media signature, hashed with SHA-256, written under the framework-correct local asset path, and recorded in `ASSETS.md`. Unused search results are never downloaded.
@@ -102,7 +106,7 @@ Direction Fidelity (DF) is also evidence, not a taste score. It is the weighted 
 - **Visual Fingerprint v2** — distance now sees rendered font families, area-weighted surface color, functional visual-layer balance, depth signals, alignment diversity, and stateful controls instead of relying mainly on DOM frequency.
 - **Multi-surface evidence contract** — route and state identities are hashed inside the isolated preview and combined with the three release viewports. Raw routes, labels, copy, and form values are excluded from visual memory.
 - **Direction realization report** — the workbench exposes `DF` beside FVE and FVF, and moves a result to review when its three visible widths pass but declared routes, states, layers, scenes, or fonts remain unverified.
-- **Measured public-example receipts** — Playwright generates evidence for all 18 example/viewport renders and checks the committed receipt baseline. This immediately exposed that the six examples' true nearest-neighbor distance is currently only 0.212–0.285, not the former hand-authored 0.66–0.81 claim.
+- **Measured public-example receipts** — Playwright generates evidence for all 18 example/viewport renders and checks Windows/Linux baselines separately. The public distance is the smaller of the two measurements. The initial measured range was 0.212–0.285, not the former hand-authored 0.66–0.81 claim. After the first Carbon workbench rebuild, the conservative range is 0.224–0.296; all six still miss the 0.50 release target.
 
 ## What changed in 0.11 Licensed Asset Delivery
 

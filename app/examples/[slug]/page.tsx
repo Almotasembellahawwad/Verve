@@ -37,7 +37,7 @@ export default async function ExamplePage({ params }: { params: Promise<{ slug: 
 
       <details className={styles.drawer}>
         <summary>
-          <div><span>BRIEF / DECISIONS / DIVERSITY EVIDENCE</span><strong>Inspect the generation receipt</strong></div>
+          <div><span>BRIEF / DECISIONS / DIVERSITY EVIDENCE</span><strong>Inspect the curated design receipt</strong></div>
           <b aria-hidden="true">+</b>
         </summary>
         <div className={styles.drawerBody}>
@@ -47,8 +47,8 @@ export default async function ExamplePage({ params }: { params: Promise<{ slug: 
           <article className={styles.narrative}>
             <span>THE CHOSEN DIRECTION</span><h2>{demo.result.plan.signatureElement.name}</h2><p>{story.decision}</p><small><b>Anti-reference:</b> {story.categoryDefault}</small>
           </article>
-          <section className={styles.receipt} aria-label="Creative Engine receipt">
-            <header><span>CREATIVE ENGINE RECEIPT</span><b>{receipt.engineVersion}</b></header>
+          <section className={styles.receipt} aria-label="Curated design receipt">
+            <header><span>CURATED REFERENCE / ENGINE CONTRACT</span><b>{receipt.engineVersion}</b></header>
             <dl>
               <div><dt>Class</dt><dd>{receipt.direction.creativityClass}</dd></div><div><dt>Experience</dt><dd>{receipt.direction.experienceModel}</dd></div>
               <div><dt>Topology</dt><dd>{receipt.direction.topology}</dd></div><div><dt>Opening</dt><dd>{receipt.direction.opening}</dd></div>
@@ -58,14 +58,14 @@ export default async function ExamplePage({ params }: { params: Promise<{ slug: 
               <div><span>VISUAL FINGERPRINT / V{receipt.measurement.fingerprintVersion}</span><p>{receipt.fingerprint.occupancy}</p><p>{receipt.fingerprint.colorRhythm}</p><p>Fonts: {receipt.measurement.fontFamilies.join(" + ")}</p><p>Layers: {receipt.measurement.observedLayers.join(" + ")}</p></div>
               <div><span>ABSTRACT RETRIEVAL</span><p>Near: {receipt.abstractReferences.near}</p><p>Remote: {receipt.abstractReferences.remote.join(" + ")}</p><p>Avoid: {receipt.abstractReferences.antiReference}</p></div>
             </div>
-            <div className={styles.checks}><span>360 / 768 / 1440 measured</span><span>{receipt.measurement.failures} render failures</span><span>{receipt.measurement.warnings} render warnings</span><span>Measured diversity: {demo.meetsMeasuredDiversityFloor ? "pass" : "review"}</span><span>{receipt.assets.manifest}</span></div>
+            <div className={styles.checks}><span>360 / 768 / 1440 measured</span><span>{receipt.measurement.failures} render failures</span><span>{receipt.measurement.warnings} render warnings</span><span>Windows {receipt.measurement.platformDistances.win32.toFixed(3)} / Linux {receipt.measurement.platformDistances.linux.toFixed(3)}</span><span>Measured diversity: {demo.meetsMeasuredDiversityFloor ? "pass" : "review"}</span><span>{receipt.assets.manifest}</span></div>
             <div className={styles.palette}>{demo.result.plan.colorPalette.slice(0, 4).map((color) => <i key={color.hex} style={{ background: color.hex }} title={`${color.name} · ${color.role}`} />)}</div>
           </section>
         </div>
       </details>
 
       <section className={styles.continue}>
-        <div><span>TAKE IT APART</span><h2>Inspect the real files, then make it yours.</h2><p>The public example is frozen with its engine receipt and asset manifest. Opening it creates an editable local copy.</p></div>
+        <div><span>TAKE IT APART</span><h2>Inspect the real files, then make it yours.</h2><p>This hand-curated reference is frozen with its design receipt and asset manifest. Opening it creates an editable local copy; it is not evidence that the live generator produced this exact project.</p></div>
         <OpenInEditorButton demoId={demo.id as PublicDemoId} className={styles.editButton} />
       </section>
     </main>

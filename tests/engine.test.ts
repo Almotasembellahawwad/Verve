@@ -1470,6 +1470,7 @@ test("every public demo is a complete, runnable native project", () => {
     assert.equal(demo.receipt.tests.horizontalOverflow, 0, demo.id);
     assert.equal(demo.meetsMeasuredDiversityFloor, demo.receipt.nearestExampleDistance >= 0.5, demo.id);
     assert.equal(demo.receipt.nearestExampleDistance, demo.receipt.measurement.nearestMeasuredExampleDistance, demo.id);
+    assert.equal(demo.receipt.nearestExampleDistance, Math.min(...Object.values(demo.receipt.measurement.platformDistances)), demo.id);
     structuralCells.add(`${demo.receipt.direction.topology}/${demo.receipt.direction.opening}/${demo.receipt.direction.navigation}`);
     const validation = validateGeneratedProject(demo.result.project);
     assert.equal(validation.failed, 0, `${demo.id}: ${JSON.stringify(validation.checks)}`);
