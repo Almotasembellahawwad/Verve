@@ -3,7 +3,10 @@ import { resolve } from "node:path";
 import { chromium } from "@playwright/test";
 
 const baseUrl = process.argv[2] ?? "http://127.0.0.1:3000";
-const demoIds = ["architecture", "cairo", "carbon", "learning", "fashion", "civic"];
+const allDemoIds = ["architecture", "cairo", "carbon", "learning", "fashion", "civic"];
+const selectedDemoIds = process.argv.slice(3);
+const demoIds = selectedDemoIds.length ? selectedDemoIds : allDemoIds;
+if (demoIds.some((id) => !allDemoIds.includes(id))) throw new Error(`Unknown demo id: ${demoIds.find((id) => !allDemoIds.includes(id))}`);
 const outputDirectory = resolve(process.cwd(), "public", "demo-assets", "screenshots");
 
 await mkdir(outputDirectory, { recursive: true });

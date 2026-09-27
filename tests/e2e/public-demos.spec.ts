@@ -15,6 +15,43 @@ import { privacySafeSurfaceKey } from "../../lib/project/visual-truth";
 
 const VIEWPORTS = [360, 768, 1440] as const;
 
+test("public examples disclose that their curated projects are not live generator outputs", async ({ page }) => {
+  await page.goto("/examples");
+  await expect(page.getByText(/hand-curated, runnable references/i)).toBeVisible();
+  await page.goto("/examples/carbon");
+  await expect(page.getByText(/it is not evidence that the live generator produced this exact project/i)).toBeVisible();
+});
+
+test("carbon workbench lets a visitor trace and assign a sample exception", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome", "Two widths in one browser verify the frozen demo interaction.");
+  const project = PUBLIC_DEMOS.find((demo) => demo.id === "carbon")!.result.project;
+  for (const width of [360, 1440]) {
+    await page.setViewportSize({ width, height: width === 360 ? 800 : 900 });
+    await page.goto("about:blank");
+    await page.setContent(buildHtmlPreviewDocument(project, `carbon-task-${width}`), { waitUntil: "load" });
+    await expect(page.getByRole("heading", { name: "See the variance. Own the next move." })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Open exception 01/ })).toBeInViewport();
+    await expect(page.getByRole("img", { name: "Weekly emissions exception trend" })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`carbon-opening-${width}.png`), fullPage: false });
+    await page.getByRole("button", { name: /Porto.*Freight gap/i }).click();
+    await expect(page.locator("[data-case-title]")).toHaveText("Porto / freight gap");
+    await expect(page.locator("[data-case-source]")).toHaveText("Carrier feed import");
+    await page.locator("[data-case-owner]").selectOption("Logistics");
+    await page.getByRole("button", { name: /Assign sample action/ }).click();
+    await expect(page.locator("[data-case-feedback]")).toContainText("Nothing was sent or stored");
+    await expect(page.locator('[data-case-row="porto"] [data-owner-cell]')).toHaveText("Logistics");
+    await page.getByRole("button", { name: "Needs review / 02" }).click();
+    await expect(page.locator('tr[data-case-row="brno"]')).toBeHidden();
+    await expect(page.locator('tr[data-case-row="porto"]')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`carbon-workbench-${width}.png`), fullPage: false });
+    await page.getByRole("button", { name: "All / 03" }).click();
+    await page.getByRole("button", { name: /Brno.*Grid factor update/i }).click();
+    await page.getByRole("button", { name: "Needs review / 02" }).click();
+    await expect(page.locator("[data-case-title]")).toHaveText("Derby / steam variance");
+  }
+});
+
 test("all six frozen examples pass the three-width render contract", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chrome", "One browser is sufficient for the fixed 18-render matrix.");
   const runtimeErrors: string[] = [];

@@ -28,7 +28,7 @@ export type PublicDemoReceipt = {
   measurement: PublicDemoVisualTruthEvidence;
 };
 
-type AuthoredPublicDemoReceipt = Omit<PublicDemoReceipt, "measurement">;
+type AuthoredPublicDemoReceipt = Omit<PublicDemoReceipt, "measurement" | "nearestExampleDistance">;
 
 function receipt(input: Omit<AuthoredPublicDemoReceipt, "engineVersion" | "assets" | "tests">): AuthoredPublicDemoReceipt {
   return {
@@ -107,7 +107,7 @@ const architectureProject: GeneratedProject = {
     { path: "index.html", content: architectureHtml, language: "html", role: "source" },
     { path: "styles.css", content: architectureCssV2, language: "css", role: "source" },
     { path: "script.js", content: architectureScript, language: "javascript", role: "source" },
-    { path: "README.md", content: "# Reframe — Verve public demo\n\nA dependency-free adaptive-reuse architecture concept generated for Verve's public demo gallery. All projects and figures are explicitly fictional. Open `index.html` or serve the folder with a static server.\n", language: "markdown", role: "documentation" },
+    { path: "README.md", content: "# Reframe — Verve public demo\n\nA hand-curated, dependency-free adaptive-reuse architecture reference for Verve's public gallery. All projects and figures are explicitly fictional. Open `index.html` or serve the folder with a static server.\n", language: "markdown", role: "documentation" },
     { path: "ASSETS.md", content: "# Asset manifest\n\n- Typography: local system grotesk and Georgia; no remote font request.\n- Survey datum and diagrams: generated in CSS; Verve-authored.\n- `public/demo-assets/reframe-retention-study.webp`: original AI-generated architectural material study created for Verve; no external brand, model, or stock license.\n- The pictured site and project are fictional and must not be represented as completed client work.\n", language: "markdown", role: "documentation" },
   ],
   dependencies: {}, scripts: {}, warnings: [],
@@ -125,7 +125,7 @@ const architectureResult = {
     signatureElement: { name: "The Retention Datum", description: "A continuous survey coordinate cuts through the hero and anchors the page to an existing place.", justification: "The line is both navigation and argument: begin with measured reality before adding form." },
     referencesSampled: ["Survey annotations", "Material schedules", "Architectural retention maps"],
   },
-  critique: { passed: true, flaggedElements: [], positiveElements: ["Evidence-led portfolio structure", "Fictional work labelled honestly", "Single survey datum as signature"], verdict: "Curated public demo: architecture is framed as a retention decision rather than an image gallery.", transcript: "Pre-generated demonstration. No provider call was used in this browser session." },
+  critique: { passed: true, flaggedElements: [], positiveElements: ["Evidence-led portfolio structure", "Fictional work labelled honestly", "Single survey datum as signature"], verdict: "Curated public demo: architecture is framed as a retention decision rather than an image gallery.", transcript: "Hand-curated reference. No provider call was used to produce this exact project in this browser session." },
   code: { code: architectureHtml, framework: "html", componentName: "index.html", setupNotes: "Dependency-free public demo. Edit all four files and export the current project as ZIP." },
   archetype: { id: "sage", name: "Sage", secondaryId: "creator", confidence: 0.93, reasoning: "The practice earns authority through investigation and explicit decisions, not prestige imagery.", emotionalJob: "Make reuse feel more intelligent and ambitious than demolition.", archetypeConflict: "Full-bleed renders, monochrome awards grids, and unexplained architect language." },
   distinctivenessReport: {
@@ -157,18 +157,31 @@ const carbonHtml = `<!doctype html>
 </head>
 <body>
   <a class="skip" href="#main">Skip to operations</a>
-  <header class="nav"><a class="logo" href="#main">LEDGER/<b>LINE</b></a><p>Carbon operations<br>Demo environment</p><nav aria-label="Primary navigation"><a href="#ledger">Ledger</a><a href="#method">Method</a></nav><a class="login" href="#ledger" data-verve-primary-action>Open demo</a></header>
+  <header class="nav"><a class="logo" href="#main">LEDGER/<b>LINE</b></a><p>SHIFT 38 / SAMPLE WORKSPACE<br>FICTIONAL MANUFACTURING DATA</p><nav aria-label="Primary navigation"><a href="#ledger">Exceptions</a><a href="#method">Protocol</a></nav><a class="login" href="#ledger" data-verve-primary-action>Inspect the ledger <span aria-hidden="true">↗</span></a></header>
   <main id="main">
     <section class="hero" aria-labelledby="hero-title">
-      <p class="eyebrow">For manufacturing operators / sample data only</p>
-      <h1 id="hero-title" data-verve-task="primary-object">Carbon data<br>the factory<br><em>can act on.</em></h1>
-      <div class="reading" data-verve-task="decision-evidence"><small>Portfolio intensity / demo</small><strong>0.82</strong><span>tCO₂e / unit</span><i>Illustrative value</i></div>
-      <p class="intro">Trace every number to a source, assign the exception, and close the week with evidence—not another reporting deck.</p>
+      <div class="hero-copy"><p class="eyebrow">CONTROL ROOM / WEEK 38 / SIMULATED</p>
+        <h1 id="hero-title" data-verve-task="primary-object">See the variance.<br><em>Own the next move.</em></h1>
+        <p class="intro">Three plant signals. Two need a decision. Follow one reading back to its source, then assign the next action.</p>
+        <a class="hero-action" href="#ledger" data-verve-primary-action>Open exception 01 <span aria-hidden="true">↘</span></a>
+      </div>
+      <div class="hero-data" data-verve-layer="data" data-verve-visual-purpose="Weekly exception trend and current decision load">
+        <div class="data-head"><span>SHIFT SIGNAL / 07 DAYS</span><span>SIMULATED DATA</span></div>
+        <svg viewBox="0 0 540 168" role="img" aria-labelledby="trend-title trend-desc" preserveAspectRatio="none"><title id="trend-title">Weekly emissions exception trend</title><desc id="trend-desc">A fictional seven-day signal rises above the review threshold twice, then returns toward baseline.</desc><path class="gridline" d="M0 38H540 M0 84H540 M0 130H540"/><path class="threshold" d="M0 84H540"/><path class="trend-fill" d="M0 117 L90 108 L180 80 L270 48 L360 95 L450 63 L540 91 L540 168 L0 168Z"/><path class="trend" d="M0 117 L90 108 L180 80 L270 48 L360 95 L450 63 L540 91"/><circle cx="270" cy="48" r="7"/><circle cx="450" cy="63" r="7"/></svg>
+        <div class="data-axis"><span>MON</span><span>WED</span><span>FRI</span><span>SUN</span></div>
+        <div class="reading" data-verve-task="decision-evidence"><span><strong>02</strong><small>NEED REVIEW</small></span><span><strong>01</strong><small>TRACE CLOSED</small></span><span><strong>0.82</strong><small>tCO₂e / UNIT*</small></span></div>
+        <small class="data-note">*Illustrative intensity. No live plant data or verified emissions claim.</small>
+      </div>
     </section>
     <section class="ledger" id="ledger" aria-labelledby="ledger-title">
-      <header><div><p>Live exception ledger / fictional plants</p><h2 id="ledger-title">This week,<br>not year-end.</h2></div><div class="filters" aria-label="Filter sample ledger"><button type="button" class="active" data-filter="all" aria-pressed="true">All signals</button><button type="button" data-filter="review" aria-pressed="false">Needs review</button></div></header>
-      <div class="table-wrap"><table><caption>Illustrative operational emissions exceptions</caption><thead><tr><th>Site</th><th>Signal</th><th>Source</th><th>Owner</th><th>Status</th></tr></thead><tbody><tr data-status="review"><td>01 / Derby</td><td>Steam variance +8%</td><td>Meter M-14</td><td>Utilities</td><td><b>Review</b></td></tr><tr data-status="closed"><td>02 / Brno</td><td>Grid factor updated</td><td>EU factor set</td><td>Data</td><td>Closed</td></tr><tr data-status="review"><td>03 / Porto</td><td>Freight gap / 2 loads</td><td>Carrier feed</td><td>Logistics</td><td><b>Review</b></td></tr></tbody></table></div>
-      <small class="disclaimer">All sites, values, owners, and signals are fictional demo data.</small>
+      <header><div><p>EXCEPTION REGISTER / 03 SAMPLE SITES</p><h2 id="ledger-title">One number.<br><em>A visible trail.</em></h2></div><div class="filters" aria-label="Filter sample ledger"><button type="button" class="active" data-filter="all" aria-pressed="true">All / 03</button><button type="button" data-filter="review" aria-pressed="false">Needs review / 02</button></div></header>
+      <div class="ledger-layout"><div class="table-wrap"><table><caption>Fictional operational exceptions. Select a row to inspect its evidence.</caption><thead><tr><th>Plant / signal</th><th>Observed</th><th>Source</th><th>Owner</th><th>Status</th></tr></thead><tbody>
+        <tr data-case-row="derby" data-status="review"><td data-label="Plant"><button type="button" data-open-case="derby" aria-controls="case-panel" aria-expanded="true"><small>01 / DERBY</small><strong>Steam variance</strong></button></td><td data-label="Observed">+8.0%</td><td data-label="Source">Meter M-14</td><td data-label="Owner" data-owner-cell>Unassigned</td><td data-label="Status" data-status-cell><b>Review</b></td></tr>
+        <tr data-case-row="brno" data-status="closed"><td data-label="Plant"><button type="button" data-open-case="brno" aria-controls="case-panel" aria-expanded="false"><small>02 / BRNO</small><strong>Grid factor update</strong></button></td><td data-label="Observed">−3.2%</td><td data-label="Source">EU factor set</td><td data-label="Owner" data-owner-cell>Data team</td><td data-label="Status" data-status-cell>Closed</td></tr>
+        <tr data-case-row="porto" data-status="review"><td data-label="Plant"><button type="button" data-open-case="porto" aria-controls="case-panel" aria-expanded="false"><small>03 / PORTO</small><strong>Freight gap</strong></button></td><td data-label="Observed">2 loads</td><td data-label="Source">Carrier feed</td><td data-label="Owner" data-owner-cell>Unassigned</td><td data-label="Status" data-status-cell><b>Review</b></td></tr>
+      </tbody></table></div>
+      <aside class="case-panel" id="case-panel" aria-labelledby="case-title" tabindex="-1"><div class="case-top"><span>SELECTED EXCEPTION / <b data-case-number>01</b></span><span class="case-status" data-case-status>NEEDS REVIEW</span></div><h3 id="case-title" data-case-title>Derby / steam variance</h3><p data-case-summary>Steam use rose 8% against the seven-day sample baseline.</p><ol class="trace"><li><span>01 / READING</span><strong data-case-reading>Meter M-14 · 18 Sep, 08:40</strong></li><li><span>02 / SOURCE</span><strong data-case-source>Boiler-line telemetry import</strong></li><li><span>03 / NEXT ACTION</span><strong data-case-action>Confirm calibration before closing the variance.</strong></li></ol><label for="case-owner">Assign follow-up to</label><select id="case-owner" data-case-owner><option value="">Choose a sample team</option><option value="Utilities">Utilities</option><option value="Data team">Data team</option><option value="Logistics">Logistics</option></select><button type="button" class="assign" data-assign>Assign sample action <span aria-hidden="true">↗</span></button><p class="case-feedback" data-case-feedback role="status">Demo-only interaction. Changes stay in this preview session.</p></aside></div>
+      <small class="disclaimer">Every site, value, owner, date, and source shown here is fictional. No assignment is sent or stored.</small>
     </section>
     <section class="method" id="method" aria-labelledby="method-title"><p>01 / Capture<br>Source attached</p><p>02 / Resolve<br>Owner assigned</p><p>03 / Prove<br>Change recorded</p><h2 id="method-title">The audit trail<br><em>is the interface.</em></h2></section>
     <section class="cta" aria-labelledby="cta-title"><p>Stop reconciling the same uncertainty twice.</p><h2 id="cta-title">Trace the source.<br>Move the number.</h2><a href="mailto:demo@example.com">Request a walkthrough <span aria-hidden="true">↗</span></a><small>Demo contact · replace before publishing</small></section>
@@ -181,16 +194,84 @@ const carbonCss = `:root{--mist:#dbe5e3;--ink:#101514;--acid:#d7ff3f;--signal:#e
 
 const carbonCssV2 = `${carbonCss.replace("font-size:.62rem", "font-size:.65rem").replace("@media(max-width:760px)", "@media(max-width:900px)")}\n@media(min-width:901px){.hero{min-height:400px;display:grid;grid-template-columns:minmax(260px,.72fr) minmax(340px,1fr) 220px;grid-template-rows:auto 1fr auto;gap:24px 6vw;padding-block:42px}.eyebrow{grid-column:1/-1;margin:0}.hero h1{grid-column:1/3;align-self:center;font-size:clamp(2.9rem,4.4vw,4.7rem);line-height:.82}.hero h1 em{font-family:inherit;font-style:normal;font-weight:900;color:var(--signal)}.reading{position:static;grid-column:3;grid-row:2/4;align-self:stretch;width:auto;aspect-ratio:auto;min-height:220px}.intro{grid-column:1/3;width:min(580px,100%);margin:0;font-family:Arial,"Segoe UI",sans-serif;font-size:1rem}.ledger{padding-block:58px}.ledger>header{align-items:start}.method{min-height:620px}.cta{min-height:620px}}`;
 
-const carbonScript = `const buttons=document.querySelectorAll('[data-filter]');const rows=document.querySelectorAll('tbody tr');buttons.forEach((button)=>button.addEventListener('click',()=>{const filter=button.getAttribute('data-filter');buttons.forEach((item)=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active));});rows.forEach((row)=>{row.hidden=filter!=='all'&&row.getAttribute('data-status')!==filter;});}));`;
+const carbonCssV3 = `${carbonCssV2}
+:root{--mist:#dce5e1;--ink:#101b1a;--acid:#dbff43;--signal:#fc7144;font-family:Arial,"Segoe UI",sans-serif}
+.nav{min-height:72px;background:var(--ink);color:#e5efea;border-color:#455855;grid-template-columns:1fr 1fr auto auto}.nav p{margin:0;color:#9cb7ae}.logo{font-size:1.05rem}.logo b{color:var(--acid)}.nav nav a{color:#d3e6dd}.login{border:1px solid var(--acid);background:var(--acid);color:var(--ink);font-weight:800}.nav a:focus-visible,.hero a:focus-visible,.ledger button:focus-visible,.ledger select:focus-visible{outline:3px solid var(--signal);outline-offset:3px}
+.hero{min-height:440px;display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);grid-template-rows:1fr;align-items:center;gap:clamp(28px,5vw,90px);padding:36px clamp(20px,5vw,78px) 40px;background:var(--ink);color:#ecf3ee;border-bottom:1px solid #4f645e}.hero-copy{min-width:0}.hero .eyebrow{margin:0 0 34px;color:var(--acid);font:700 .67rem/1.4 ui-monospace,Consolas,monospace;letter-spacing:.12em}.hero h1{margin:0;font-size:clamp(3.25rem,5.2vw,5.9rem);line-height:.9;letter-spacing:-.067em;font-weight:800}.hero h1 em{font:inherit;color:var(--acid);font-style:normal}.hero .intro{position:static;width:min(520px,100%);margin:24px 0;color:#abc1b7;font-size:1rem;line-height:1.55}.hero-action{display:inline-flex;justify-content:space-between;gap:48px;min-height:46px;align-items:center;margin-top:18px;padding:0 16px;background:var(--acid);color:var(--ink);font-weight:800;text-decoration:none;font-size:.85rem}
+.hero-data{min-width:0;border:1px solid #5d7770;background:#172725;padding:16px 20px 13px;box-shadow:12px 12px 0 #0a1110}.data-head,.data-axis{display:flex;justify-content:space-between;gap:10px;font:700 .63rem/1.3 ui-monospace,Consolas,monospace;letter-spacing:.07em}.data-head{color:#b8cec4}.data-head span:last-child{color:var(--acid)}.hero-data svg{width:100%;height:155px;display:block;margin-top:14px;overflow:visible}.hero-data svg path{fill:none;stroke:#47645d;stroke-width:1}.hero-data svg .threshold{stroke:var(--signal);stroke-dasharray:4 5;opacity:.7}.hero-data svg .trend-fill{fill:#dbff4320;stroke:none}.hero-data svg .trend{stroke:var(--acid);stroke-width:4;stroke-linejoin:round;stroke-linecap:round}.hero-data svg circle{fill:var(--signal);stroke:#172725;stroke-width:3}.data-axis{color:#849f94}.reading{position:static;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;width:auto;height:auto;min-height:0;aspect-ratio:auto;margin-top:17px;padding:0;background:transparent;color:#ecf3ee}.reading>span{display:flex;flex-direction:column;gap:6px;min-width:0;padding:12px 12px 8px;border-top:1px solid #68827a}.reading>span+span{border-left:1px solid #68827a}.reading strong{margin:0;color:var(--acid);font:800 clamp(2rem,3vw,3.2rem)/.95 Arial,sans-serif;letter-spacing:-.06em}.reading small{color:#a5c0b4;font:.62rem/1.4 ui-monospace,Consolas,monospace;letter-spacing:.03em}.data-note{display:block;margin-top:9px;color:#849f94;font-size:.67rem}
+.ledger{padding:43px clamp(20px,5vw,78px) 72px;background:var(--mist);color:var(--ink)}.ledger>header{display:flex;align-items:end;gap:20px;margin:0 0 28px}.ledger header p{color:#466159;font-family:ui-monospace,Consolas,monospace}.ledger h2{font-size:clamp(2.2rem,4.2vw,4.2rem);line-height:.91}.ledger h2 em{font-style:normal;color:#aa4327}.filters button{border-color:#8a9e96;color:var(--ink);font-weight:700}.filters button.active{background:var(--ink);border-color:var(--ink);color:var(--acid)}.ledger-layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(290px,.85fr);gap:16px;align-items:stretch}.table-wrap{min-width:0;overflow-x:auto}table{width:100%;min-width:560px;table-layout:fixed}caption{padding-bottom:12px;color:#476159}th,td{padding:17px 10px;border-color:#aabcb5;vertical-align:middle}th{color:#4f6860}th:first-child{width:32%}th:nth-child(2){width:15%}th:nth-child(3){width:19%}th:nth-child(4){width:18%}th:nth-child(5){width:16%}td{font-size:.79rem}td b{color:#a33d23}td button{border:0;background:transparent;color:inherit;padding:0;text-align:left;cursor:pointer}td button small,td button strong{display:block}td button small{color:#587166;font:.64rem/1.3 ui-monospace,Consolas,monospace;letter-spacing:.08em}td button strong{margin-top:5px;font-size:.92rem}tr[data-selected="true"]{background:#c4d7cb}tr[data-selected="true"] td:first-child{box-shadow:inset 4px 0 var(--signal)}tr[hidden]{display:none}
+.case-panel{min-width:0;padding:22px 24px;background:#172725;color:#e8f0eb}.case-top{display:flex;justify-content:space-between;gap:12px;font:.62rem/1.35 ui-monospace,Consolas,monospace;letter-spacing:.07em;color:#a9c3b6}.case-status{color:var(--acid);text-align:right}.case-panel h3{margin:27px 0 12px;font-size:clamp(1.6rem,2.5vw,2.6rem);line-height:1;letter-spacing:-.055em}.case-panel>p{color:#b9cec3;line-height:1.5}.trace{list-style:none;padding:0;margin:25px 0}.trace li{display:grid;grid-template-columns:105px 1fr;gap:12px;padding:11px 0;border-top:1px solid #52665e}.trace span{color:#98b4a6;font:.6rem/1.4 ui-monospace,Consolas,monospace}.trace strong{font-size:.78rem;line-height:1.35;font-weight:600}.case-panel label{display:block;margin-bottom:8px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em}.case-panel select{width:100%;min-height:42px;padding:8px;background:#e8f0eb;color:var(--ink);border:0;font:inherit}.assign{display:flex;justify-content:space-between;gap:12px;width:100%;min-height:44px;margin-top:10px;padding:12px 13px;border:0;background:var(--acid);color:var(--ink);font-weight:800;cursor:pointer}.assign:disabled{opacity:.55;cursor:not-allowed}.case-feedback{min-height:36px;margin:12px 0 0!important;color:#a9c3b6!important;font-size:.67rem;line-height:1.45}.disclaimer{color:#4d665d;font-size:.7rem}
+@media(max-width:1050px){.hero{grid-template-columns:1fr 1fr}.hero h1{font-size:clamp(2.8rem,5vw,4.2rem)}.ledger-layout{grid-template-columns:1fr}.case-panel{max-width:none}}
+@media(max-width:760px){.nav{min-height:66px;grid-template-columns:1fr auto;padding-inline:18px}.nav p,.nav nav{display:none}.login{font-size:.7rem;padding-inline:10px}.hero{min-height:0;display:grid;grid-template-columns:1fr;gap:23px;padding:27px 18px 34px}.hero .eyebrow{margin-bottom:16px}.hero h1{font-size:clamp(2.65rem,11vw,4.8rem)}.hero .intro{margin:18px 0 4px;font-size:.91rem}.hero-action{margin-top:12px}.hero-data{padding:13px 14px;box-shadow:6px 6px 0 #0a1110}.hero-data svg{height:93px;margin-top:8px}.reading{margin-top:8px}.reading>span{padding:8px 5px 2px}.reading strong{font-size:clamp(1.7rem,8vw,2.4rem)}.reading small{font-size:.52rem}.data-note{font-size:.6rem}.ledger{padding:30px 18px 56px}.ledger>header{display:grid;gap:18px}.ledger h2{font-size:clamp(2.25rem,9vw,3.5rem)}.filters{display:flex;flex-wrap:nowrap}.filters button{flex:1;white-space:nowrap;font-size:.7rem;padding:0 8px}.table-wrap{overflow:visible}table,tbody{display:block;min-width:0}thead{display:none}caption{display:block;font-size:.68rem}tr{display:grid;grid-template-columns:1fr 1fr;gap:7px 11px;padding:13px 12px;margin-bottom:9px;border:1px solid #9fb3a9}td{display:block;min-width:0;padding:0;border:0;overflow-wrap:anywhere}td:first-child{grid-column:1/-1}td:before{content:attr(data-label);display:block;color:#536b60;font:.56rem/1.4 ui-monospace,Consolas,monospace;text-transform:uppercase}td:first-child:before{display:none}td button strong{font-size:1rem}tr[data-selected="true"] td:first-child{box-shadow:none}.case-panel{padding:20px 18px}.trace li{grid-template-columns:94px 1fr}.method{min-height:0}.method h2{font-size:clamp(3rem,11vw,5rem)}.cta{min-height:0}.cta h2{font-size:clamp(3rem,11vw,5rem)}}
+.data-head,.data-axis,.reading small,.case-top,.trace span,.case-feedback,td:before,.data-note{font-size:11px}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.hero-data *{animation:none!important}}
+`;
+
+const carbonScript = `(() => {
+  const cases = {
+    derby: { number: "01", title: "Derby / steam variance", summary: "Steam use rose 8% against the seven-day sample baseline.", reading: "Meter M-14 · 18 Sep, 08:40", source: "Boiler-line telemetry import", action: "Confirm calibration before closing the variance.", owner: "", status: "review" },
+    brno: { number: "02", title: "Brno / grid factor update", summary: "The sample calculation changed when its factor set was refreshed.", reading: "Grid factor · 17 Sep, 11:05", source: "Illustrative EU factor set", action: "Source reviewed. No follow-up in this demo.", owner: "Data team", status: "closed" },
+    porto: { number: "03", title: "Porto / freight gap", summary: "Two sample loads have no carrier emissions record yet.", reading: "Dispatch log · 19 Sep, 07:10", source: "Carrier feed import", action: "Request the two missing records from the carrier.", owner: "", status: "review" }
+  };
+  const rows = [...document.querySelectorAll('[data-case-row]')];
+  const filters = [...document.querySelectorAll('[data-filter]')];
+  const panel = document.querySelector('#case-panel');
+  const owner = document.querySelector('[data-case-owner]');
+  const assign = document.querySelector('[data-assign]');
+  const feedback = document.querySelector('[data-case-feedback]');
+  let selected = 'derby';
+  const setText = (selector, value) => { document.querySelector(selector).textContent = value; };
+  function showCase(id, focus = false) {
+    selected = id;
+    const item = cases[id];
+    rows.forEach((row) => {
+      const active = row.dataset.caseRow === id;
+      row.dataset.selected = String(active);
+      row.querySelector('[data-open-case]').setAttribute('aria-expanded', String(active));
+    });
+    setText('[data-case-number]', item.number);
+    setText('[data-case-title]', item.title);
+    setText('[data-case-summary]', item.summary);
+    setText('[data-case-reading]', item.reading);
+    setText('[data-case-source]', item.source);
+    setText('[data-case-action]', item.action);
+    setText('[data-case-status]', item.status === 'closed' ? 'CLOSED / SAMPLE' : item.owner ? 'FOLLOW-UP ASSIGNED' : 'NEEDS REVIEW');
+    owner.value = item.owner;
+    owner.disabled = item.status === 'closed';
+    assign.disabled = item.status === 'closed';
+    feedback.textContent = item.status === 'closed' ? 'Closed sample record. No action is available.' : 'Demo-only interaction. Changes stay in this preview session.';
+    if (focus) { panel.focus({ preventScroll: true }); panel.scrollIntoView({ block: 'nearest' }); }
+  }
+  rows.forEach((row) => row.querySelector('[data-open-case]').addEventListener('click', () => showCase(row.dataset.caseRow, true)));
+  filters.forEach((button) => button.addEventListener('click', () => {
+    const filter = button.dataset.filter;
+    filters.forEach((item) => { const active = item === button; item.classList.toggle('active', active); item.setAttribute('aria-pressed', String(active)); });
+    rows.forEach((row) => { row.hidden = filter === 'review' && row.dataset.status !== 'review'; });
+    if (rows.find((row) => row.dataset.caseRow === selected)?.hidden) {
+      const firstVisible = rows.find((row) => !row.hidden);
+      if (firstVisible) showCase(firstVisible.dataset.caseRow);
+    }
+  }));
+  assign.addEventListener('click', () => {
+    if (!owner.value || cases[selected].status === 'closed') { feedback.textContent = 'Choose a sample team before assigning the follow-up.'; owner.focus(); return; }
+    cases[selected].owner = owner.value;
+    const row = rows.find((entry) => entry.dataset.caseRow === selected);
+    row.querySelector('[data-owner-cell]').textContent = owner.value;
+    row.querySelector('[data-status-cell]').textContent = 'Assigned';
+    setText('[data-case-status]', 'FOLLOW-UP ASSIGNED');
+    feedback.textContent = 'Sample follow-up assigned to ' + owner.value + '. Nothing was sent or stored.';
+  });
+  showCase(selected);
+})();`;
 
 const carbonProject: GeneratedProject = {
   schemaVersion: 1, name: "ledgerline-carbon-operations", framework: "html", entryFile: "index.html",
   files: [
     { path: "index.html", content: carbonHtml, language: "html", role: "source" },
-    { path: "styles.css", content: carbonCssV2, language: "css", role: "source" },
+    { path: "styles.css", content: carbonCssV3, language: "css", role: "source" },
     { path: "script.js", content: carbonScript, language: "javascript", role: "source" },
-    { path: "README.md", content: "# Ledgerline — Verve public demo\n\nA dependency-free carbon-operations SaaS concept for Verve's public demo gallery. Every site and value is fictional sample data. Open `index.html` or serve the folder with a static server.\n", language: "markdown", role: "documentation" },
-    { path: "ASSETS.md", content: "# Asset manifest\n\n- Typography: local system stack; no remote font request.\n- Charts, readings, and state signals: generated in HTML/CSS; Verve-authored.\n- Operational data: explicitly fictional sample content.\n", language: "markdown", role: "documentation" },
+    { path: "README.md", content: "# Ledgerline — Verve public demo\n\nA dependency-free, fictional carbon-operations workbench. Inspect an exception, trace its sample source, choose a sample team, and assign a local-only follow-up. No data is sent or stored. Every plant, figure, date and source is fictional. Open `index.html` or serve the folder with a static server.\n", language: "markdown", role: "documentation" },
+    { path: "ASSETS.md", content: "# Asset manifest\n\n- Typography: intentional local system sans and monospace stacks; no remote font request.\n- Seven-day trend: original inline SVG drawn from fictional sample values; no third-party visual asset.\n- Status and trace interface: generated in HTML/CSS; Verve-authored.\n- Operational data: all plants, dates, readings and sources are fictional. Assignment is local preview state only.\n", language: "markdown", role: "documentation" },
   ], dependencies: {}, scripts: {}, warnings: [], readiness: { status: "ready", score: 97 }, validation: { status: "ready", score: 97, checks: [], failed: 0, warnings: 0 },
 };
 
@@ -199,13 +280,13 @@ const carbonResult = {
   briefAnalysis: { subject: "Carbon operations software for manufacturing", audience: "Plant operators, sustainability leads, and manufacturing CFOs", primaryJob: "Trace emissions exceptions and assign action before reporting closes", tone: "Operational, exact, calm, accountable", industry: "Climate SaaS / Manufacturing" },
   plan: {
     colorPalette: [{ name: "Process Mist", hex: "#DBE5E3", role: "background" }, { name: "Machine Ink", hex: "#101514", role: "text / dark surface" }, { name: "Action Acid", hex: "#D7FF3F", role: "operational state" }, { name: "Exception", hex: "#E54B2F", role: "primary signal" }],
-    typePairing: { display: "Arial Black / system grotesk", body: "Arial / Georgia", rationale: "Industrial clarity is interrupted only by editorial statements; the stack remains local and fast." },
-    layoutConcept: "An exception ledger replaces generic SaaS cards: the value, source, owner, and status share one operational surface.",
-    signatureElement: { name: "The Emissions Shift Register", description: "A dark ledger exposes weekly exceptions as accountable rows rather than decorative dashboard tiles.", justification: "It makes provenance and ownership the visual center of the product promise." },
+    typePairing: { display: "Arial / system sans", body: "Arial / system sans + system monospace labels", rationale: "Dense operational data uses compact, local sans and monospace stacks without depending on a remote font." },
+    layoutConcept: "A shift signal, exception register, and source-trace inspector share one operational surface with a local assignment action.",
+    signatureElement: { name: "The Source-Trail Console", description: "Selecting a variance reveals its sample reading, source, next action, and accountable team in one persistent inspector.", justification: "The chart is context, but the source trail and next action carry the real task." },
     referencesSampled: ["Factory shift boards", "Exception ledgers", "Audit-source registers"],
   },
-  critique: { passed: true, flaggedElements: [], positiveElements: ["No green-tech cliché", "Sample data labelled repeatedly", "Working ledger filter"], verdict: "Curated public demo: operational evidence replaces the familiar climate dashboard aesthetic.", transcript: "Pre-generated demonstration. No provider call was used in this browser session." },
-  code: { code: carbonHtml, framework: "html", componentName: "index.html", setupNotes: "Dependency-free public demo. Edit the files, test the filter, and export ZIP." },
+  critique: { passed: true, flaggedElements: [], positiveElements: ["No green-tech cliché", "Sample data labelled repeatedly", "Working source-trail assignment"], verdict: "Curated public demo: operational evidence replaces the familiar climate dashboard aesthetic.", transcript: "Hand-curated public demonstration. No provider call was used in this browser session." },
+  code: { code: carbonHtml, framework: "html", componentName: "index.html", setupNotes: "Dependency-free public demo. Inspect a case, test the sample assignment, and export ZIP." },
   archetype: { id: "ruler", name: "Ruler", secondaryId: "sage", confidence: 0.91, reasoning: "The product creates control through traceable sources, owners, and status.", emotionalJob: "Turn carbon reporting uncertainty into a manageable weekly operation.", archetypeConflict: "Leaf icons, green gradients, generic KPI cards, and untraceable impact claims." },
   distinctivenessReport: {
     score: 91, grade: "S", clichesAvoided: ["No leaf iconography", "No green gradient", "No generic four-card dashboard"], clichesDetected: [], signatureElement: "The Emissions Shift Register", critiqueSummary: "The operational ledger makes source and ownership more prominent than vanity KPIs.", revisionCount: 1,
@@ -226,27 +307,27 @@ const carbonResult = {
 const AUTHORED_PUBLIC_DEMOS = [
   {
     id: "architecture", index: "01", category: "Adaptive reuse / London", title: "Reframe", description: "A spatial retention register for an adaptive-reuse practice.", proof: "PHOTO-LED SPATIAL MAP", brief: architectureBrief, result: architectureResult,
-    receipt: receipt({ direction: { creativityClass: "exploratory", experienceModel: "spatial-canvas", topology: "survey-field", opening: "spatial-map", navigation: "coordinate-index" }, fingerprint: { occupancy: "vertical-datum/asymmetric-register", colorRhythm: "concrete-blue-oxide", mediaRatio: 0.34, interactionDensity: 0.18 }, abstractReferences: { near: "architectural retention maps", remote: ["geological survey notation", "museum object registers"], antiReference: "full-bleed render portfolio" }, nearestExampleDistance: 0.71 }),
+    receipt: receipt({ direction: { creativityClass: "exploratory", experienceModel: "spatial-canvas", topology: "survey-field", opening: "spatial-map", navigation: "coordinate-index" }, fingerprint: { occupancy: "vertical-datum/asymmetric-register", colorRhythm: "concrete-blue-oxide", mediaRatio: 0.34, interactionDensity: 0.18 }, abstractReferences: { near: "architectural retention maps", remote: ["geological survey notation", "museum object registers"], antiReference: "full-bleed render portfolio" } }),
   },
   {
     id: "cairo", index: "02", category: "Hospitality / Arabic RTL", title: "Maeda Cairo", description: "An Arabic-first reservation journey shaped like a city receipt.", proof: "RTL DECISION JOURNEY", brief: PUBLIC_DEMO_BRIEF, result: PUBLIC_DEMO_RESULT,
-    receipt: receipt({ direction: { creativityClass: "combinational", experienceModel: "guided-journey", topology: "menu-receipt", opening: "service-sun", navigation: "story-to-reservation" }, fingerprint: { occupancy: "rtl-offset/sun-axis", colorRhythm: "papyrus-tomato-pickle", mediaRatio: 0.16, interactionDensity: 0.24 }, abstractReferences: { near: "seasonal menu systems", remote: ["market receipts", "solar service clocks"], antiReference: "luxury restaurant photo hero" }, nearestExampleDistance: 0.66 }),
+    receipt: receipt({ direction: { creativityClass: "combinational", experienceModel: "guided-journey", topology: "menu-receipt", opening: "service-sun", navigation: "story-to-reservation" }, fingerprint: { occupancy: "rtl-offset/sun-axis", colorRhythm: "papyrus-tomato-pickle", mediaRatio: 0.16, interactionDensity: 0.24 }, abstractReferences: { near: "seasonal menu systems", remote: ["market receipts", "solar service clocks"], antiReference: "luxury restaurant photo hero" } }),
   },
   {
     id: "carbon", index: "03", category: "Climate SaaS / Operations", title: "Ledgerline", description: "A dense exception workbench centered on provenance and action.", proof: "DATA OPERATIONS WORKBENCH", brief: carbonBrief, result: carbonResult,
-    receipt: receipt({ direction: { creativityClass: "transformational", experienceModel: "operational-workbench", topology: "exception-ledger", opening: "live-reading", navigation: "filter-and-resolve" }, fingerprint: { occupancy: "dense-ledger/three-state", colorRhythm: "mist-ink-acid", mediaRatio: 0.04, interactionDensity: 0.57 }, abstractReferences: { near: "factory exception boards", remote: ["air-traffic handoff logs", "financial audit trails"], antiReference: "four-card green SaaS dashboard" }, nearestExampleDistance: 0.74 }),
+    receipt: receipt({ direction: { creativityClass: "transformational", experienceModel: "operational-workbench", topology: "exception-ledger", opening: "live-reading", navigation: "filter-and-resolve" }, fingerprint: { occupancy: "signal-grid/source-trail", colorRhythm: "ink-acid-mist-oxide", mediaRatio: 0.04, interactionDensity: 0.57 }, abstractReferences: { near: "factory exception boards", remote: ["air-traffic handoff logs", "financial audit trails"], antiReference: "four-card green SaaS dashboard" } }),
   },
   {
     id: "learning", index: "04", category: "Education / Interactive lab", title: "Orbit Lab", description: "A playful cause-and-effect experiment where the diagram answers the learner.", proof: "INTERACTIVE PLAY CANVAS", brief: "An interactive science lesson for young learners. It must make gravity understandable through experimentation rather than a passive course page.", result: learningResult,
-    receipt: receipt({ direction: { creativityClass: "transformational", experienceModel: "play-canvas", topology: "radial-simulator", opening: "manipulable-object", navigation: "lesson-rail" }, fingerprint: { occupancy: "radial-center/side-console", colorRhythm: "night-cyan-pink-yellow", mediaRatio: 0.46, interactionDensity: 0.64 }, abstractReferences: { near: "hands-on science exhibits", remote: ["music synthesizer controls", "planetarium path traces"], antiReference: "course-card landing page" }, nearestExampleDistance: 0.78 }),
+    receipt: receipt({ direction: { creativityClass: "transformational", experienceModel: "play-canvas", topology: "radial-simulator", opening: "manipulable-object", navigation: "lesson-rail" }, fingerprint: { occupancy: "radial-center/side-console", colorRhythm: "night-cyan-pink-yellow", mediaRatio: 0.46, interactionDensity: 0.64 }, abstractReferences: { near: "hands-on science exhibits", remote: ["music synthesizer controls", "planetarium path traces"], antiReference: "course-card landing page" } }),
   },
   {
     id: "fashion", index: "05", category: "Fashion / Collection browser", title: "Fold No. 7", description: "A reversible, nonlinear rail for exploring silhouette and construction.", proof: "NONLINEAR VISUAL BROWSER", brief: "A trans-seasonal fashion collection. The experience should privilege silhouette, material, and self-directed browsing without copying luxury campaign conventions.", result: fashionResult,
-    receipt: receipt({ direction: { creativityClass: "exploratory", experienceModel: "collection-browser", topology: "horizontal-rail", opening: "first-look", navigation: "rail-or-index" }, fingerprint: { occupancy: "full-height-panels/horizontal", colorRhythm: "vermilion-silver-cobalt", mediaRatio: 0.73, interactionDensity: 0.31 }, abstractReferences: { near: "lookbook sequencing", remote: ["film contact sheets", "reversible garment construction"], antiReference: "centered luxury campaign hero" }, nearestExampleDistance: 0.81 }),
+    receipt: receipt({ direction: { creativityClass: "exploratory", experienceModel: "collection-browser", topology: "horizontal-rail", opening: "first-look", navigation: "rail-or-index" }, fingerprint: { occupancy: "full-height-panels/horizontal", colorRhythm: "vermilion-silver-cobalt", mediaRatio: 0.73, interactionDensity: 0.31 }, abstractReferences: { near: "lookbook sequencing", remote: ["film contact sheets", "reversible garment construction"], antiReference: "centered luxury campaign hero" } }),
   },
   {
     id: "civic", index: "06", category: "Civic service / Guided flow", title: "Clearpath", description: "A calm three-state route from uncertainty to a prepared next step.", proof: "ACCESSIBLE GUIDED FLOW", brief: "A public-facing employment guidance service. It must reduce anxiety, use plain language, protect privacy, and avoid implying legal outcomes.", result: civicResult,
-    receipt: receipt({ direction: { creativityClass: "combinational", experienceModel: "guided-service", topology: "state-machine", opening: "single-question", navigation: "persistent-route-rail" }, fingerprint: { occupancy: "left-route/focused-step", colorRhythm: "navy-paper-blue-mint", mediaRatio: 0.02, interactionDensity: 0.52 }, abstractReferences: { near: "civic eligibility interviews", remote: ["airport wayfinding", "medical intake checklists"], antiReference: "legal practice-area grid" }, nearestExampleDistance: 0.69 }),
+    receipt: receipt({ direction: { creativityClass: "combinational", experienceModel: "guided-service", topology: "state-machine", opening: "single-question", navigation: "persistent-route-rail" }, fingerprint: { occupancy: "left-route/focused-step", colorRhythm: "navy-paper-blue-mint", mediaRatio: 0.02, interactionDensity: 0.52 }, abstractReferences: { near: "civic eligibility interviews", remote: ["airport wayfinding", "medical intake checklists"], antiReference: "legal practice-area grid" } }),
   },
 ] as const;
 

@@ -97,7 +97,7 @@ test("examples replace the duplicate demo and evidence galleries", async ({ page
   await page.goto("/examples/architecture", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "Reframe", exact: true })).toBeVisible();
   await expect(page.frameLocator('iframe[title="reframe-london-adaptive-reuse story preview"]').getByRole("heading", { name: /The building already knows/ })).toBeVisible();
-  await expect(page.getByText("Inspect the generation receipt")).toBeVisible();
+  await expect(page.getByText("Inspect the curated design receipt")).toBeVisible();
 
   expect((await request.get("/demos")).url()).toMatch(/\/examples$/);
   expect((await request.get("/showcase")).url()).toMatch(/\/examples$/);

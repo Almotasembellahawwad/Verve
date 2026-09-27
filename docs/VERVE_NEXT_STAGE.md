@@ -96,9 +96,12 @@ benchmark against Lovable or v0. Claims of superior quality must wait for it.
 
 - **Public examples fail our own distinctiveness target.** The committed
   `data/public-demo-visual-truth.json` records nearest-neighbor distances of
-  **0.212–0.285**, below **0.50**, despite zero mechanical failures/warnings in that
-  baseline. Several use Arial/Georgia. These are frozen legacy examples, not proof
-  that the latest font-delivery code fails. Passing overflow checks is not beauty.
+  **0.212–0.285** at the initial audit, below **0.50**, despite zero mechanical
+  failures/warnings in that baseline. The first Carbon workbench rebuild adds a
+  working source-trail and local-only assignment. The new measured range is
+  **0.225–0.296**, still below target. Several use Arial/Georgia. These
+  hand-curated references do not prove that the latest font-delivery code fails.
+  Passing overflow checks is not beauty.
 - **The board still has a small hand-authored search space.** Six experience models
   and 18 structural cells prevent some repetition but do not constitute open-ended
   art direction. The new sketches make that structure inspectable, not limitless.

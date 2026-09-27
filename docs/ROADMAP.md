@@ -15,6 +15,7 @@ competitive context and acceptance criteria. Stabilize evidence before adding me
 - [x] History restoration starts with browser evidence unavailable and requires a fresh three-width check
 - [ ] Revision-bound render receipts and asset-aware restored projects
 - [x] Candidate-to-delivery typography consistency for supported bundled families
+- [x] First public-example pilot: Carbon source-trail workbench with local-only task completion and measured screenshot/fingerprint receipt
 - [ ] Six rebuilt, genuinely distinct public examples with real task completion
 - [ ] Scene-scoped refinement with identity locks and verified affected surfaces
 - [ ] Consented real-run reliability corpus and blinded comparative design evaluation

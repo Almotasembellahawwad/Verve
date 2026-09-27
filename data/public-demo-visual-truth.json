@@ -15,7 +15,7 @@
     },
     "cairo": {
       "fingerprintVersion": 2,
-      "nearestMeasuredExampleDistance": 0.212,
+      "nearestMeasuredExampleDistance": 0.225,
       "failures": 0,
       "warnings": 0,
       "fontFamilies": ["Arial", "Georgia"],
@@ -23,11 +23,11 @@
     },
     "carbon": {
       "fingerprintVersion": 2,
-      "nearestMeasuredExampleDistance": 0.212,
+      "nearestMeasuredExampleDistance": 0.296,
       "failures": 0,
       "warnings": 0,
-      "fontFamilies": ["Arial"],
-      "observedLayers": ["type", "interaction"]
+      "fontFamilies": ["Arial", "ui-monospace"],
+      "observedLayers": ["type", "data", "shape", "interaction"]
     },
     "learning": {
       "fingerprintVersion": 2,

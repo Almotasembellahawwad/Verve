@@ -21,8 +21,8 @@ export const EXAMPLE_STORIES: Record<PublicDemoId, {
   carbon: {
     opening: "What if carbon software looked accountable before it looked sustainable?",
     categoryDefault: "Climate SaaS repeatedly reaches for leaf icons, green gradients, optimistic impact claims, and dashboard cards detached from each number’s source.",
-    decision: "Put source, owner, status, and action before the marketing claim. Acid color marks operational state—not virtue.",
-    audienceMoment: "An operator sees where a number came from, who owns the exception, and what must happen next before reading any marketing claim.",
+    decision: "Put the seven-day signal beside a selectable source trail, status and next action. Acid color marks a decision state—not environmental virtue.",
+    audienceMoment: "An operator selects a variance, sees its sample reading and origin, then assigns a local-only follow-up before any reporting claim appears.",
   },
   learning: {
     opening: "What if the diagram answered before the lesson explained?",
