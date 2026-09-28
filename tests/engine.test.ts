@@ -653,6 +653,13 @@ test("Licensed Asset Delivery allowlists origins, localizes used Pexels bytes, a
   const lightweightHistoryProject = stripBinaryAssetContent(project);
   assert.equal(lightweightHistoryProject.files.some((file) => file.encoding === "base64"), false);
   assert.match(lightweightHistoryProject.warnings.at(-1) ?? "", /lightweight localStorage history/);
+  const withFont = { ...project, files: [...project.files, {
+    path: "assets/fonts/test.woff2", content: "Zm9udA==", encoding: "base64" as const,
+    mediaType: "font/woff2", language: "binary", role: "asset" as const,
+  }] };
+  const restoredFontProject = stripBinaryAssetContent(withFont);
+  assert.ok(restoredFontProject.files.some((file) => file.path === "assets/fonts/test.woff2"));
+  assert.equal(restoredFontProject.files.some((file) => file.path === delivery.files[0]?.path), false);
 
   const rejected = await new PexelsAssetDeliveryAdapter().fetchApprovedAsset({
     assetId: "pexels:evil",
@@ -1557,12 +1564,16 @@ test("new provider models are opt-in and older defaults stay available", () => {
   for (const [provider, model] of [
     ["anthropic", "claude-opus-5-5"],
     ["openai", "gpt-6-astra"],
+    ["openai", "gpt-6-sol"],
+    ["openai", "gpt-6-luna"],
     ["gemini", "gemini-3.8-flash"],
   ] as const) {
     assert.ok(PROVIDER_MODELS[provider].some((entry) => entry.id === model));
     assert.notEqual(DEFAULT_MODEL[provider], model);
   }
   assert.equal(isReasoningModel("gpt-6-astra"), true);
+  assert.equal(isReasoningModel("gpt-6-sol"), true);
+  assert.equal(isReasoningModel("gpt-6-luna"), true);
   assert.equal(isReasoningModel("gpt-5.6-terra"), true);
   assert.equal(isReasoningModel("gpt-4o-mini"), false);
   const astra = buildOpenAIResponseParams("gpt-6-astra", [{ role: "user", content: "Build a site" }], {
@@ -1571,6 +1582,12 @@ test("new provider models are opt-in and older defaults stay available", () => {
   });
   assert.equal(astra.max_output_tokens, 24_000);
   assert.deepEqual(astra.reasoning, { effort: "low" });
+  const sol = buildOpenAIResponseParams("gpt-6-sol", [{ role: "user", content: "Build a site" }], { maxTokens: 16_000, reasoningEffort: "none" });
+  const luna = buildOpenAIResponseParams("gpt-6-luna", [{ role: "user", content: "Build a site" }], { maxTokens: 16_000, reasoningEffort: "none" });
+  assert.equal(sol.max_output_tokens, 24_000);
+  assert.equal(luna.max_output_tokens, 20_000);
+  assert.deepEqual(sol.reasoning, { effort: "none" });
+  assert.deepEqual(luna.reasoning, { effort: "none" });
 });
 
 test("Claude Opus 5.5 omits sampling, budgets thinking, and never accepts partial output", () => {
@@ -2227,6 +2244,7 @@ test("unsupported quantified claims are blocked without treating CSS percentages
 
   const warnings = inspectProductionRisks(code, "A clinically demonstrated skincare launch");
   assert.ok(warnings.some((warning) => warning.startsWith("BLOCKING:") && warning.includes("28 days")));
+  assert.deepEqual(inspectSupportingSource(".orbit{left:50%;inset:18%}", "styles.css", "html", "A skincare launch"), []);
 
   const project = buildGeneratedProject(
     { framework: "nextjs", componentName: "Page", imports: [], setupNotes: "", code },
@@ -2249,6 +2267,19 @@ test("unsupported quantified claims are blocked without treating CSS percentages
   );
   assert.equal(project.readiness.status, "blocked");
   assert.ok(project.readiness.score <= 45);
+  const splitProject = buildGeneratedProject(
+    {
+      framework: "html", componentName: "Site", imports: [], setupNotes: "",
+      code: "<!doctype html><html><body><p>Verified context</p></body></html>",
+      files: [
+        { path: "index.html", language: "html", content: "<!doctype html><html><head><link rel=\"stylesheet\" href=\"styles.css\"></head><body><p>Verified context</p></body></html>" },
+        { path: "styles.css", language: "css", content: ".orbit{left:50%;inset:18%;width:100%}" },
+      ],
+    },
+    analyzeBriefLocally("An interior design studio in Abu Dhabi needs a consultation page."),
+    { colorPalette: [], typePairing: { display: "Georgia", body: "Arial", rationale: "System fonts" }, layoutConcept: "Consultation page", signatureElement: { name: "Route", description: "A choice", implementation: "Choice", justification: "Helps decisions" }, referencesSampled: [] } as unknown as DesignPlan
+  );
+  assert.equal(splitProject.warnings.some((warning) => warning.includes('Unsupported quantified claim')), false);
 });
 
 test("project validation detects clipping, weak React keys, tiny text and missing font assets", () => {
@@ -2268,6 +2299,21 @@ test("project validation detects clipping, weak React keys, tiny text and missin
   for (const id of ["mobile-clipping", "react-keys", "tiny-text", "font-assets"]) {
     assert.ok(validation.checks.some((item) => item.id === id && item.status === "warning"), id);
   }
+});
+
+test("static project validation blocks missing local scripts and stylesheets", () => {
+  const project = buildRecoveryProject("Missing static resources", "html", "test");
+  const validation = validateGeneratedProject({
+    ...project,
+    files: [{
+      path: "index.html", language: "html", role: "source",
+      content: '<!doctype html><html><head><link rel="stylesheet" href="styles.css"></head><body><script src="app.js"></script></body></html>',
+    }],
+  });
+  const resources = validation.checks.find((item) => item.id === "local-resources");
+  assert.equal(resources?.status, "fail");
+  assert.match(resources?.message ?? "", /app\.js/);
+  assert.match(resources?.message ?? "", /styles\.css/);
 });
 
 test("project validation distinguishes a task-bearing hero from an empty atmospheric opening", () => {

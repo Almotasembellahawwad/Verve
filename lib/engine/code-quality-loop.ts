@@ -186,7 +186,8 @@ export function inspectSupportingSource(code: string, path: string, framework: s
   const syntax = /\.(?:tsx?|jsx?|mjs)$/i.test(path) ? checkSyntax(stripped, framework === "html" ? "react" : framework) : [];
   const markup = /\.(?:tsx?|jsx?|html)$/i.test(path) ? checkUnclosedTags(stripped) : [];
   const doctype = path.endsWith(".html") ? checkDoctype(stripped, "html") : [];
-  return [...syntax, ...markup, ...doctype, ...checkInlineStyles(stripped), ...checkDeliveryPolicies(stripped, rawBrief, allowedFontFamilies)]
+  const claimBrief = /\.(?:css|scss)$/i.test(path) ? "" : rawBrief;
+  return [...syntax, ...markup, ...doctype, ...checkInlineStyles(stripped), ...checkDeliveryPolicies(stripped, claimBrief, allowedFontFamilies)]
     .map((issue) => `${path}: ${issue}`);
 }
 

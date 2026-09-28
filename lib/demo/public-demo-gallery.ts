@@ -96,6 +96,10 @@ const architectureCss = `:root{--concrete:#d4d3cd;--ink:#11120f;--blue:#1647ff;-
 
 const architectureCssV2 = `${architectureCss}\n.hero-image{position:absolute;z-index:0;inset:10% 0 0 38%;margin:0;overflow:hidden;background:#9b9990}.hero-image:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--concrete) 0%,transparent 34%,rgba(17,18,15,.08) 100%)}.hero-image img{width:100%;height:100%;object-fit:cover;filter:saturate(.76) contrast(1.05)}.hero-image figcaption{position:absolute;z-index:1;right:18px;bottom:16px;padding:8px 10px;background:rgba(17,18,15,.8);color:#f0f0e9;font-size:.625rem;letter-spacing:.08em;text-transform:uppercase}.hero .eyebrow,.hero h1,.hero-note{position:relative;z-index:2}.down{z-index:3}@media(min-width:761px){.hero h1{max-width:72%;font-size:clamp(4.8rem,9vw,8.5rem);line-height:.76;text-shadow:0 1px 0 var(--concrete)}.hero-note{position:absolute;right:4vw;width:min(280px,23vw);background:rgba(212,211,205,.92);padding:14px}.eyebrow{margin-bottom:6vh}.datum{left:2.5vw;top:4%;bottom:4%}}@media(max-width:760px){.hero-image{inset:31% 0 16% 22%}.hero-image:after{background:linear-gradient(180deg,var(--concrete),transparent 30%,rgba(17,18,15,.12))}.hero-image figcaption{max-width:170px}.hero-note{background:rgba(212,211,205,.9);padding:10px}.down{top:calc(100vh - 190px);bottom:auto}}`;
 
+// Keep the position note anchored to the image at every width. The broad
+// layering rule in V2 accidentally returned it to normal flow on mobile.
+const architectureCssV3 = `${architectureCssV2}\n.hero .hero-note{position:absolute;z-index:2}`;
+
 const architectureScript = `const toggle=document.querySelector('[data-index-toggle]');const register=document.querySelector('#register');toggle?.addEventListener('click',()=>{const open=toggle.getAttribute('aria-expanded')!=='true';toggle.setAttribute('aria-expanded',String(open));toggle.textContent=open?'Close index':'Open index';register?.classList.toggle('index-open',open);});`;
 
 const architectureProject: GeneratedProject = {
@@ -105,7 +109,7 @@ const architectureProject: GeneratedProject = {
   entryFile: "index.html",
   files: [
     { path: "index.html", content: architectureHtml, language: "html", role: "source" },
-    { path: "styles.css", content: architectureCssV2, language: "css", role: "source" },
+    { path: "styles.css", content: architectureCssV3, language: "css", role: "source" },
     { path: "script.js", content: architectureScript, language: "javascript", role: "source" },
     { path: "README.md", content: "# Reframe — Verve public demo\n\nA hand-curated, dependency-free adaptive-reuse architecture reference for Verve's public gallery. All projects and figures are explicitly fictional. Open `index.html` or serve the folder with a static server.\n", language: "markdown", role: "documentation" },
     { path: "ASSETS.md", content: "# Asset manifest\n\n- Typography: local system grotesk and Georgia; no remote font request.\n- Survey datum and diagrams: generated in CSS; Verve-authored.\n- `public/demo-assets/reframe-retention-study.webp`: original AI-generated architectural material study created for Verve; no external brand, model, or stock license.\n- The pictured site and project are fictional and must not be represented as completed client work.\n", language: "markdown", role: "documentation" },

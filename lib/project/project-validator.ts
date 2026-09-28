@@ -29,6 +29,14 @@ function relativeImportExists(from: string, source: string, files: Set<string>):
     .some((candidate) => files.has(candidate));
 }
 
+function localResourcePath(from: string, reference: string): string | null {
+  const target = reference.trim().split(/[?#]/, 1)[0];
+  // Root-absolute URLs may be served by the host's public directory, which is
+  // outside an embedded demo project. Verify relative, export-owned files here.
+  if (!target || target.startsWith("/") || /^[a-z][a-z\d+.-]*:/i.test(target)) return null;
+  return normalized(`${directory(from)}/${target}`);
+}
+
 function check(id: string, title: string, status: ProjectCheck["status"], message: string, file?: string): ProjectCheck {
   return { id, title, status, message, ...(file ? { file } : {}) };
 }
@@ -92,6 +100,30 @@ export function validateGeneratedProject(project: GeneratedProject): ProjectVali
   checks.push(undeclared.length === 0
     ? check("dependencies", "Package dependencies", "pass", "External imports are declared.")
     : check("dependencies", "Package dependencies", "fail", `Undeclared packages: ${undeclared.slice(0, 4).join("; ")}.`));
+
+  if (project.framework === "html") {
+    const missingResources: string[] = [];
+    for (const file of project.files.filter((item) => /\.(?:html|css)$/i.test(item.path))) {
+      const references: string[] = [];
+      if (/\.html$/i.test(file.path)) {
+        for (const match of file.content.matchAll(/<(script|link|img|source|a)\b[^>]*>/gi)) {
+          const tag = match[1].toLowerCase();
+          const attribute = tag === "a" || tag === "link" ? "href" : "src";
+          const value = match[0].match(new RegExp(`\\b${attribute}\\s*=\\s*["']([^"']+)["']`, "i"))?.[1];
+          if (value && (tag !== "a" || /\.html(?:[?#]|$)/i.test(value))) references.push(value);
+        }
+      } else {
+        references.push(...[...file.content.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/gi)].map((match) => match[1]));
+      }
+      for (const reference of references) {
+        const target = localResourcePath(file.path, reference);
+        if (target && !paths.has(target)) missingResources.push(`${file.path} -> ${reference}`);
+      }
+    }
+    checks.push(missingResources.length === 0
+      ? check("local-resources", "Local resources", "pass", "Every local HTML/CSS resource resolves to a delivered file.")
+      : check("local-resources", "Local resources", "fail", `Missing local resources: ${missingResources.slice(0, 6).join("; ")}.`));
+  }
 
   const combined = inspectableFiles(project).map((file) => file.content).join("\n");
   const firstViewportTaskSignals = new Set(

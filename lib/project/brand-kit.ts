@@ -95,11 +95,15 @@ export function attachOwnedAssets(project: GeneratedProject, assets: LocalOwnedA
 }
 
 export function stripBinaryAssetContent(project: GeneratedProject): GeneratedProject {
-  if (!project.files.some((file) => file.encoding === "base64")) return project;
+  // Bundled OFL fonts are small, executable dependencies of the delivered CSS.
+  // Dropping them made an otherwise complete restored project silently render in
+  // fallback fonts and exported ZIPs contain broken @font-face URLs.
+  const omitted = project.files.some((file) => file.encoding === "base64" && file.mediaType !== "font/woff2");
+  if (!omitted) return project;
   const warning = "Binary image bytes are omitted from lightweight localStorage history. Reopen the complete IndexedDB project or reattach/re-deliver the recorded assets before previewing or exporting this restored result.";
   return {
     ...project,
-    files: project.files.filter((file) => file.encoding !== "base64"),
+    files: project.files.filter((file) => file.encoding !== "base64" || file.mediaType === "font/woff2"),
     warnings: project.warnings.includes(warning) ? project.warnings : [...project.warnings, warning],
     readiness: {
       status: project.readiness.status === "blocked" ? "blocked" : "review-required",
