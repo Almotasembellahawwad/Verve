@@ -8,7 +8,10 @@ import { fixPaletteContrast } from "../lib/engine/contrast-fixer";
 import { extractJSON } from "../lib/engine/llm-utils";
 import { inspectSupportingSource, runCodeQualityLoop } from "../lib/engine/code-quality-loop";
 import { generatedSourceText } from "../lib/engine/code-generator";
-import { PROVIDER_MODELS } from "../lib/llm-adapter/types";
+import { DEFAULT_MODEL, PROVIDER_MODELS, isReasoningModel } from "../lib/llm-adapter/types";
+import { FinishReason } from "@google/generative-ai";
+import { buildAnthropicRequest, completedAnthropicResponseText } from "../lib/adapters/llm/anthropic";
+import { buildGeminiGenerationConfig, completedGeminiResponseText } from "../lib/adapters/llm/gemini";
 import { fetchPublicDesignSource, normalizeFetchedDesignSource } from "../lib/security/safe-url";
 import type { LLMAdapter } from "../lib/llm-adapter/types";
 import { buildGeneratedProject, buildRecoveryProject, inspectProductionRisks, splitHtmlEntry } from "../lib/project/project-builder";
@@ -1545,6 +1548,77 @@ test("OpenRouter sends modern completion, fallback, reasoning, and structured-ou
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("new provider models are opt-in and older defaults stay available", () => {
+  assert.equal(DEFAULT_MODEL.anthropic, "claude-sonnet-4-6");
+  assert.equal(DEFAULT_MODEL.openai, "gpt-5.6-terra");
+  assert.equal(DEFAULT_MODEL.gemini, "gemini-3.7-flash");
+  for (const [provider, model] of [
+    ["anthropic", "claude-opus-5-5"],
+    ["openai", "gpt-6-astra"],
+    ["gemini", "gemini-3.8-flash"],
+  ] as const) {
+    assert.ok(PROVIDER_MODELS[provider].some((entry) => entry.id === model));
+    assert.notEqual(DEFAULT_MODEL[provider], model);
+  }
+  assert.equal(isReasoningModel("gpt-6-astra"), true);
+  assert.equal(isReasoningModel("gpt-5.6-terra"), true);
+  assert.equal(isReasoningModel("gpt-4o-mini"), false);
+  const astra = buildOpenAIResponseParams("gpt-6-astra", [{ role: "user", content: "Build a site" }], {
+    maxTokens: 16_000,
+    reasoningEffort: "none",
+  });
+  assert.equal(astra.max_output_tokens, 24_000);
+  assert.deepEqual(astra.reasoning, { effort: "low" });
+});
+
+test("Claude Opus 5.5 omits sampling, budgets thinking, and never accepts partial output", () => {
+  const request = buildAnthropicRequest("claude-opus-5-5", [{ role: "user", content: "Build a site" }], {
+    maxTokens: 16_000,
+    reasoningEffort: "none",
+    temperature: 0.35,
+  });
+  assert.equal(request.max_tokens, 24_000);
+  assert.deepEqual(request.output_config, { effort: "low" });
+  assert.equal(request.temperature, undefined);
+  const legacy = buildAnthropicRequest("claude-sonnet-4-6", [{ role: "user", content: "Build a site" }], {
+    maxTokens: 4000,
+    temperature: 0.35,
+  });
+  assert.equal(legacy.max_tokens, 4000);
+  assert.equal(legacy.temperature, 0.35);
+  const response = {
+    stop_reason: "end_turn",
+    content: [
+      { type: "thinking", thinking: "", signature: "test" },
+      { type: "text", text: "Complete result", citations: null },
+    ],
+  } as unknown as Parameters<typeof completedAnthropicResponseText>[0];
+  assert.equal(completedAnthropicResponseText(response, "claude-opus-5-5"), "Complete result");
+  assert.throws(() => completedAnthropicResponseText({ ...response, stop_reason: "max_tokens" }, "claude-opus-5-5"), /incomplete response/i);
+});
+
+test("Gemini 3.8 Flash drops unsupported sampling without changing older models", () => {
+  assert.deepEqual(buildGeminiGenerationConfig("gemini-3.8-flash", { maxTokens: 12_000, temperature: 0.5 }), {
+    maxOutputTokens: 12_000,
+  });
+  assert.deepEqual(buildGeminiGenerationConfig("gemini-3.7-flash", { maxTokens: 12_000, temperature: 0.5 }), {
+    maxOutputTokens: 12_000,
+  });
+  assert.deepEqual(buildGeminiGenerationConfig("gemini-3.5-flash", { maxTokens: 12_000, temperature: 0.5 }), {
+    maxOutputTokens: 12_000,
+    temperature: 0.5,
+  });
+  const response = {
+    candidates: [{ finishReason: "STOP" }],
+    text: () => "Complete result",
+  } as unknown as Parameters<typeof completedGeminiResponseText>[0];
+  assert.equal(completedGeminiResponseText(response, "gemini-3.8-flash"), "Complete result");
+  assert.throws(() => completedGeminiResponseText({
+    ...response,
+    candidates: [{ ...response.candidates![0], finishReason: FinishReason.MAX_TOKENS }],
+  }, "gemini-3.8-flash"), /incomplete response/i);
 });
 
 test("OpenAI Responses requests activate strict structured outputs", () => {
