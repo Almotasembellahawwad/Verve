@@ -45,6 +45,7 @@ and task checks are evidence about those specific projects only.
 - **Private local design memory** — the browser keeps only bounded structural and numeric DOM fingerprints. Version 2 adds area-weighted color, rendered font families, functional-layer balance, depth, alignment diversity, and stateful-control density to the 12×12 occupancy/type/media/interaction signals. Route and state identities are one-way hashes; briefs, code, images, form values, and API keys are never stored in this memory.
 - **Inspectable Stage Graph** — deterministic post-plan work now runs as immutable, independently testable experience-contract and direction-diversity stages.
 - **Visual Truth + Direction Fidelity** — HTML and React readiness cannot pass from one convenient preview. Render Gate v2 distinguishes hashed routes and UI states across 360, 768, and 1440 pixels, then reports whether the delivered routes, responsive surfaces, states, scenes, layers, and bundled fonts actually realize the selected direction.
+- **Rendered text-collision check** — browser evidence now catches substantial heading/control-copy overlap that can escape horizontal-overflow checks; the public Reframe example was repaired after this check exposed a mobile collision.
 - **Coherent evaluation evidence** — release gates, delivered-source checks, plan diagnostics, provenance, and browser evidence remain separate signals with explicit authority. Verve never averages them into a decorative master score: a failed asset or typography gate vetoes an optimistic plan reading, and a creativity claim remains provisional until the three browser viewports are persisted. [Policy and calibration protocol](docs/EVALUATION_COHERENCE.md).
 - **Task-bearing openings** — ProjectSpec allows compact, split, or viewport-filling openings. [First Viewport Effectiveness](docs/FIRST_VIEWPORT_EFFECTIVENESS.md) measures visible task signals, information salience, primary-action clarity, and scroll cost; opening size itself is never rewarded or penalized.
 - **Fast stays fast** — one board call plus one code call. Creative normally spends five calls and is bounded at seven when a plan revision, code repair, or one diversity retry is needed.
@@ -172,7 +173,7 @@ Direction Fidelity (DF) is also evidence, not a taste score. It is the weighted 
 - **Media Requirement Engine** — classifies imagery as required, recommended, optional, or avoidable from the actual brief before code generation.
 - **Truthful Media Gate** — reports approved asset count and blocks production readiness when an image-dependent project lacks sufficient photography.
 - **Context-sensitive sourcing** — restaurant, architecture, hospitality, skincare, fashion, real-estate, travel, and portfolio briefs require visual evidence; interface-led products can deliberately avoid stock photography.
-- **Visible source state** — the workbench shows whether browser-local Pexels sourcing is connected before a run.
+- **Visible source state** — the workbench shows whether browser-local Pexels sourcing is connected and warns before a run when an image-dependent brief has neither enough owned photography nor a connected stock source.
 
 ## What changed in 0.4.1 Separate Results
 
@@ -229,12 +230,15 @@ Creative is an active beta in the UI. Set `NEXT_PUBLIC_CREATIVE_ENGINE_V3=false`
 
 ### Model choices
 
-The picker also offers optional GPT-6 Astra, Claude Opus 5.5, and Gemini 3.8
-Flash. Existing model IDs and the Sonnet 4.6 / GPT-5.6 Terra / Gemini 3.7
-Flash defaults remain unchanged. Their request shapes are covered by unit
-tests, but live provider availability, latency, and output quality require
-tests with the user's own API keys. The [whole-product strategy](docs/VERVE_WHOLE_PRODUCT_STRATEGY.md)
-records the compatibility decisions and rollout gate.
+The picker also offers optional GPT-6 Astra, GPT-6 Sol, GPT-6 Luna, Claude
+Opus 5.5, and Gemini 3.8 Flash. [OpenAI's current GPT-6 catalog](https://developers.openai.com/api/docs/models)
+lists Astra, Sol, and Luna; there is no published GPT-6 Terra model ID.
+Existing model IDs and the Sonnet 4.6 / GPT-5.6 Terra / Gemini 3.7 Flash
+defaults remain unchanged. Their request shapes are covered by unit tests,
+but live provider availability, latency, and output quality require tests
+with the user's own API keys. The
+[whole-product strategy](docs/VERVE_WHOLE_PRODUCT_STRATEGY.md) records the
+compatibility decisions and rollout gate.
 
 ## Supported project stacks
 
@@ -349,7 +353,7 @@ npm run dev
 
 Open `http://localhost:3000`. Add a provider key from the key manager. It is saved under Verve’s browser-local storage namespace and is never written to the repository or a Verve database.
 
-The optional canonical-site setting is documented in [`.env.example`](.env.example). Provider and Pexels keys are entered in the browser key manager and must not be added to environment files. Pexels is optional for using Verve, but approved media is not optional for a brief classified as image-dependent: without it Verve never invents remote URLs, exports honest labeled placeholders, and keeps readiness blocked until real assets are supplied. Only asset manifests and user-authored direction are sent with provider requests. Lightweight generation history omits binary content; projects explicitly opened in `/editor` persist their complete editable workspace in this browser's IndexedDB.
+The optional canonical-site setting is documented in [`.env.example`](.env.example). Provider and Pexels keys are entered in the browser key manager and must not be added to environment files. Pexels is optional for using Verve, but approved media is not optional for a brief classified as image-dependent: without it Verve never invents remote URLs, exports honest labeled media reservations, and keeps readiness blocked until real assets are supplied. Only asset manifests and user-authored direction are sent with provider requests. Lightweight generation history retains bundled font files but omits image binaries; projects explicitly opened in `/editor` persist their complete editable workspace in this browser's IndexedDB.
 
 ## Commands
 

@@ -67,6 +67,14 @@ test("Create reveals advanced choices only when requested", async ({ page }) => 
   await expect(page.getByText("AI provider", { exact: true })).toBeVisible();
 });
 
+test("media-dependent briefs disclose their missing launch assets before generation", async ({ page }) => {
+  await page.goto("/create", { waitUntil: "domcontentloaded" });
+  await page.getByLabel("Design brief").fill("An interior design studio in Abu Dhabi needs a high-end residential portfolio and consultation page.");
+  await expect(page.getByTestId("media-preflight")).toContainText("at least 3 distinct images");
+  await page.getByLabel("Design brief").fill("An API documentation portal for developers with a working endpoint explorer.");
+  await expect(page.getByTestId("media-preflight")).toHaveCount(0);
+});
+
 test("the brand kit accepts owned media without uploading it during setup", async ({ page }) => {
   await page.goto("/create", { waitUntil: "domcontentloaded" });
   await page.getByText("Project options", { exact: true }).click();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./GeneratePanel.module.css";
 import { PROVIDER_MODELS, DEFAULT_MODEL, PROVIDER_KEY_LABELS } from "@/lib/llm-adapter/types";
@@ -34,6 +34,8 @@ import {
   type LocalOwnedAsset,
 } from "@/lib/project/brand-kit";
 import { DEFAULT_GENERATION_MODE, type GenerationMode } from "@/lib/domain/generation-mode";
+import { analyzeBriefLocally } from "@/lib/engine/brief-analyzer";
+import { assessMediaRequirement } from "@/lib/engine/media-requirement";
 import type { DirectionBoard, DirectionCheckpoint, DirectionPortfolio } from "@/lib/domain/design-direction";
 import type { VerveProjectSpec } from "@/lib/domain/project-spec";
 import { fingerprintDirection } from "@/lib/engine/direction-portfolio";
@@ -843,13 +845,22 @@ export default function GeneratePanel() {
     }
   };
 
+  const canClaimDistinctiveness = result?.evaluationCoherence?.creativeClaim === "eligible"
+    && result.project.readiness.status === "ready";
+  const mediaPreflight = useMemo(() => brief.trim().length > 8
+    ? assessMediaRequirement(analyzeBriefLocally(brief))
+    : null, [brief]);
+  const ownedPhotoCount = ownedAssets.filter((asset) => asset.kind === "image" && asset.mediaType !== "image/svg+xml").length;
+  const missingRequiredMedia = hydrated && mediaPreflight?.level === "required"
+    && ownedPhotoCount < mediaPreflight.minimumAssets && !pexelsReady;
+
   return (
     <>
       {/* ── History Drawer ────────────────────────────────────────────── */}
       <HistoryDrawer open={historyOpen} onClose={() => setHistoryOpen(false)} onRestore={handleRestoreHistory} />
 
       {/* ── Certificate ─────────────────────────────────────────── */}
-      {certOpen && result && (
+      {certOpen && result && canClaimDistinctiveness && (
         <Certificate
           onClose={() => setCertOpen(false)}
           data={{
@@ -1116,6 +1127,15 @@ export default function GeneratePanel() {
           </div>
         )}
 
+        {missingRequiredMedia && (
+          <div className={styles.apiKeyBanner} role="status" data-testid="media-preflight">
+            <div className={styles.apiKeyBannerText}>
+              <strong>Approved photography needed before launch.</strong> This brief requires at least {mediaPreflight.minimumAssets} distinct images; {ownedPhotoCount} owned photo{ownedPhotoCount === 1 ? " is" : "s are"} attached and Pexels is not connected. You can still explore directions, but the draft will remain blocked. Upload real project or product imagery for proof; stock may illustrate context but cannot verify your work.
+            </div>
+            <button className={styles.apiKeyBannerBtn} type="button" onClick={openApiKeyModal}>Connect Pexels</button>
+          </div>
+        )}
+
         {error && (
           <div
             className={styles.error}
@@ -1255,20 +1275,17 @@ export default function GeneratePanel() {
           {/* Score Banner */}
           <div className={styles.scoreBanner}>
             <div className={styles.scoreMain}>
-              <span
-                className={styles.grade}
-                style={{ color: gradeColor(result.distinctivenessReport.grade) }}
-                aria-label={`Grade ${result.distinctivenessReport.grade}`}
-              >
-                {result.distinctivenessReport.grade}
-              </span>
-              <div>
-                <div className={styles.scoreNum}>
-                  {result.distinctivenessReport.score}
-                  <span className={styles.scoreOutOf}>/100</span>
-                </div>
-                <div className={styles.scoreLabel}>distinctiveness score</div>
-              </div>
+              {canClaimDistinctiveness ? <>
+                <span
+                  className={styles.grade}
+                  style={{ color: gradeColor(result.distinctivenessReport.grade) }}
+                  aria-label={`Grade ${result.distinctivenessReport.grade}`}
+                >{result.distinctivenessReport.grade}</span>
+                <div><div className={styles.scoreNum}>{result.distinctivenessReport.score}<span className={styles.scoreOutOf}>/100</span></div><div className={styles.scoreLabel}>distinctiveness score</div></div>
+              </> : <div>
+                <div className={styles.scoreNum}>{result.project.readiness.status === "blocked" ? "Blocked draft" : "Review required"}</div>
+                <div className={styles.scoreLabel}>Plan diagnostic {result.distinctivenessReport.score}/100 · not a release verdict</div>
+              </div>}
             </div>
             <div className={styles.scoreMeta}>
               {result.revisionCount > 0 && (
@@ -1286,14 +1303,14 @@ export default function GeneratePanel() {
                   {result.execution.effectiveMode.replace("-", " ")} · {result.execution.scoreConfidence}
                 </span>
               )}
-              <button
+              {canClaimDistinctiveness && <button
                 className={styles.certBtn}
                 onClick={() => setCertOpen(true)}
                 id="open-certificate"
                 title="View shareable score certificate"
               >
                 ▤ Certificate
-              </button>
+              </button>}
               <button
                 className={styles.editorLaunchBtn}
                 type="button"
@@ -1307,13 +1324,13 @@ export default function GeneratePanel() {
             </div>
           </div>
 
-          <ResultShareKit
+          {canClaimDistinctiveness && <ResultShareKit
             projectName={result.project.name}
             framework={result.project.framework}
             score={result.distinctivenessReport.score}
             grade={result.distinctivenessReport.grade}
             engineeringScore={result.engineeringResult?.compositeScore}
-          />
+          />}
 
           {/* View Tabs */}
           <div className={styles.viewTabs} role="tablist">

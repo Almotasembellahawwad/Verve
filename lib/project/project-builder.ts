@@ -41,6 +41,14 @@ function generatedSourceFiles(generated: GeneratedCode, requiredEntry: string): 
   return candidates.filter((candidate) => !seen.has(candidate.path) && seen.add(candidate.path));
 }
 
+function generatedClaimSource(generated: GeneratedCode): string {
+  if (!generated.files?.length) return generated.code;
+  return generated.files
+    .filter((file) => !/\.(?:css|scss)$/i.test(file.path))
+    .map((file) => file.content)
+    .join("\n");
+}
+
 function assetManifest(
   plan: DesignPlan,
   assetDirection?: AssetDirectionContract,
@@ -245,7 +253,7 @@ img, svg { display: block; max-width: 100%; }
     file("ASSETS.md", assetManifest(plan, assetDirection, assetDelivery, typographyContract, typographyDelivery), "markdown", "documentation"),
   );
 
-  const warnings = inspectProductionRisks(deliveredSource, analysis.rawBrief);
+  const warnings = inspectProductionRisks(deliveredSource, analysis.rawBrief, generatedClaimSource(generated));
   return finalizeProject({ schemaVersion: 1, name, framework: "nextjs", entryFile: "app/page.tsx", files, dependencies, scripts, warnings, readiness: readiness(warnings) });
 }
 
@@ -275,7 +283,7 @@ function reactProject(
     file("ASSETS.md", assetManifest(plan, assetDirection, assetDelivery, typographyContract, typographyDelivery), "markdown", "documentation"),
   );
 
-  const warnings = inspectProductionRisks(deliveredSource, analysis.rawBrief);
+  const warnings = inspectProductionRisks(deliveredSource, analysis.rawBrief, generatedClaimSource(generated));
   return finalizeProject({ schemaVersion: 1, name, framework: "react", entryFile: "src/App.tsx", files, dependencies, scripts, warnings, readiness: readiness(warnings) });
 }
 
@@ -301,7 +309,7 @@ function htmlProject(
     file("README.md", projectReadme(name, "html", analysis, plan, scripts), "markdown", "documentation"),
     file("ASSETS.md", assetManifest(plan, assetDirection, assetDelivery, typographyContract, typographyDelivery), "markdown", "documentation"),
   );
-  const warnings = inspectProductionRisks(generatedSourceText(generated), analysis.rawBrief);
+  const warnings = inspectProductionRisks(generatedSourceText(generated), analysis.rawBrief, generatedClaimSource(generated));
   return finalizeProject({ schemaVersion: 1, name, framework: "html", entryFile: "index.html", files, dependencies: {}, scripts, warnings, readiness: readiness(warnings) });
 }
 
@@ -343,7 +351,7 @@ export function splitHtmlEntry(source: string): { html: string; css: string; jav
   };
 }
 
-export function inspectProductionRisks(code: string, rawBrief = ""): string[] {
+export function inspectProductionRisks(code: string, rawBrief = "", claimSource = code): string[] {
   const warnings: string[] = [];
   if (/innerHTML|dangerouslySetInnerHTML/i.test(code)) warnings.push("Unsafe HTML injection API detected; verify every input source.");
   if (/<form\b/i.test(code) && !/action=|onSubmit=|addEventListener\(["']submit/i.test(code)) warnings.push("A form is present without a verifiable submission contract.");
@@ -356,7 +364,7 @@ export function inspectProductionRisks(code: string, rawBrief = ""): string[] {
   if (/key\s*=\s*\{\s*[A-Za-z_$][\w$]*\.(?:label|title|name|heading|measure|result)\s*\}/i.test(code)) {
     warnings.push("A React list key is derived from display copy and may not be unique.");
   }
-  for (const claim of findUnsupportedQuantifiedClaims(code, rawBrief)) {
+  for (const claim of findUnsupportedQuantifiedClaims(claimSource, rawBrief)) {
     warnings.push(`BLOCKING: Unsupported quantified claim "${claim}" is absent from the source brief.`);
   }
   return warnings;

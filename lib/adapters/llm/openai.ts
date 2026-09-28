@@ -21,6 +21,8 @@ const LLM_TIMEOUT_MS = 120_000; // 120s for reasoning models & code generation
 // Per-model caps: cover BOTH internal reasoning + actual output.
 const MODEL_MAX_COMPLETION_TOKENS: Record<string, number> = {
   "gpt-6-astra": 30000,
+  "gpt-6-sol": 30000,
+  "gpt-6-luna": 20000,
   "gpt-5.6-terra": 30000,
   "gpt-5.6-sol": 30000,
   "gpt-5.6-luna": 20000,

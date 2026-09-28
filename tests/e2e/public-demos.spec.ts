@@ -344,3 +344,19 @@ test("Rendered Composition Realization rejects truthful markers around repeated 
   expect(deceptive.checks.find((check) => check.id === "rendered-composition-realization")?.status).toBe("warning");
   expect(JSON.stringify(deceptive.renderedComposition)).not.toContain("scene-split");
 });
+
+test("Render Gate catches large heading collisions with task controls", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome", "One browser is sufficient for deterministic geometry checks.");
+  const measure = async (collides: boolean) => {
+    const probeId = `text-overlap-${collides ? "bad" : "clear"}`;
+    const probe = createRenderProbeSource(probeId);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.setContent(`<!doctype html><html><head><style>body{margin:0;font:20px Arial}.scene{position:relative;height:340px}h2{position:absolute;left:20px;top:0;margin:0;font-size:72px}button{position:absolute;left:130px;top:${collides ? "52" : "180"}px;width:240px;height:46px;font:20px Arial}</style></head><body><main><section class="scene"><header><h2>Residential priorities</h2></header><button type="button">Choose a route</button></section></main><script>window.__overlapReport=null;window.addEventListener("message",event=>{if(event.data&&event.data.probeId==="${probeId}")window.__overlapReport=event.data});</script><script>${probe}</script></body></html>`, { waitUntil: "load" });
+    await page.waitForFunction((id) => (window as unknown as { __overlapReport?: RenderGateReport }).__overlapReport?.probeId === id, probeId);
+    return page.evaluate(() => (window as unknown as { __overlapReport: RenderGateReport }).__overlapReport);
+  };
+  const colliding = await measure(true);
+  const clear = await measure(false);
+  expect(colliding.checks.find((check) => check.id === "text-overlap")?.status).toBe("fail");
+  expect(clear.checks.find((check) => check.id === "text-overlap")?.status).toBe("pass");
+});

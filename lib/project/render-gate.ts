@@ -12,7 +12,7 @@ import type { BriefEvidenceKind } from "../domain/brief-evidence";
 export type SandboxFileMap = Record<string, { code: string }>;
 
 export type RenderGateCheck = {
-  id: "horizontal-overflow" | "runtime-errors" | "tiny-text" | "image-alt" | "duplicate-ids" | "button-names" | "first-viewport-effectiveness" | "functional-visual-fulfillment" | "rendered-evidence-salience" | "rendered-composition-realization";
+  id: "horizontal-overflow" | "runtime-errors" | "text-overlap" | "tiny-text" | "image-alt" | "duplicate-ids" | "button-names" | "first-viewport-effectiveness" | "functional-visual-fulfillment" | "rendered-evidence-salience" | "rendered-composition-realization";
   title: string;
   status: "pass" | "warning" | "fail";
   message: string;
@@ -431,6 +431,29 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
       })
       .map(selector)
       .slice(0, 5);
+    const textRects = (element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      return [...range.getClientRects()].filter((rect) => rect.width > 6 && rect.height > 6);
+    };
+    const headings = [...document.querySelectorAll("main h1,main h2,main h3")].filter(visible).slice(0, 32);
+    const taskText = [...document.querySelectorAll("main button,main a,main p,main label,main input,main select,main textarea")].filter(visible).slice(0, 160);
+    let textOverlapCount = 0;
+    for (const heading of headings) {
+      const section = heading.closest("section,article");
+      if (!section) continue;
+      const headingRects = textRects(heading);
+      for (const target of taskText) {
+        if (target.closest("section,article") !== section || heading.parentElement === target.parentElement || heading.contains(target) || target.contains(heading)) continue;
+        if (headingRects.some((left) => textRects(target).some((right) => {
+          const intersection = Math.max(0, Math.min(left.right, right.right) - Math.max(left.left, right.left))
+            * Math.max(0, Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top));
+          return intersection > 100 && intersection / Math.max(1, Math.min(left.width * left.height, right.width * right.height)) > 0.18;
+        }))) textOverlapCount++;
+        if (textOverlapCount >= 5) break;
+      }
+      if (textOverlapCount >= 5) break;
+    }
     const visibleElements = [...document.body.querySelectorAll("body *")].filter(visible).slice(0, 500);
     const visualElements = visibleElements.filter((element) => {
       const style = getComputedStyle(element);
@@ -888,6 +911,7 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
     const checks = [
       { id: "horizontal-overflow", title: "Rendered mobile width", status: documentWidth > width + 1 ? "fail" : "pass", message: documentWidth > width + 1 ? "Document is " + documentWidth + "px wide in a " + width + "px viewport. Offenders: " + (overflowElements.join(", ") || "unknown") : "No rendered horizontal overflow detected at " + width + "px." },
       { id: "runtime-errors", title: "Rendered runtime", status: runtimeErrors.length ? "fail" : "pass", message: runtimeErrors.length ? runtimeErrors.join(" | ") : "No runtime or console errors captured." },
+      { id: "text-overlap", title: "Rendered text collisions", status: textOverlapCount ? "fail" : "pass", message: textOverlapCount ? textOverlapCount + " substantial heading/task-text collision(s) detected. Inspect the layout at this viewport." : "No substantial heading/task-text collisions detected." },
       { id: "tiny-text", title: "Rendered text size", status: tinyText.length ? "warning" : "pass", message: tinyText.length ? "Visible text below 10px: " + tinyText.join(", ") : "No visible text below 10px detected." },
       { id: "image-alt", title: "Rendered image alternatives", status: missingAlt.length ? "warning" : "pass", message: missingAlt.length ? "Images without alt: " + missingAlt.join(", ") : "Every rendered image has an alt attribute." },
       { id: "duplicate-ids", title: "Rendered element identity", status: duplicateIds.length ? "warning" : "pass", message: duplicateIds.length ? "Duplicate ids: " + duplicateIds.join(", ") : "No duplicate rendered ids detected." },
@@ -1113,7 +1137,7 @@ export function isRenderGateReport(value: unknown, probeId: string): value is Re
     ))
     && report.checks.length <= 12
     && report.checks.every((item) => item
-      && ["horizontal-overflow", "runtime-errors", "tiny-text", "image-alt", "duplicate-ids", "button-names", "first-viewport-effectiveness", "functional-visual-fulfillment", "rendered-evidence-salience", "rendered-composition-realization"].includes(item.id)
+      && ["horizontal-overflow", "runtime-errors", "text-overlap", "tiny-text", "image-alt", "duplicate-ids", "button-names", "first-viewport-effectiveness", "functional-visual-fulfillment", "rendered-evidence-salience", "rendered-composition-realization"].includes(item.id)
       && ["pass", "warning", "fail"].includes(item.status)
       && typeof item.title === "string"
       && item.title.length <= 120

@@ -17,7 +17,7 @@ type AnyProvider = LocalKeyProvider;
 
 const PROVIDERS: { id: AnyProvider; label: string; description: string; keyPrefix: string }[] = [
   { id: "anthropic",  label: "Anthropic / Claude", description: "Opus 5.5, Sonnet 4.6 & more", keyPrefix: "sk-ant-" },
-  { id: "openai",     label: "OpenAI / GPT",       description: "GPT-6 Astra & GPT-5.6",      keyPrefix: "sk-" },
+  { id: "openai",     label: "OpenAI / GPT",       description: "GPT-6 Astra, Sol & Luna; GPT-5.6", keyPrefix: "sk-" },
   { id: "gemini",     label: "Google / Gemini",    description: "Gemini 3.8 Flash & earlier", keyPrefix: "AIza" },
   { id: "openrouter", label: "OpenRouter",         description: "Automatic free-model router",   keyPrefix: "sk-or-" },
   { id: "pexels",     label: "Pexels",             description: "Contextual photography",        keyPrefix: "" },
