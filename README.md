@@ -4,7 +4,7 @@
 
 Verve is an open-source project intelligence engine for generating distinctive web projects from spoken or written briefs. It does not stop at a code block: every successful run returns a runnable multi-file project, design rationale, validation evidence, and a ZIP export. HTML and React projects also open in a lightweight live sandbox; complete Next.js projects use an inspect-and-export workspace for reliable local execution.
 
-[Development preview](https://verve-dev.vercel.app/) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [MIT License](LICENSE)
+[Development preview](https://verve-dev.vercel.app/) · [Architecture](docs/ARCHITECTURE.md) · [Whole-product strategy](docs/VERVE_WHOLE_PRODUCT_STRATEGY.md) · [Roadmap](docs/ROADMAP.md) · [MIT License](LICENSE)
 
 ## Verve Creative Engine v3 (beta)
 
@@ -227,6 +227,15 @@ Both modes return the same `GeneratedProject` schema, so the workbench, history,
 
 Creative is an active beta in the UI. Set `NEXT_PUBLIC_CREATIVE_ENGINE_V3=false` for a Fast-only deployment while keeping the backwards-compatible API contract available.
 
+### Model choices
+
+The picker also offers optional GPT-6 Astra, Claude Opus 5.5, and Gemini 3.8
+Flash. Existing model IDs and the Sonnet 4.6 / GPT-5.6 Terra / Gemini 3.7
+Flash defaults remain unchanged. Their request shapes are covered by unit
+tests, but live provider availability, latency, and output quality require
+tests with the user's own API keys. The [whole-product strategy](docs/VERVE_WHOLE_PRODUCT_STRATEGY.md)
+records the compatibility decisions and rollout gate.
+
 ## Supported project stacks
 
 ### Next.js 16 + React 19 + TypeScript
@@ -329,7 +338,7 @@ For free OpenRouter models, start with **Fast mode**. Creative remains available
 
 ## Local development
 
-Requirements: Node.js 20+ and an API key from Anthropic, OpenAI, Google AI, or OpenRouter.
+Requirements: Node.js 22+ and an API key from Anthropic, OpenAI, Google AI, or OpenRouter.
 
 ```bash
 git clone https://github.com/Almotasembellahawwad/Verve.git

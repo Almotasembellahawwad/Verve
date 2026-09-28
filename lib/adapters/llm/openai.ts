@@ -2,7 +2,7 @@
 // lib/adapters/llm/openai.ts
 // OpenAI adapter — with AbortSignal + timeout support
 //
-// GPT-5.6 family are Reasoning Models:
+// GPT-5.6 and GPT-6 families are Reasoning Models:
 //   - Use the Responses API with max_output_tokens
 //   - Use reasoning.effort (per-call, from LLMOptions.reasoningEffort)
 //   - Do NOT set temperature (causes 400 error for reasoning models)
@@ -20,6 +20,7 @@ const LLM_TIMEOUT_MS = 120_000; // 120s for reasoning models & code generation
 
 // Per-model caps: cover BOTH internal reasoning + actual output.
 const MODEL_MAX_COMPLETION_TOKENS: Record<string, number> = {
+  "gpt-6-astra": 30000,
   "gpt-5.6-terra": 30000,
   "gpt-5.6-sol": 30000,
   "gpt-5.6-luna": 20000,
@@ -50,7 +51,7 @@ export function buildOpenAIResponseParams(
     instructions: systemPrompt,
     input: messages.map((message) => ({ role: message.role, content: message.content })),
     max_output_tokens: effectiveTokens,
-    reasoning: { effort: reasoningEffort ?? "medium" },
+    reasoning: { effort: model === "gpt-6-astra" && reasoningEffort === "none" ? "low" : reasoningEffort ?? "medium" },
     store: false,
     ...(responseFormat ? {
       text: {

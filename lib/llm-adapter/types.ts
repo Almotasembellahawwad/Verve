@@ -12,17 +12,20 @@ import type { Provider } from "../ports/llm";
 // ─────────────────────────────────────────────────────────────────────────────
 export const PROVIDER_MODELS: Record<Provider, { id: string; label: string; description: string }[]> = {
   anthropic: [
+    { id: "claude-opus-5-5",           label: "Claude Opus 5.5", description: "New optional high-capability model — adaptive thinking" },
     { id: "claude-sonnet-4-6",         label: "Claude Sonnet 4.6", description: "Best balance — production default" },
     { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", description: "Fast and cost-efficient" },
     { id: "claude-opus-4-8",           label: "Claude Opus 4.8",  description: "Maximum intelligence — complex tasks" },
   ],
   openai: [
+    { id: "gpt-6-astra",   label: "GPT-6 Astra",   description: "New optional frontier model — complex work" },
     { id: "gpt-5.6-terra", label: "GPT-5.6 Terra", description: "Balanced intelligence & cost — reasoning model" },
     { id: "gpt-5.6-sol",   label: "GPT-5.6 Sol",   description: "Flagship reasoning — highest intelligence" },
     { id: "gpt-5.6-luna",  label: "GPT-5.6 Luna",  description: "Efficient high-volume workloads — fastest GPT-5.6" },
     { id: "gpt-4o-mini",   label: "GPT-4o Mini",   description: "Affordable, lightweight — fast tasks" },
   ],
   gemini: [
+    { id: "gemini-3.8-flash",       label: "Gemini 3.8 Flash",       description: "New optional production Flash model" },
     { id: "gemini-3.7-flash",       label: "Gemini 3.7 Flash",       description: "Fast, capable — production default" },
     { id: "gemini-3.5-flash",       label: "Gemini 3.5 Flash",       description: "Efficient general-purpose model" },
     { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro Preview", description: "Advanced reasoning — preview" },
@@ -63,11 +66,12 @@ export const PROVIDER_KEY_LABELS: Record<Provider, { label: string; placeholder:
   },
 };
 
-// Helper: detect if a model ID is a GPT-5.x or o-series reasoning model
+// Helper: detect OpenAI reasoning models, which use Responses rather than Chat Completions.
 // These models use reasoning_effort instead of temperature
 export function isReasoningModel(modelId: string): boolean {
   return (
     modelId.startsWith("gpt-5.") ||
+    modelId.startsWith("gpt-6-") ||
     modelId.startsWith("o1") ||
     modelId.startsWith("o3") ||
     modelId.startsWith("o4")

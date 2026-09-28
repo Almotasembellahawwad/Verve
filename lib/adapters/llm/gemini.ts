@@ -3,16 +3,43 @@
 // Google Gemini adapter — with AbortSignal + timeout support
 // =========================================================
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, type EnhancedGenerateContentResponse } from "@google/generative-ai";
 import type { LLMAdapter, LLMMessage, LLMOptions } from "../../ports/llm";
+import { ProviderResponseError } from "../../errors/provider-response-error";
 
 const LLM_TIMEOUT_MS = 90_000; // 90s timeout per call
 
 const MODEL_MAX_TOKENS: Record<string, number> = {
+  "gemini-3.8-flash":       24_000,
   "gemini-3.7-flash":       16_000,
   "gemini-3.5-flash":       16_000,
   "gemini-3.1-pro-preview": 16_000,
 };
+
+export function buildGeminiGenerationConfig(model: string, options: LLMOptions = {}) {
+  const modelCap = MODEL_MAX_TOKENS[model] ?? 8192;
+  return {
+    maxOutputTokens: Math.min(options.maxTokens ?? modelCap, modelCap),
+    // Gemini 3.8 Flash rejects custom sampling parameters. Preserve the old-model behavior.
+    ...(!model.startsWith("gemini-3.8") && !model.startsWith("gemini-3.7")
+      ? { temperature: options.temperature ?? 0.7 }
+      : {}),
+  };
+}
+
+export function completedGeminiResponseText(
+  response: Pick<EnhancedGenerateContentResponse, "candidates" | "text">,
+  model: string
+): string {
+  if (response.candidates?.[0]?.finishReason === "MAX_TOKENS") {
+    throw new ProviderResponseError(`Gemini returned an incomplete response (${model}, reason: max output tokens).`, "incomplete");
+  }
+  const text = response.text().trim();
+  if (!text) {
+    throw new ProviderResponseError(`Gemini returned no output text (${model}).`, "empty_output");
+  }
+  return text;
+}
 
 export class GeminiAdapter implements LLMAdapter {
   private client: GoogleGenerativeAI;
@@ -26,17 +53,9 @@ export class GeminiAdapter implements LLMAdapter {
   }
 
   async complete(messages: LLMMessage[], options: LLMOptions = {}): Promise<string> {
-    const { systemPrompt, temperature = 0.7, maxTokens, timeoutMs } = options;
+    const { systemPrompt, timeoutMs } = options;
 
-    const effectiveMaxTokens = Math.min(
-      maxTokens ?? MODEL_MAX_TOKENS[this.model] ?? 8000,
-      MODEL_MAX_TOKENS[this.model] ?? 8192
-    );
-
-    const generationConfig = {
-      maxOutputTokens: effectiveMaxTokens,
-      ...(!this.model.startsWith("gemini-3.7") ? { temperature } : {}),
-    };
+    const generationConfig = buildGeminiGenerationConfig(this.model, options);
     const genModel = this.client.getGenerativeModel({
       model: this.model,
       systemInstruction: systemPrompt,
@@ -65,10 +84,7 @@ export class GeminiAdapter implements LLMAdapter {
     try {
       const chat   = genModel.startChat({ history });
       const result = await Promise.race([chat.sendMessage(lastMessage.content), abortPromise]);
-      const text   = result.response.text();
-
-      if (!text) throw new Error(`No text in Gemini response (model: ${this.model})`);
-      return text;
+      return completedGeminiResponseText(result.response, this.model);
     } finally {
       clearTimeout(timer);
       this.signal?.removeEventListener("abort", abort);
