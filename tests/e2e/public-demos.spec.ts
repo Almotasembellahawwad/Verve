@@ -66,12 +66,16 @@ test("all six frozen examples pass the three-width render contract", async ({ pa
   const runtimeErrors: string[] = [];
   const measured: Array<{ demoId: string; width: number; report: RenderGateReport }> = [];
   page.on("pageerror", (error) => runtimeErrors.push(error.message));
+  // A controlled document on the app origin models srcDoc's inherited base
+  // and avoids about:blank's opaque-origin private-network restrictions.
+  const fixtureUrl = new URL("/__verve_visual_fixture__", testInfo.project.use.baseURL).href;
+  await page.route(fixtureUrl, (route) => route.fulfill({ contentType: "text/html", body: "<!doctype html><html><head></head><body></body></html>" }));
   for (const demo of PUBLIC_DEMOS) {
     for (const width of VIEWPORTS) {
       runtimeErrors.length = 0;
       const probeId = `e2e-${demo.id}-${width}`;
       await page.setViewportSize({ width, height: width === 360 ? 800 : 900 });
-      await page.goto("about:blank");
+      await page.goto(fixtureUrl);
       const preview = buildHtmlPreviewDocument(demo.result.project, probeId);
       const capture = `<script>window.__verveMeasuredReport=null;window.addEventListener("message",function(event){if(event.data&&event.data.source==="verve-render-gate")window.__verveMeasuredReport=event.data});</script>`;
       await page.setContent(preview.replace(/<head([^>]*)>/i, `<head$1>${capture}`), { waitUntil: "load" });
@@ -102,6 +106,7 @@ test("all six frozen examples pass the three-width render contract", async ({ pa
           viewport: document.documentElement.clientWidth,
           documentWidth: document.documentElement.scrollWidth,
           missingAlt: document.querySelectorAll("img:not([alt])").length,
+          failedImages: [...document.images].filter((image) => !image.complete || !image.naturalWidth).length,
           unnamedButtons,
           duplicates: [...new Set(duplicates)],
           lang: document.documentElement.lang,
@@ -112,6 +117,7 @@ test("all six frozen examples pass the three-width render contract", async ({ pa
       });
       expect(audit.documentWidth, `${demo.id} overflows at ${width}px`).toBeLessThanOrEqual(audit.viewport + 1);
       expect(audit.missingAlt, `${demo.id} has an image without alt text`).toBe(0);
+      expect(audit.failedImages, `${demo.id} has an image that did not actually load`).toBe(0);
       expect(audit.unnamedButtons, `${demo.id} has an unnamed button`).toBe(0);
       expect(audit.duplicates, `${demo.id} has duplicate element ids`).toEqual([]);
       expect(audit.lang, `${demo.id} has no document language`).not.toBe("");
@@ -169,11 +175,17 @@ test("all six frozen examples pass the three-width render contract", async ({ pa
     const platform = process.platform === "win32" ? "win32" : process.platform === "linux" ? "linux" : null;
     const expectedDistance = platform ? baseline.platformDistances[platform] : baseline.nearestMeasuredExampleDistance;
     expect(baseline.nearestMeasuredExampleDistance, `${example.demoId} public distance must be the conservative platform minimum`)
-      .toBe(Math.min(...Object.values(baseline.platformDistances)));
-    expect(
-      Math.abs(example.nearestMeasuredExampleDistance - expectedDistance),
-      `${example.demoId} visual distance drifted on ${process.platform}: measured=${example.nearestMeasuredExampleDistance}, baseline=${expectedDistance}, tolerance=${visualTruthBaseline.crossPlatformDistanceTolerance}`
-    ).toBeLessThanOrEqual(visualTruthBaseline.crossPlatformDistanceTolerance);
+      .toBe(Math.min(...Object.values(baseline.platformDistances).filter((distance): distance is number => typeof distance === "number")));
+    if (expectedDistance === null) {
+      // Still enforce every media, accessibility, overflow and runtime check.
+      // A missing platform calibration is reported, not invented or released.
+      console.warn(`VISUAL_TRUTH_CALIBRATION_PENDING ${example.demoId}/${process.platform}: measured=${example.nearestMeasuredExampleDistance}`);
+    } else {
+      expect(
+        Math.abs(example.nearestMeasuredExampleDistance - expectedDistance),
+        `${example.demoId} visual distance drifted on ${process.platform}: measured=${example.nearestMeasuredExampleDistance}, baseline=${expectedDistance}, tolerance=${visualTruthBaseline.crossPlatformDistanceTolerance}`
+      ).toBeLessThanOrEqual(visualTruthBaseline.crossPlatformDistanceTolerance);
+    }
     if (baseline.nearestMeasuredExampleDistance >= visualTruthBaseline.releaseDistanceThreshold) {
       expect(example.nearestMeasuredExampleDistance, `${example.demoId} failed the published diversity release threshold on ${process.platform}`)
         .toBeGreaterThanOrEqual(visualTruthBaseline.releaseDistanceThreshold);

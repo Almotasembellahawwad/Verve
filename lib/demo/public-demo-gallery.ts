@@ -343,7 +343,8 @@ export const PUBLIC_DEMOS: PublicDemo[] = AUTHORED_PUBLIC_DEMOS.map((demo) => {
   const measurement = measuredVisualTruth.examples[demo.id];
   return {
     ...demo,
-    meetsMeasuredDiversityFloor: measurement.nearestMeasuredExampleDistance >= PUBLIC_DEMO_DIVERSITY_THRESHOLD,
+    meetsMeasuredDiversityFloor: Object.values(measurement.platformDistances).every((distance) => typeof distance === "number")
+      && measurement.nearestMeasuredExampleDistance >= PUBLIC_DEMO_DIVERSITY_THRESHOLD,
     receipt: {
       ...demo.receipt,
       nearestExampleDistance: measurement.nearestMeasuredExampleDistance,

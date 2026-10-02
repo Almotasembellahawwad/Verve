@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { ProviderResponseError } from "../errors/provider-response-error";
+import { InvalidGenerationInputError } from "../errors/invalid-generation-input-error";
 
 export type ErrorCode =
   | "GENERATION_FAILED"
@@ -64,6 +65,8 @@ export function logSanitizedError(err: unknown, code: ErrorCode, requestId: stri
  */
 export function classifyError(err: unknown): { code: ErrorCode; status: number } {
   if (!err) return { code: "INTERNAL_ERROR", status: 500 };
+
+  if (err instanceof InvalidGenerationInputError) return { code: "INVALID_REQUEST", status: 400 };
 
   if (err instanceof ProviderResponseError || (err instanceof Error && err.name === "ZodError")) {
     return { code: "PROVIDER_ERROR", status: 502 };

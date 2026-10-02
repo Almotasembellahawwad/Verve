@@ -18,6 +18,8 @@ import { inspectCompositionGenomeSource, type CompositionGenomeRealization } fro
 import { findUnsupportedQuantifiedClaims } from "./content-safety";
 import { inspectDesignDiversity } from "./design-diversity";
 import ts from "typescript";
+import { generatedArtifactJsonSchema, parseGeneratedArtifact, type GeneratedSourceFile } from "./code-generator";
+import { inspectDeclaredSourceRoutes, inspectLocalSourceDependencies, sourcePageRoute } from "../project/source-dependencies";
 
 export interface CodeQualityResult {
   code:           string;
@@ -26,6 +28,9 @@ export interface CodeQualityResult {
   signatureFound: boolean;
   evidenceRealization?: BriefEvidenceRealization;
   compositionRealization?: CompositionGenomeRealization;
+  files?: GeneratedSourceFile[];
+  /** A rejected/failed repair still consumes one provider call. */
+  repairAttempted?: boolean;
 }
 
 export type CodeQualityContext = {
@@ -34,6 +39,11 @@ export type CodeQualityContext = {
   compositionGenome?: CompositionGenomeContract;
   /** Generated files other than the entry file, used for whole-project evidence checks. */
   supportingSource?: string;
+  sourceFiles?: GeneratedSourceFile[];
+  entryPath?: string;
+  maxSourceFiles?: number;
+  engineProvidedPaths?: string[];
+  declaredRoutePaths?: string[];
 };
 
 const REPAIR_SYSTEM = `You are a code repair specialist. Fix ONLY the specific issues listed.
@@ -138,11 +148,11 @@ function checkEntryContract(code: string, framework: string): string[] {
     : [`${framework === "nextjs" ? "app/page.tsx" : "src/App.tsx"} requires a default export`];
 }
 
-function checkSyntax(code: string, framework: string): string[] {
+function checkSyntax(code: string, framework: string, fileName?: string): string[] {
   if (framework === "html" || !code.trim()) return [];
 
   const result = ts.transpileModule(code, {
-    fileName: framework === "nextjs" ? "generated.tsx" : "component.tsx",
+    fileName: fileName ?? (framework === "nextjs" ? "generated.tsx" : "component.tsx"),
     reportDiagnostics: true,
     compilerOptions: {
       target: ts.ScriptTarget.ES2022,
@@ -183,8 +193,8 @@ function checkSignatureElement(code: string, signatureElement: string): boolean 
 
 export function inspectSupportingSource(code: string, path: string, framework: string, rawBrief = "", allowedFontFamilies: string[] = []): string[] {
   const stripped = stripFences(code);
-  const syntax = /\.(?:tsx?|jsx?|mjs)$/i.test(path) ? checkSyntax(stripped, framework === "html" ? "react" : framework) : [];
-  const markup = /\.(?:tsx?|jsx?|html)$/i.test(path) ? checkUnclosedTags(stripped) : [];
+  const syntax = /\.(?:tsx?|jsx?|mjs)$/i.test(path) ? checkSyntax(stripped, framework === "html" ? "react" : framework, path) : [];
+  const markup = /\.(?:tsx|jsx|html)$/i.test(path) ? checkUnclosedTags(stripped) : [];
   const doctype = path.endsWith(".html") ? checkDoctype(stripped, "html") : [];
   const claimBrief = /\.(?:css|scss)$/i.test(path) ? "" : rawBrief;
   return [...syntax, ...markup, ...doctype, ...checkInlineStyles(stripped), ...checkDeliveryPolicies(stripped, claimBrief, allowedFontFamilies)]
@@ -205,6 +215,10 @@ export async function runCodeQualityLoop(
 ): Promise<CodeQualityResult> {
   // Step 1: Strip fences
   const stripped = stripFences(rawCode);
+  const sourceFiles = context.sourceFiles?.map((file) => file.path === context.entryPath ? { ...file, content: stripped } : file);
+  const supportingSource = sourceFiles
+    ? sourceFiles.filter((file) => file.path !== context.entryPath).map((file) => file.content).join("\n")
+    : context.supportingSource ?? "";
 
   // Step 2: Run structural checks
   const issues: string[] = [
@@ -216,20 +230,26 @@ export async function runCodeQualityLoop(
     ...checkInlineStyles(stripped),
     ...checkDeliveryPolicies(stripped, rawBrief, allowedFontFamilies),
   ];
+  if (sourceFiles) {
+    issues.push(...sourceFiles.filter((file) => file.path !== context.entryPath)
+      .flatMap((file) => inspectSupportingSource(file.content, file.path, framework, rawBrief, allowedFontFamilies)));
+    issues.push(...inspectLocalSourceDependencies(sourceFiles, framework, context.engineProvidedPaths));
+    issues.push(...inspectDeclaredSourceRoutes(sourceFiles, framework, context.declaredRoutePaths));
+  }
   const evidenceRealization = inspectBriefEvidenceRealization(
-    `${stripped}\n${context.supportingSource ?? ""}`,
+    `${stripped}\n${supportingSource}`,
     context.briefEvidence,
     context.requiredEvidenceIds
   );
   issues.push(...evidenceRealization.issues);
   const compositionRealization = inspectCompositionGenomeSource(
-    `${stripped}\n${context.supportingSource ?? ""}`,
+    `${stripped}\n${supportingSource}`,
     context.compositionGenome
   );
   issues.push(...compositionRealization.issues);
 
   // Step 3: Check signature element
-  const signatureFound = checkSignatureElement(stripped, signatureElement);
+  const signatureFound = checkSignatureElement(`${stripped}\n${supportingSource}`, signatureElement);
   if (!signatureFound) {
     issues.push(`Signature element "${signatureElement.slice(0, 80)}" not detected in output`);
   }
@@ -251,41 +271,34 @@ export async function runCodeQualityLoop(
     issues.map((i) => `- ${i}`).join("\n"),
     ``,
     `${signatureFound ? "" : `Also ensure the signature design element is present: "${signatureElement}"\n`}`,
-    `Here is the code to fix:\n\`\`\`\n${stripped}\n\`\`\``,
+    sourceFiles ? `Here is the complete source manifest to fix:\n${JSON.stringify({ files: sourceFiles })}` : `Here is the code to fix:\n\`\`\`\n${stripped}\n\`\`\``,
     ``,
-    `Return ONLY the fixed code. No markdown fences. No explanation.`,
+    sourceFiles ? `Return ONLY JSON with the complete files array, including every original support file and every referenced script/stylesheet. Preserve the entry ${context.entryPath} and stay within ${context.maxSourceFiles ?? 16} source files. ${context.declaredRoutePaths ? `The only allowed page routes are ${context.declaredRoutePaths.join(", ")}. Remove undeclared pages and their navigation links; do not remove support files or declared pages.` : "Preserve all original pages."} No markdown or explanation.` : `Return ONLY the fixed code. No markdown fences. No explanation.`,
   ].join("\n");
 
   try {
     const repaired = await llm.complete(
       [{ role: "user", content: repairPrompt }],
-      { systemPrompt: REPAIR_SYSTEM, temperature: 0.1, maxTokens: 16000, timeoutMs: 60_000 }
+      { systemPrompt: sourceFiles ? `${REPAIR_SYSTEM}\nReturn the complete corrected JSON source manifest, not entry code alone. Never remove support files or declared pages to conceal a validation failure. Only explicitly undeclared pages may be removed, with their navigation corrected.` : REPAIR_SYSTEM,
+        temperature: 0.1, maxTokens: 16000, timeoutMs: 60_000,
+        ...(sourceFiles ? { responseFormat: { name: "repaired_project_sources", schema: generatedArtifactJsonSchema(context.maxSourceFiles ?? 16) } } : {}) }
     );
 
-    const repairedStripped = stripFences(repaired);
+    const artifact = sourceFiles ? parseGeneratedArtifact(repaired, framework, context.maxSourceFiles ?? 16) : undefined;
+    if (artifact && sourceFiles?.some((original) => {
+      if (artifact.files.some((file) => file.path === original.path)) return false;
+      const route = sourcePageRoute(original.path, framework);
+      return route === undefined || !context.declaredRoutePaths || context.declaredRoutePaths.includes(route);
+    })) {
+      return { code: stripped, wasRepaired: false, repairAttempted: true, issues, signatureFound, evidenceRealization, compositionRealization };
+    }
+    const repairedStripped = artifact?.files.find((file) => file.path === artifact.entryPath)?.content ?? stripFences(repaired);
 
     // Verify repair actually helped
-    const repairedIssues = [
-      ...checkMinimumStructure(repairedStripped, framework),
-      ...checkEntryContract(repairedStripped, framework),
-      ...checkDoctype(repairedStripped, framework),
-      ...checkUnclosedTags(repairedStripped),
-      ...checkSyntax(repairedStripped, framework),
-      ...checkDeliveryPolicies(repairedStripped, rawBrief, allowedFontFamilies),
-    ];
-    const repairedEvidenceRealization = inspectBriefEvidenceRealization(
-      `${repairedStripped}\n${context.supportingSource ?? ""}`,
-      context.briefEvidence,
-      context.requiredEvidenceIds
-    );
-    repairedIssues.push(...repairedEvidenceRealization.issues);
-    const repairedCompositionRealization = inspectCompositionGenomeSource(
-      `${repairedStripped}\n${context.supportingSource ?? ""}`,
-      context.compositionGenome
-    );
-    repairedIssues.push(...repairedCompositionRealization.issues);
-
-    const repairedSignatureFound = checkSignatureElement(repairedStripped, signatureElement);
+    const verified = await runCodeQualityLoop(llm, repairedStripped, signatureElement, framework, false, rawBrief, allowedFontFamilies,
+      { ...context, ...(artifact ? { sourceFiles: artifact.files, entryPath: artifact.entryPath } : {}) });
+    const repairedIssues = verified.issues;
+    const repairedSignatureFound = verified.signatureFound;
 
     const originalStructuralIssues = issues.filter((issue) => !issue.includes("inline styles"));
 
@@ -298,10 +311,12 @@ export async function runCodeQualityLoop(
       return {
         code:           repairedStripped,
         wasRepaired:    true,
-        issues,
+        repairAttempted: true,
+        issues: repairedIssues,
+        ...(artifact ? { files: artifact.files } : {}),
         signatureFound: repairedSignatureFound,
-        evidenceRealization: repairedEvidenceRealization,
-        compositionRealization: repairedCompositionRealization,
+        evidenceRealization: verified.evidenceRealization,
+        compositionRealization: verified.compositionRealization,
       };
     }
   } catch (err) {
@@ -310,5 +325,5 @@ export async function runCodeQualityLoop(
   }
 
   // Repair failed or made things worse — return stripped original
-  return { code: stripped, wasRepaired: false, issues, signatureFound, evidenceRealization, compositionRealization };
+  return { code: stripped, wasRepaired: false, repairAttempted: true, issues, signatureFound, evidenceRealization, compositionRealization };
 }

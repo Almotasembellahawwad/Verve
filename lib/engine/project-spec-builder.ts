@@ -170,6 +170,10 @@ export function buildVerveProjectSpec(input: {
       states: interactionStates(component.kind, scene),
     };
   });
+  // Complexity is capacity, not a quota of invented controls. The compiler
+  // requires every authored task state; later validation still rejects a
+  // specification that drops those states without revising its contract.
+  narrative.richness.minimumMeaningfulStates = interactions.reduce((total, interaction) => total + interaction.states.length, 0);
 
   const facts: VerveProjectSpec["facts"]["items"] = [
     { id: "fact-subject", value: analysis.subject, source: "brief", mutable: false },

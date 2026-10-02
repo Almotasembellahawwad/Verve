@@ -5,6 +5,7 @@ import type { VerveProjectSpec } from "../domain/project-spec";
 import { formatVerveProjectSpecForGeneration } from "./project-spec-builder";
 import type { GenerationMode } from "../domain/generation-mode";
 import { extractJSON } from "./llm-utils";
+import { ProviderResponseError } from "../errors/provider-response-error";
 
 export type GeneratedSourceFile = { path: string; content: string; language: string };
 
@@ -37,39 +38,106 @@ const FRAMEWORK_NOTES: Record<string, string> = {
 };
 
 const ENTRY_PATHS: Record<string, string> = { nextjs: "app/page.tsx", react: "src/App.tsx", html: "index.html" };
-const SAFE_SOURCE_PATH = /^(?:app\/(?:[a-z0-9_-]+\/)*page\.tsx|components\/[A-Za-z0-9_-]+\.tsx|src\/(?:components|routes)\/[A-Za-z0-9_-]+\.tsx|src\/App\.tsx|(?:[a-z0-9_-]+\/)*index\.html|[a-z0-9_-]+\.html|(?:app|src)\/[A-Za-z0-9_/-]+\.css|styles\.css|script\.js)$/;
+const SAFE_TYPED_SOURCE_PATH = /^(?:app|src|components|lib)\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\.(?:ts|tsx)$/;
+const SAFE_BROWSER_SOURCE_PATH = /^(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\.(?:html|css|js|mjs)$/;
+const RESERVED_SOURCE_PATH = /(?:^|\/)(?:node_modules|dist|build|out|coverage|__verve_render_probe)(?:\/|\.|$)|(?:^|\/)(?:next|vite|eslint|postcss|tailwind)\.config\.[^/]+$|(?:^|\/)verve-design\.css$|^app\/layout\.tsx$|^src\/main\.(?:ts|tsx)$/i;
+const WINDOWS_RESERVED_SEGMENT = /^(?:con|prn|aux|nul|com[0-9]|lpt[0-9])(?:\.|$)/i;
+const MAX_SOURCE_FILE_CHARS = 120_000;
+const MAX_SOURCE_TOTAL_CHARS = 500_000;
+
+/** Validate before consuming provider paths; generated files cannot replace owned scaffolding. */
+function normalizeGeneratedSourcePath(path: string, framework: string): string | undefined {
+  if (!path || path.length > 240 || path !== path.trim() || /[\u0000-\u001f\u007f:%?#]/.test(path)) return undefined;
+  const normalized = path.replace(/\\/g, "/").replace(/^\.\//, "");
+  if (normalized.startsWith("/") || normalized.split("/").some((part) => !part || part === "." || part === ".." || WINDOWS_RESERVED_SEGMENT.test(part))) return undefined;
+  if (RESERVED_SOURCE_PATH.test(normalized)) return undefined;
+  const typedSourceAllowed = framework !== "html" && SAFE_TYPED_SOURCE_PATH.test(normalized);
+  const browserSourceAllowed = SAFE_BROWSER_SOURCE_PATH.test(normalized) && (framework === "html" || !normalized.endsWith(".html"));
+  return typedSourceAllowed || browserSourceAllowed ? normalized : undefined;
+}
+
+export class GeneratedSourceDeliveryError extends ProviderResponseError {
+  constructor(message: string) {
+    super(`Generated source delivery failed: ${message}`, "malformed_output");
+    this.name = "GeneratedSourceDeliveryError";
+  }
+}
 
 function languageFor(path: string): string {
   if (path.endsWith(".tsx")) return "tsx";
+  if (path.endsWith(".ts")) return "typescript";
   if (path.endsWith(".css")) return "css";
   if (path.endsWith(".html")) return "html";
-  if (path.endsWith(".js")) return "javascript";
+  if (/\.(?:js|mjs)$/.test(path)) return "javascript";
   return "text";
 }
 
-function parseGeneratedArtifact(raw: string, framework: string, maxFiles: number): { entryPath: string; files: GeneratedSourceFile[] } {
+export function parseGeneratedArtifact(raw: string, framework: string, maxFiles: number): { entryPath: string; files: GeneratedSourceFile[] } {
   const defaultEntry = ENTRY_PATHS[framework] ?? ENTRY_PATHS.nextjs;
+  if (!Number.isInteger(maxFiles) || maxFiles < 1 || maxFiles > 16) throw new GeneratedSourceDeliveryError("the source-file budget must be an integer between 1 and 16.");
+  const cleaned = raw.replace(/^```[\w]*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+  const legacyEntry = (): { entryPath: string; files: GeneratedSourceFile[] } => {
+    if (!cleaned || cleaned.length > MAX_SOURCE_FILE_CHARS) throw new GeneratedSourceDeliveryError("the legacy entry source is empty or oversized.");
+    return { entryPath: defaultEntry, files: [{ path: defaultEntry, content: cleaned, language: languageFor(defaultEntry) }] };
+  };
+  // JSON embedded inside an HTML script or component is application data, not
+  // the provider's file manifest. Preserve legacy source before JSON recovery.
+  if (/^(?:<!doctype\s+html\b|<html(?:\s|>)|(?:import|export|function|const|let|var)\b|["']use client["'])/i.test(cleaned)) return legacyEntry();
+  let parsed: unknown;
   try {
-    const parsed = extractJSON<{ files?: { path?: string; content?: string; language?: string }[] }>(raw, "Code Generator");
-    const files = (parsed.files ?? [])
-      .filter((candidate): candidate is { path: string; content: string; language?: string } => Boolean(candidate.path && candidate.content))
-      .filter((candidate) => SAFE_SOURCE_PATH.test(candidate.path) && !candidate.path.includes(".."))
-      .slice(0, maxFiles)
-      .map((candidate) => ({ path: candidate.path.replace(/\\/g, "/"), content: candidate.content.trim(), language: candidate.language ?? languageFor(candidate.path) }));
-    const entry = files.find((file) => file.path === defaultEntry) ?? files[0];
-    if (entry) return { entryPath: entry.path, files };
+    parsed = extractJSON<unknown>(raw, "Code Generator");
   } catch {
     // Providers without reliable structured code output keep the legacy entry-file path.
+    // A broken manifest must not be mistaken for HTML/TSX source, however.
+    if (/^\s*\{|^\s*```json\b/.test(raw)) {
+      throw new GeneratedSourceDeliveryError("the provider returned a malformed source manifest.");
+    }
   }
-  const cleaned = raw.replace(/^```[\w]*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
-  return { entryPath: defaultEntry, files: [{ path: defaultEntry, content: cleaned, language: languageFor(defaultEntry) }] };
+
+  if (parsed && typeof parsed === "object" && "files" in parsed) {
+    const candidates = (parsed as { files: unknown }).files;
+    if (!Array.isArray(candidates) || candidates.length === 0) {
+      throw new GeneratedSourceDeliveryError("the source manifest must contain a nonempty files array.");
+    }
+    if (candidates.length > maxFiles) {
+      throw new GeneratedSourceDeliveryError(`the source manifest exceeds the ${maxFiles}-file budget; dependency files were not truncated.`);
+    }
+
+    const files: GeneratedSourceFile[] = [];
+    const paths = new Set<string>();
+    let totalChars = 0;
+    for (const candidate of candidates) {
+      if (!candidate || typeof candidate !== "object" || typeof candidate.path !== "string" || typeof candidate.content !== "string") {
+        throw new GeneratedSourceDeliveryError("every source file must have a string path and content.");
+      }
+      const path = normalizeGeneratedSourcePath(candidate.path, framework);
+      if (!path) throw new GeneratedSourceDeliveryError("the source manifest contains an unsafe or reserved path.");
+      if (paths.has(path.toLowerCase())) throw new GeneratedSourceDeliveryError(`the source manifest contains a duplicate path: ${path}.`);
+      paths.add(path.toLowerCase());
+      const content = candidate.content.trim();
+      totalChars += content.length;
+      if (!content || content.length > MAX_SOURCE_FILE_CHARS || totalChars > MAX_SOURCE_TOTAL_CHARS) {
+        throw new GeneratedSourceDeliveryError("the source manifest contains an empty or oversized source file.");
+      }
+      files.push({ path, content, language: languageFor(path) });
+    }
+    if (!files.some((file) => file.path === defaultEntry)) {
+      throw new GeneratedSourceDeliveryError(`the source manifest is missing its required entry: ${defaultEntry}.`);
+    }
+    return { entryPath: defaultEntry, files };
+  }
+
+  if (/^\s*\{|^\s*```json\b/.test(raw)) {
+    throw new GeneratedSourceDeliveryError("the provider returned JSON without a source files array.");
+  }
+  return legacyEntry();
 }
 
-const GENERATED_ARTIFACT_JSON_SCHEMA: Record<string, unknown> = {
+export const generatedArtifactJsonSchema = (maxFiles: number): Record<string, unknown> => ({
   type: "object", additionalProperties: false,
-  properties: { files: { type: "array", minItems: 1, maxItems: 16, items: { type: "object", additionalProperties: false, properties: { path: { type: "string" }, content: { type: "string" }, language: { type: "string" } }, required: ["path", "content", "language"] } } },
+  properties: { files: { type: "array", minItems: 1, maxItems: maxFiles, items: { type: "object", additionalProperties: false, properties: { path: { type: "string" }, content: { type: "string" }, language: { type: "string" } }, required: ["path", "content", "language"] } } },
   required: ["files"],
-};
+});
 
 export async function generateCode(
   llm: LLMAdapter,
@@ -81,6 +149,11 @@ export async function generateCode(
   projectSpec?: VerveProjectSpec
 ): Promise<GeneratedCode> {
   const frameworkNote = FRAMEWORK_NOTES[framework] ?? FRAMEWORK_NOTES.nextjs;
+  const modeFileLimit = mode === "fast" ? 8 : 16;
+  const requestedFileLimit = projectSpec?.complexity.maxSourceFiles ?? modeFileLimit;
+  if (!Number.isInteger(requestedFileLimit) || requestedFileLimit < 1) throw new GeneratedSourceDeliveryError("the source-file budget must be a positive integer.");
+  const maxFiles = Math.min(requestedFileLimit, modeFileLimit);
+  const declaredRoutePaths = projectSpec?.experience.routes.map((route) => route.path) ?? ["/"];
 
   // Build compact, non-contradictory color tokens
   const colorTokens = (plan.colorPalette ?? [])
@@ -142,8 +215,8 @@ ${plan.layoutConcept}
 8. Every interaction must be truthful and operational. Never show fake form success. A form without a backend must clearly say it is a demo and must not claim submission.
 9. Do not use innerHTML or dangerouslySetInnerHTML. Avoid runtime font imports and unnecessary third-party dependencies. Build dynamic content with safe DOM APIs or framework rendering.
 10. Navigation targets must exist. Include an intentional ending and a real footer when the page format needs them.
-11. Return ONLY a JSON object with a files array. Implement every declared route within ${projectSpec?.complexity.maxSourceFiles ?? (mode === "fast" ? 8 : 16)} source files. Required entry: ${ENTRY_PATHS[framework] ?? ENTRY_PATHS.nextjs}. No markdown or prose.
-12. Split meaningful route or component boundaries into files. A local CSS file may be included in the files array and imported normally. Avoid package imports beyond React unless essential.
+11. Return ONLY a JSON object with a files array. Implement all and ONLY the declared page routes within ${maxFiles} source files. Declared page routes (exclusive): ${JSON.stringify(declaredRoutePaths)}. The route and file budgets are ceilings, not quotas: never invent extra pages to fill them. Never add an automatic comparison page; /compare is permitted only when it is already in the declared page routes. Older plan prose or checkpoint notes cannot authorize an undeclared route. Required entry: ${ENTRY_PATHS[framework] ?? ENTRY_PATHS.nextjs}. No markdown or prose. Include the complete dependency closure: every referenced local script, imported module, and stylesheet must be present in files, not merely linked from HTML. If the budget is tight, consolidate your implementation before returning it; never omit a dependency file.
+12. Split meaningful route or component boundaries into files. Safe relative .css, .js, and .mjs source paths (including app.js, scripts/app.js, and styles/main.css) are supported. Only HTML projects may author .html pages. React/Next.js instead use nested .ts/.tsx modules under app/, src/, components/, or lib/; never add an authored .html page to a React/Next.js project or replace React's engine-owned index.html scaffold. HTML has no transpilation step, so never include TypeScript or TSX source in an HTML project. Paths must be relative, unique, and free of traversal, hidden directories, URLs, or generated configuration overrides. Do not author engine-owned app/layout.tsx, src/main.tsx, src/main.ts, verve-design.css, or __verve_render_probe.js files. Use route-relative links to shared scripts/styles. HTML controls need actual included JavaScript event handlers (or truthful native HTML behavior); do not deliver only data attributes on inert controls. Avoid package imports beyond React unless essential.
 13. Every mapped React item must have an explicit unique stable id and use that id as its key. Never use visible copy such as label, title, name, result, or measurement as a key.
 14. Do not use overflow:hidden on html, body, #root, or the page shell to conceal responsive overflow. Fix the child layout, use minmax(0, 1fr), and make deliberate wide data tables individually scrollable.
 15. Do not reference a named font unless AVAILABLE ASSETS includes a bundled/local font file. A remote font name without the font file is not available. Otherwise use the exact system stack supplied by the plan. Keep all readable text at 10px or larger.
@@ -180,9 +253,9 @@ ${analysis.rawBrief}`;
     maxTokens: mode === "fast" ? 8000 : 14000,
     reasoningEffort: mode === "fast" ? "low" : "medium",
     timeoutMs: mode === "fast" ? 90_000 : 110_000,
-    responseFormat: { name: "generated_project_sources", schema: GENERATED_ARTIFACT_JSON_SCHEMA },
+    responseFormat: { name: "generated_project_sources", schema: generatedArtifactJsonSchema(maxFiles) },
   });
-  const artifact = parseGeneratedArtifact(raw, framework, projectSpec?.complexity.maxSourceFiles ?? (mode === "fast" ? 8 : 16));
+  const artifact = parseGeneratedArtifact(raw, framework, maxFiles);
   const cleaned = artifact.files.find((file) => file.path === artifact.entryPath)?.content ?? artifact.files[0]?.content ?? "";
 
   // Extract component name from code

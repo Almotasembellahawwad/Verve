@@ -1,10 +1,12 @@
 import type { GeneratedProject, ProjectCheck, ProjectFile, ProjectValidation } from "./types";
 import { DESIGN_CONTRACT_PATH, designContractTokens } from "../domain/design-contract";
 import { readProjectDesignContract } from "./design-contract";
-import { hasHtmlStartTag } from "../security/structural-html";
+import { hasHtmlStartTag, rewriteHtmlElements } from "../security/structural-html";
+import { cssWithoutComments, javaScriptImportReferences, resolveProjectResource } from "./resource-paths";
+import { inspectLocalSourceDependencies } from "./source-dependencies";
 
-const SOURCE_EXTENSIONS = ["", ".ts", ".tsx", ".js", ".jsx", ".css", ".json"];
-const INDEX_EXTENSIONS = ["/index.ts", "/index.tsx", "/index.js", "/index.jsx"];
+const SOURCE_EXTENSIONS = ["", ".ts", ".tsx", ".js", ".mjs", ".jsx", ".css", ".json"];
+const INDEX_EXTENSIONS = ["/index.ts", "/index.tsx", "/index.js", "/index.mjs", "/index.jsx"];
 
 function normalized(path: string): string {
   const output: string[] = [];
@@ -37,7 +39,7 @@ function localResourcePath(from: string, reference: string): string | null {
   // Root-absolute URLs may be served by the host's public directory, which is
   // outside an embedded demo project. Verify relative, export-owned files here.
   if (!target || target.startsWith("/") || /^[a-z][a-z\d+.-]*:/i.test(target)) return null;
-  return normalized(`${directory(from)}/${target}`);
+  return resolveProjectResource(from, reference);
 }
 
 function check(id: string, title: string, status: ProjectCheck["status"], message: string, file?: string): ProjectCheck {
@@ -45,11 +47,11 @@ function check(id: string, title: string, status: ProjectCheck["status"], messag
 }
 
 function sourceFiles(project: GeneratedProject): ProjectFile[] {
-  return project.files.filter((file) => /\.(?:html|tsx?|jsx?)$/i.test(file.path));
+  return project.files.filter((file) => /\.(?:html|tsx?|jsx?|mjs)$/i.test(file.path));
 }
 
 function inspectableFiles(project: GeneratedProject): ProjectFile[] {
-  return project.files.filter((file) => /\.(?:html|tsx?|jsx?|css|scss)$/i.test(file.path));
+  return project.files.filter((file) => /\.(?:html|tsx?|jsx?|mjs|css|scss)$/i.test(file.path));
 }
 
 export function validateGeneratedProject(project: GeneratedProject): ProjectValidation {
@@ -110,11 +112,15 @@ export function validateGeneratedProject(project: GeneratedProject): ProjectVali
   const unresolved: string[] = [];
   const undeclared: string[] = [];
   for (const file of sourceFiles(project)) {
-    for (const match of file.content.matchAll(/(?:import|export)\s+(?:[\s\S]*?\s+from\s+)?["']([^"']+)["']/g)) {
-      const source = match[1];
-      if (source.startsWith(".") && !relativeImportExists(file.path, source, paths)) {
+    for (const reference of javaScriptImportReferences(file.content)) {
+      const source = reference.source;
+      const nextAlias = project.framework === "nextjs" && source.startsWith("@/");
+      const exists = project.framework === "html"
+        ? paths.has(resolveProjectResource(file.path, source) ?? "")
+        : nextAlias ? relativeImportExists("root.tsx", `./${source.slice(2)}`, paths) : relativeImportExists(file.path, source, paths);
+      if ((source.startsWith(".") || nextAlias) && !exists) {
         unresolved.push(`${file.path} -> ${source}`);
-      } else if (!source.startsWith(".") && source !== "react" && !source.startsWith("react/") && source !== "next" && !source.startsWith("next/")) {
+      } else if (!nextAlias && !source.startsWith(".") && !source.startsWith("/") && !/^[a-z][a-z\d+.-]*:/i.test(source) && source !== "react" && !source.startsWith("react/") && source !== "next" && !source.startsWith("next/")) {
         const dependency = packageName(source);
         if (!project.dependencies[dependency]) undeclared.push(`${file.path} -> ${dependency}`);
       }
@@ -126,6 +132,10 @@ export function validateGeneratedProject(project: GeneratedProject): ProjectVali
   checks.push(undeclared.length === 0
     ? check("dependencies", "Package dependencies", "pass", "External imports are declared.")
     : check("dependencies", "Package dependencies", "fail", `Undeclared packages: ${undeclared.slice(0, 4).join("; ")}.`));
+  const sourceDependencyIssues = inspectLocalSourceDependencies(project.files.filter((file) => file.encoding !== "base64"), project.framework);
+  checks.push(sourceDependencyIssues.length === 0
+    ? check("source-dependencies", "Executable source dependencies", "pass", "Delivered scripts, modules and stylesheet imports resolve within the project.")
+    : check("source-dependencies", "Executable source dependencies", "fail", sourceDependencyIssues.slice(0, 6).join("; ")));
 
   if (project.framework === "html") {
     const missingResources: string[] = [];
@@ -139,11 +149,12 @@ export function validateGeneratedProject(project: GeneratedProject): ProjectVali
           if (value && (tag !== "a" || /\.html(?:[?#]|$)/i.test(value))) references.push(value);
         }
       } else {
-        references.push(...[...file.content.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/gi)].map((match) => match[1]));
+        references.push(...[...cssWithoutComments(file.content).matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/gi)].map((match) => match[1]));
       }
       for (const reference of references) {
         const target = localResourcePath(file.path, reference);
-        if (target && !paths.has(target)) missingResources.push(`${file.path} -> ${reference}`);
+        const localRelative = reference.trim() && !/^(?:\/|#|[a-z][a-z\d+.-]*:)/i.test(reference.trim());
+        if ((localRelative && !target) || (target && !paths.has(target))) missingResources.push(`${file.path} -> ${reference}`);
       }
     }
     checks.push(missingResources.length === 0
@@ -180,7 +191,18 @@ export function validateGeneratedProject(project: GeneratedProject): ProjectVali
 
   const ids = new Set([...combined.matchAll(/\bid\s*=\s*["']([^"']+)["']/gi)].map((match) => match[1]));
   const anchors = [...combined.matchAll(/\bhref\s*=\s*["']#([^"']*)["']/gi)].map((match) => match[1]);
-  const brokenAnchors = anchors.filter((anchor) => !anchor || !ids.has(anchor));
+  const brokenAnchors = project.framework === "html" ? project.files.filter((file) => /\.html$/i.test(file.path)).flatMap((file) => {
+    const localIds = new Set<string>();
+    // IDs and fragments belong to this document, not the union of every page.
+    for (const match of file.content.matchAll(/\bid\s*=\s*["']([^"']+)["']/gi)) localIds.add(match[1]);
+    const broken: string[] = [];
+    rewriteHtmlElements(file.content, "a", (element) => {
+      const href = element.attributes.get("href") ?? "";
+      if (href.startsWith("#") && (!href.slice(1) || !localIds.has(href.slice(1)))) broken.push(`${file.path} -> ${href}`);
+      return element.source;
+    });
+    return broken;
+  }) : anchors.filter((anchor) => !anchor || !ids.has(anchor));
   checks.push(brokenAnchors.length === 0
     ? check("anchors", "Internal navigation", "pass", "Every fragment link has a target.")
     : check("anchors", "Internal navigation", "fail", `Broken fragment targets: ${brokenAnchors.map((anchor) => anchor || "#").slice(0, 6).join(", ")}.`));
@@ -251,7 +273,8 @@ export function validateGeneratedProject(project: GeneratedProject): ProjectVali
   const hasTypographyContract = project.files.some((file) => file.path === "ASSETS.md" && /## Typography contract\b/i.test(file.content));
   if (hasTypographyContract) {
     const fontFiles = project.files.filter((file) => file.encoding === "base64" && file.mediaType === "font/woff2");
-    const fontUrls = [...combined.matchAll(/url\(\s*["']?([^"')?#]+\.woff2)[^)]*\)/gi)].map((match) => normalized(match[1]));
+    const fontUrls = inspectableFiles(project).flatMap((file) => [...file.content.matchAll(/url\(\s*["']?([^"')?#]+\.woff2)[^)]*\)/gi)]
+      .map((match) => resolveProjectResource(file.path, match[1]) ?? normalized(match[1])));
     const missingFontUrls = fontUrls.filter((fontUrl) => !paths.has(fontUrl) && !paths.has(`public/${fontUrl}`));
     const sourceWithoutFaces = combined.replace(/@font-face\s*\{[^}]*\}/gi, "");
     const appliesContract = /font-family\s*:\s*[^;}]*var\(\s*--verve-font-(?:display|body|mono)\s*\)/i.test(sourceWithoutFaces)

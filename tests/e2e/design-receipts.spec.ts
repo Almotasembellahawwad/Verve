@@ -8,6 +8,7 @@ import { projectRevision } from "../../lib/project/project-revision";
 import type { AssetBundle } from "../../lib/engine/asset-sourcer";
 import type { RenderedEvaluationEvidence } from "../../lib/engine/evaluation-coherence";
 import type { RenderGateReport } from "../../lib/project/render-gate";
+import { RENDER_RECEIPT_PROBE_VERSION } from "../../lib/domain/render-receipt";
 
 test("design choices reach preview and export; edited output cannot inherit the original render receipt", async ({ page }, testInfo) => {
   const brief = "A Cairo print studio. Riso Notebook: A5, 80 pages, 120gsm paper, EGP 450. Compare specifications before a wholesale enquiry. No photography.";
@@ -79,7 +80,7 @@ test("design choices reach preview and export; edited output cannot inherit the 
   const receipt = (await historyAudit())!;
   expect(receipt.covered).toBe(3);
   expect(receipt.binding?.revision).toEqual(expectedRevision);
-  expect(receipt.binding?.probeVersion).toBe(3);
+  expect(receipt.binding?.probeVersion).toBe(RENDER_RECEIPT_PROBE_VERSION);
   expect(receipt.binding?.testedSurfaces.every((surface) => /^surface-[a-z0-9]+$/.test(surface.routeKey) && /^surface-[a-z0-9]+$/.test(surface.stateKey))).toBe(true);
 
   const oldProbe = await page.evaluate(() => (window as typeof window & { receiptProbeReports: RenderGateReport[] }).receiptProbeReports.find((report) => Math.abs(report.viewport.width - 360) <= 2)!);
@@ -88,12 +89,21 @@ test("design choices reach preview and export; edited output cannot inherit the 
   await expect(preview.getByRole("heading", { name: "Revised paper specifications" })).toBeVisible();
   const renderStatus = workspace.getByText(/NATIVE HTML.*RENDER GATE/);
   await expect(renderStatus).toContainText("1/3");
+  // The original frame can legitimately refresh its capture timestamp between
+  // the three-width capture and the edit. Snapshot *after* the edited frame has
+  // reported, so the replay assertion tests stale-message rejection, not timer
+  // scheduling. The saved evidence must still describe the original artifact.
+  const storedReceiptBeforeReplay = (await historyAudit())!;
+  const { capturedAt: originalCapturedAt, ...originalEvidence } = receipt;
+  const { capturedAt: latestCapturedAt, ...storedEvidence } = storedReceiptBeforeReplay;
+  expect(storedEvidence).toEqual(originalEvidence);
+  expect(latestCapturedAt).toBeGreaterThanOrEqual(originalCapturedAt);
   // A queued message from the old frame cannot re-populate the edited matrix.
   const receivedBeforeInjection = await page.evaluate(() => (window as typeof window & { receiptProbeReports: RenderGateReport[] }).receiptProbeReports.length);
   await preview.locator("html").evaluate((_, report) => parent.postMessage(report, "*"), oldProbe);
   await expect.poll(() => page.evaluate(({ start, probeId }) => (window as typeof window & { receiptProbeReports: RenderGateReport[] }).receiptProbeReports.slice(start).some((report) => report.probeId === probeId), { start: receivedBeforeInjection, probeId: oldProbe.probeId })).toBe(true);
   await expect(renderStatus).toContainText("1/3");
-  await expect.poll(() => historyAudit()).toEqual(receipt);
+  await expect.poll(() => historyAudit()).toEqual(storedReceiptBeforeReplay);
   await page.getByRole("tab", { name: "Critique Report" }).click();
   await expect(page.getByText("Creative claim: provisional")).toBeVisible();
   await expect(page.getByText(/Browser evidence must match this exact source/)).toBeVisible();
