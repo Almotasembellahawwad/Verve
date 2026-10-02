@@ -20,6 +20,7 @@ All notable changes to Verve are documented here.
 
 ### Changed
 
+- Updated the two development-only `brace-expansion` lockfile resolutions to patched 1.1.21 and 5.0.12 after CI identified nested-brace/parse-comma stack-exhaustion and quadratic-time expansion advisories. Direct dependencies and the high-severity audit gate remain unchanged.
 - Replaced ambiguous scene-level `avoid` values with `not-applicable` when a scene intentionally uses programmatic data, shape, interaction, or motion instead of external media; Pexels discovery now requests only the minimum scene demand.
 - Removed the dormant Google Fonts API/import experiment. Generated projects now use only locally bundled, licensed fonts and require no font-service API key or runtime CDN.
 - Replaced the blanket oversized-hero warning in direction, planning, and code prompts with a functional rule: cinematic openings are valid when they carry verified decision information and an immediate primary action.

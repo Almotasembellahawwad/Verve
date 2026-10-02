@@ -20,6 +20,15 @@ CI now audits the full dependency tree at the high-severity threshold; a registr
 failure is visible rather than silently ignored. Zero registry advisories at a point
 in time is not proof that the application has no security vulnerabilities.
 
+The 2026-10-02 delivery slice hit new CI audit findings in development-only
+ESLint dependency paths. The two `brace-expansion` resolutions move from 1.1.18
+and 5.0.9 to patched 1.1.21 and 5.0.12 without changing direct dependency ranges
+or weakening the audit gate. Maintainer advisories cover
+[nested-brace stack exhaustion](https://github.com/juliangruber/brace-expansion/security/advisories/GHSA-qhr7-859c-m2p7),
+[parse-comma stack exhaustion](https://github.com/juliangruber/brace-expansion/security/advisories/GHSA-6j4f-fj2g-mc7p),
+and [quadratic expansion](https://github.com/juliangruber/brace-expansion/security/advisories/GHSA-q2hr-2g5m-vwhr).
+Affected packages in the development tree are not evidence of production exploitability.
+
 ## The decision
 
 Build a **design-directed creation workflow**, not another general-purpose IDE.
