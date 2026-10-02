@@ -7,10 +7,11 @@
   "examples": {
     "architecture": {
       "fingerprintVersion": 2,
-      "nearestMeasuredExampleDistance": 0.326,
-      "platformDistances": { "win32": 0.326, "linux": null },
+      "nearestMeasuredExampleDistance": 0.325,
+      "platformDistances": { "win32": 0.326, "linux": 0.325 },
       "historicalPlatformDistances": { "win32": 0.235, "linux": 0.232 },
-      "measurementNote": "The corrected app-origin harness verifies decoded local media. Windows was remeasured; Linux is pending. Historical values came from the older harness without image-load verification and cannot authorize current diversity.",
+      "measurementNote": "The corrected app-origin harness verifies decoded local media. Windows measured 0.326 locally; Ubuntu CI measured 0.325 in run 37066132378 at source e6e816d875fee0241aaea3dd3ec51faec450511f. Historical values came from the older harness without image-load verification and cannot authorize current diversity.",
+      "linuxMeasurementSource": "https://github.com/Almotasembellahawwad/Verve/actions/runs/37066132378/job/111034253953",
       "failures": 0,
       "warnings": 0,
       "fontFamilies": ["Arial", "Georgia"],
