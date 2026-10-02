@@ -28,7 +28,7 @@ import { runRestraintCheck, type RestraintResult }                     from "../
 import { scoreEngineering, type EngineeringResult }                   from "../engine/engineering-score";
 import { inspectSupportingSource, runCodeQualityLoop, type CodeQualityResult } from "../engine/code-quality-loop";
 import { fixPaletteContrast, type ContrastFixReport }             from "../engine/contrast-fixer";
-import type { BrandProfile, OwnedAssetManifest } from "../project/brand-kit";
+import { directionBrandContext, type BrandProfile, type OwnedAssetManifest } from "../project/brand-kit";
 import { inspectDesignDiversity, type DesignDiversityResult } from "../engine/design-diversity";
 import { buildGeneratedProject }                                      from "../project/project-builder";
 import type { GeneratedProject }                                      from "../project/types";
@@ -45,10 +45,12 @@ import { runOptionalProviderStep }                                    from "../e
 import {
   checkpointMatchesInput,
   createPipelineCheckpoint,
+  resolveResumedDesignPlan,
   type PipelineCheckpoint,
 } from "../engine/pipeline-checkpoint";
 import { createGenerationStrategy, type GenerationMode } from "./generation-strategy";
 import { DEFAULT_GENERATION_MODE } from "../domain/generation-mode";
+import { InvalidGenerationInputError } from "../errors/invalid-generation-input-error";
 import type { LLMPort, Provider } from "../ports/llm";
 import type { AssetSourcePort } from "../ports/assets";
 import type { AssetDeliveryPort } from "../ports/assets";
@@ -170,7 +172,7 @@ export async function runGenerationUseCase(
   const llm = dependencies.llm;
   const progress = dependencies.progress ?? new NullProgressPublisher();
   const brandContext = JSON.stringify({ brandProfile, ownedAssets });
-  const directionBrandContext = brandProfile ? JSON.stringify(brandProfile) : undefined;
+  const directionContext = directionBrandContext(brandProfile, ownedAssets);
   const checkpointInput = { brief, existingCode, framework, mode, brandContext };
   const resumeCheckpoint = checkpointMatchesInput(checkpoint, checkpointInput)
     ? checkpoint
@@ -179,9 +181,14 @@ export async function runGenerationUseCase(
     brief,
     framework,
     mode,
-    brandContext: directionBrandContext,
+    brandContext: directionContext,
   }) ? directionCheckpoint : undefined;
   let activeDirectionCheckpoint = validDirectionCheckpoint;
+  const selectionCandidates = validDirectionCheckpoint?.board.portfolio.candidates
+    ?? (resumeCheckpoint?.completedStage === "04" ? resumeCheckpoint.designPlan?.directionPortfolio?.candidates : undefined);
+  if (selectedDirectionId && !selectionCandidates?.some((candidate) => candidate.id === selectedDirectionId)) {
+    throw new InvalidGenerationInputError("Selected direction is not present in a checkpoint matching this request. Explore directions again before generation.");
+  }
 
   let activeStageId = "boot";
   const degradations: PipelineDegradation[] = [];
@@ -243,7 +250,7 @@ export async function runGenerationUseCase(
       framework,
       referenceRepository: dependencies.referenceLibraryRepository,
       recentDirectionFingerprints,
-      brandContext: directionBrandContext,
+      brandContext: directionContext,
     });
     activeDirectionCheckpoint = createDirectionCheckpoint(board);
     emit("stage_done", {
@@ -305,12 +312,13 @@ export async function runGenerationUseCase(
 
   emit("stage_start", { id: "03", name: "Design Plan Generation", module: "PlanGenerator + G" }, "03-start");
   elapsed = timer();
-  const resumedPlan = resumeCheckpoint?.completedStage === "04"
+  const savedPlan = resumeCheckpoint?.completedStage === "04"
     ? resumeCheckpoint.designPlan
     : undefined;
   const boardPlan = activeDirectionCheckpoint
     ? buildPlanFromDirectionBoard(briefAnalysis, activeDirectionCheckpoint.board, selectedDirectionId)
     : undefined;
+  const resumedPlan = resolveResumedDesignPlan(savedPlan, selectedDirectionId, boardPlan);
   const planStep = resumedPlan
     ? { value: resumedPlan, degraded: false, reason: undefined }
     : boardPlan && strategy.mode === "fast"
@@ -453,7 +461,7 @@ export async function runGenerationUseCase(
     brandProfile,
     ownedAssets,
     recentDirectionFingerprints,
-    selectedDirectionLocked: Boolean(activeDirectionCheckpoint),
+    selectedDirectionLocked: Boolean(activeDirectionCheckpoint || resumedPlan?.directionPortfolio),
   }, progress);
   designPlan = foundation.designPlan;
   let projectSpec = foundation.projectSpec;
@@ -495,6 +503,12 @@ export async function runGenerationUseCase(
     briefEvidence: projectSpec.briefEvidence,
     requiredEvidenceIds: projectSpec.narrative.scenes.flatMap((scene) => scene.evidenceIds ?? []),
     compositionGenome: projectSpec.narrative.compositionGenome,
+    sourceFiles: generated.files,
+    entryPath: generated.entryPath,
+    maxSourceFiles: projectSpec.complexity.maxSourceFiles,
+    declaredRoutePaths: projectSpec.experience.routes.map((route) => route.path),
+    engineProvidedPaths: framework === "html" ? ["verve-design.css"]
+      : framework === "react" ? ["src/index.css", "src/verve-design.css"] : ["app/globals.css", "app/verve-design.css"],
     supportingSource: (generated.files ?? [])
       .filter((file) => file.path !== generated.entryPath)
       .map((file) => file.content)
@@ -523,7 +537,7 @@ export async function runGenerationUseCase(
   let finalCode: typeof generatedCode = {
     ...generatedCode,
     code: codeQualityResult.code,
-    files: generatedCode.files?.map((file) => file.path === generatedCode.entryPath
+    files: codeQualityResult.files ?? generatedCode.files?.map((file) => file.path === generatedCode.entryPath
       ? { ...file, content: codeQualityResult.code }
       : file),
   };
@@ -534,7 +548,7 @@ export async function runGenerationUseCase(
     fingerprints: diversityResult.fingerprints,
   }, "diversity-check-1");
 
-  if (strategy.mode === "creative" && !codeQualityResult.wasRepaired && !diversityResult.passed) {
+  if (strategy.mode === "creative" && !codeQualityResult.repairAttempted && !diversityResult.passed) {
     emit("diversity:retry", {
       attempt: 2,
       reason: diversityResult.recommendation,
@@ -592,7 +606,7 @@ export async function runGenerationUseCase(
     .filter((file) => file.path !== finalCode.entryPath)
     .flatMap((file) => inspectSupportingSource(file.content, file.path, framework, briefAnalysis.rawBrief, typographyContractFamilies(typographyContract)));
   if (supportingIssues.length > 0) {
-    codeQualityResult = { ...codeQualityResult, issues: [...codeQualityResult.issues, ...supportingIssues] };
+    codeQualityResult = { ...codeQualityResult, issues: [...new Set([...codeQualityResult.issues, ...supportingIssues])] };
   }
   // Score the delivered code, not the user's brief/input. The input scan is
   // retained only as generation guidance and prompt-injection context.
@@ -681,7 +695,7 @@ export async function runGenerationUseCase(
     deliveredCode,
     briefAnalysis,
     designPlan,
-    codeQualityResult.wasRepaired ? [] : codeQualityResult.issues,
+    codeQualityResult.issues,
     [...assetBundle.readinessWarnings, ...assetUsage.warnings, ...delivery.receipt.warnings, ...visualIntentSource.warnings, ...directionDiversity.warnings, ...diversityWarnings, ...typographyWarnings],
     projectSpec.assetDirection,
     delivery.receipt,

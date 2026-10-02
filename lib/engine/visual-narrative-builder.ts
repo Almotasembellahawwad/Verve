@@ -34,56 +34,120 @@ type BriefSignals = {
   expressive: boolean;
 };
 
-function briefText(analysis: BriefAnalysis): string {
-  return `${analysis.subject} ${analysis.audience} ${analysis.primaryJob} ${analysis.tone} ${analysis.industry} ${analysis.constraints.join(" ")} ${analysis.rawBrief}`;
+function detectSignals(analysis: BriefAnalysis): BriefSignals {
+  // Inferred audience/job/tone are hypotheses, not requests for extra content or
+  // pages. In particular, a generic "choose" job must not create /compare.
+  const text = analysis.rawBrief;
+  return {
+    comparison: /\b(?:compare|comparison|versus|spec(?:ification)?s?|prices?|weights?|binding|batch(?:es)?)\b|مقارن|مواصف|سعر|وزن|تجليد/i.test(text),
+    collection: /\b(?:collections?|catalog|portfolio|library|products?|cases|case studies|projects?|browse|inventory)\b|مجموعة|كتالوج|منتجات|أعمال|تصفح|مخزون/i.test(text),
+    evidence: /\b(?:evidence|proof|data|results?|methods?|materials?|provenance|research|verified|spec(?:ification)?s?)\b|دليل|بيانات|نتائج|منهج|مواد|موثق|مواصف/i.test(text),
+    workflow: /\b(?:workflow|process|journey|steps?|operations?|manage|monitor|dashboard|workspace|learn|how it works)\b|عملية|رحلة|خطوة|عمليات|إدارة|مراقبة|لوحة|تعلم/i.test(text),
+    action: /\b(?:order|book|reserve|contact|apply|subscribe|request|quote|checkout|buy)\b|طلب|احجز|حجز|تواصل|تقديم|اشترك|شراء/i.test(text),
+    spatial: /\b(?:maps?|places?|locations?|architecture|spaces?|site|geography)\b|خريطة|مكان|موقع\s+(?:المشروع|المبنى|جغرافي)|عمارة|مساحة/i.test(text),
+    expressive: /\b(?:campaign|story|culture|editorial|exhibition|fashion|art|festival)\b|حملة|قصة|ثقافة|معرض|أزياء|فن|مهرجان/i.test(text),
+  };
 }
 
-function detectSignals(analysis: BriefAnalysis): BriefSignals {
-  const text = briefText(analysis);
-  return {
-    comparison: /compare|comparison|versus|spec(?:ification)?s?|price|weight|binding|batch|choose|decision|مقارن|مواصف|سعر|وزن|تجليد|اختيار/i.test(text),
-    collection: /collection|catalog|portfolio|library|products?|cases?|projects?|browse|inventory|مجموعة|كتالوج|منتجات|أعمال|تصفح|مخزون/i.test(text),
-    evidence: /evidence|proof|data|results?|method|material|provenance|research|verified|spec(?:ification)?s?|دليل|بيانات|نتائج|منهج|مواد|موثق|مواصف/i.test(text),
-    workflow: /workflow|process|journey|step|operations?|manage|monitor|dashboard|workspace|learn|how it works|عملية|رحلة|خطوة|عمليات|إدارة|مراقبة|لوحة|تعلم/i.test(text),
-    action: /order|book|reserve|contact|apply|subscribe|request|quote|checkout|buy|طلب|احجز|حجز|تواصل|تقديم|اشترك|شراء/i.test(text),
-    spatial: /map|place|location|architecture|space|site|geography|خريطة|مكان|موقع|عمارة|مساحة/i.test(text),
-    expressive: /campaign|story|culture|editorial|exhibition|fashion|art|festival|حملة|قصة|ثقافة|معرض|أزياء|فن|مهرجان/i.test(text),
-  };
+function routeIntentIsNegated(text: string, position: number, label = ""): boolean {
+  const context = `${text.slice(Math.max(0, position - 60), position)} ${label}`;
+  return /\b(?:avoid|without|no|not|never|don't)\b[^.!;\n]{0,50}$|(?:^|[\s،؛.!?])(?:لا|بدون|تجنب|ليس|ليست)\s[^.!؛\n]{0,50}$/i.test(context);
 }
 
 export function deriveNarrativeRoutes(
   analysis: BriefAnalysis,
-  profile: ComplexityProfile,
+  _profile: ComplexityProfile,
   model: ExperienceModel,
   maxRoutes: number
 ): NarrativeRouteBlueprint[] {
-  const signals = detectSignals(analysis);
+  const text = analysis.rawBrief;
   const candidates: NarrativeRouteBlueprint[] = [
     { id: "route-primary", path: "/", purpose: `Carry the primary job through the ${model} experience.`, sceneKind: "primary" },
   ];
-  if (signals.comparison) candidates.push({ id: "route-compare", path: "/compare", purpose: "Compare the brief's verified differences in a dedicated decision surface.", sceneKind: "comparison" });
-  if (signals.collection) candidates.push({ id: "route-collection", path: "/collection", purpose: "Browse the supplied collection without flattening its meaningful differences.", sceneKind: "collection" });
-  if (signals.evidence) candidates.push({ id: "route-evidence", path: "/evidence", purpose: "Inspect provenance, specifications, or evidence supplied by the brief.", sceneKind: "evidence" });
-  if (signals.workflow) candidates.push({ id: "route-workflow", path: "/workflow", purpose: "Work through the task as a visible sequence of meaningful states.", sceneKind: "workflow" });
-  if (signals.action) candidates.push({ id: "route-start", path: "/start", purpose: "Complete the primary action with an honest, inspectable outcome.", sceneKind: "action" });
-
-  const target = profile === "focused" ? 1 : profile === "balanced" ? 2 : maxRoutes;
-  const fallbacks: NarrativeRouteBlueprint[] = model === "task-workbench" || model === "live-canvas"
-    ? [
-        { id: "route-workflow", path: "/workflow", purpose: "Preserve working context while the audience completes the primary task.", sceneKind: "workflow" },
-        { id: "route-evidence", path: "/evidence", purpose: "Inspect only evidence already supplied by the brief.", sceneKind: "evidence" },
-        { id: "route-start", path: "/start", purpose: "Resolve the next action without implying an unavailable backend.", sceneKind: "action" },
-      ]
-    : [
-        { id: "route-collection", path: "/collection", purpose: "Explore the supplied subject through a distinct supporting context.", sceneKind: "collection" },
-        { id: "route-evidence", path: "/evidence", purpose: "Inspect only evidence already supplied by the brief.", sceneKind: "evidence" },
-        { id: "route-start", path: "/start", purpose: "Resolve the next action without implying an unavailable backend.", sceneKind: "action" },
-      ];
-  for (const fallback of fallbacks) {
-    if (candidates.length >= target) break;
-    if (!candidates.some((route) => route.id === fallback.id)) candidates.push(fallback);
+  // A complexity budget is a ceiling, not an obligation to manufacture empty
+  // destinations. Comparing records and inspecting evidence can happen inline.
+  const explicitSinglePage = [...text.matchAll(/\bsingle[ -]?page\b|\bone[ -]?page\b|صفحة\s+واحدة/gi)].some((match) => {
+    return !routeIntentIsNegated(text, match.index!);
+  });
+  if (explicitSinglePage) return candidates;
+  const requests = explicitRouteRequests(text);
+  for (const request of requests) {
+    if (request.path === "/" || candidates.some((route) => route.path === request.path)) continue;
+    const baseId = `route-${request.path.slice(1).replaceAll("/", "-")}`;
+    const id = candidates.some((route) => route.id === baseId) ? `${baseId}-${routeLabelHash(request.path)}` : baseId;
+    candidates.push({
+      id, path: request.path, sceneKind: routeKind(request.label),
+      purpose: `Implement the explicitly requested ${request.label} page using only supplied content and truthful task outcomes.`,
+    });
   }
-  return candidates.slice(0, Math.min(target, maxRoutes));
+  const limit = Number.isInteger(maxRoutes) && maxRoutes > 0 ? maxRoutes : 1;
+  const omitted = candidates.slice(limit).map((route) => route.path);
+  if (omitted.length) candidates[0].purpose += ` Route budget ${limit}: requested destinations ${omitted.join(", ")} are outside this generation; do not pretend those pages or links were implemented.`;
+  return candidates.slice(0, limit);
+}
+
+function routeLabelHash(label: string): string {
+  let hash = 2166136261;
+  for (const character of label) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
+  return (hash >>> 0).toString(16);
+}
+
+function routeKind(label: string): NarrativeRouteBlueprint["sceneKind"] {
+  if (/\b(?:compare|comparison)\b|مقارن/i.test(label)) return "comparison";
+  if (/\b(?:collections?|catalog|products?|projects?|portfolio|work|gallery|exhibitions?|library|resources?|blog|news|case studies)\b|مجموعة|كتالوج|منتجات|المشاريع|أعمال|معرض|مكتبة/i.test(label)) return "collection";
+  if (/\b(?:workflow|dashboard|workspace|tools?|experiments?|settings|account)\b|سير العمل|لوحة التحكم|مساحة العمل/i.test(label)) return "workflow";
+  if (/\b(?:contact|booking|checkout|start|visit|subscribe|donate|order)\b|التواصل|الحجز|الدفع|الزيارة/i.test(label)) return "action";
+  return "evidence";
+}
+
+function routePath(label: string): string {
+  if (/^(?:home|homepage|index|overview|landing|الرئيسية|الصفحة الرئيسية)$/i.test(label)) return "/";
+  if (/^\/[a-z0-9][a-z0-9_-]{0,47}(?:\/[a-z0-9][a-z0-9_-]{0,47}){0,3}$/i.test(label)) return label.toLowerCase();
+  if (/^(?:compare|comparison|مقارنة)$/i.test(label)) return "/compare";
+  const arabicPaths: Record<string, string> = { المشاريع: "projects", المنتجات: "products", الأعمال: "work", المجموعة: "collection", المعرض: "gallery", الأدلة: "evidence", البحث: "research", "من نحن": "about", "عن الشركة": "about", التواصل: "contact", الحجز: "booking", الدفع: "checkout", الزيارة: "visit", الخدمات: "services", الفريق: "team" };
+  if (arabicPaths[label]) return `/${arabicPaths[label]}`;
+  const slug = label.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48).replace(/-$/g, "");
+  return `/${slug || `page-${routeLabelHash(label)}`}`;
+}
+
+function explicitRouteRequests(text: string): Array<{ path: string; label: string }> {
+  const requests: Array<{ path: string; label: string; position: number }> = [];
+  const negated = (position: number, label = "") => routeIntentIsNegated(text, position, label);
+  const addLabel = (raw: string, position: number) => {
+    if (negated(position, raw)) return;
+    const label = raw.trim().replace(/^[\s\-*"'“”]+|[\s"'“”]+$/g, "").replace(/^\d+[.)]\s*/, "")
+      .replace(/^(?:(?:build|create|design|include|want|a|an|the|and|separate|dedicated|standalone)\s+)+/i, "").trim();
+    if (!label || label.length > 80 || /\b(?:website|site|with|for|that|which|should|must|can|users|buyers|compare)\s+\w/i.test(label)) return;
+    const path = routePath(label);
+    if (/^\/(?:api|assets|public|_next)(?:\/|$)/i.test(path)) return;
+    requests.push({ path, label, position });
+  };
+  const addList = (list: string, position: number) => {
+    for (const entry of list.split(/\s*(?:[,;،\n]|\band\b|&|\s+و(?=[\p{L}]))\s*/iu)) {
+      addLabel(entry, position + list.indexOf(entry));
+    }
+  };
+  // Literal safe frontend paths retain their names; external URLs, endpoints,
+  // and asset filenames cannot become extra user-facing pages.
+  for (const match of text.matchAll(/(?<![\w:/.])\/[a-z0-9][a-z0-9_-]{0,47}(?:\/[a-z0-9][a-z0-9_-]{0,47}){0,3}(?=$|[\s,;:.)\]"'])/gi)) {
+    if (/^\.[a-z0-9]/i.test(text.slice(match.index! + match[0].length))) continue;
+    addLabel(match[0], match.index!);
+  }
+  // Page-list declarations, including a list on following bullet lines.
+  for (const match of text.matchAll(/(?:^|\n|[.;])\s*(?:pages|routes|صفحات|الصفحات)\s*[:：]\s*([^.!?]+?)(?=[.!?]|$)/gi)) addList(match[1], match.index! + match[0].indexOf(match[1]));
+  for (const match of text.matchAll(/\b(?:with|including|include|build|create|design)\s+([^.!?\n]+?)\s+(?:pages|routes)\b/gi)) {
+    const list = match[1].replace(/^.*\bwith\s+/i, "");
+    addList(list, match.index! + match[0].lastIndexOf(list));
+  }
+  // An explicit multi-page label followed by a named list does not make the
+  // artifact descriptor (e.g. "portfolio") a second /portfolio destination.
+  if (/\bmulti[ -]?page\b|\bmultiple (?:pages|routes)\b|متعدد\s+الصفحات|صفحات\s+متعددة/i.test(text)) {
+    for (const match of text.matchAll(/\b(?:with|including)\s+([^.!?\n]+)/gi)) addList(match[1].replace(/\s+(?:pages|routes)\b.*$/i, ""), match.index! + match[0].indexOf(match[1]));
+    for (const match of text.matchAll(/(?:متعدد\s+الصفحات|صفحات\s+متعددة)\s*[:：]\s*([^.!?\n]+)/gi)) addList(match[1], match.index! + match[0].indexOf(match[1]));
+  }
+  for (const match of text.matchAll(/\b([\p{L}\p{N}_-]+(?:\s+[\p{L}\p{N}_-]+){0,2})\s+(?:page|screen)\b/giu)) addLabel(match[1], match.index!);
+  for (const match of text.matchAll(/صفحة\s+([^.!?،\n]{1,60})/gi)) addLabel(match[1].replace(/\s+(?:مستقلة|منفصلة).*$/, ""), match.index!);
+  return requests.sort((left, right) => left.position - right.position).map(({ path, label }) => ({ path, label }));
 }
 
 function openingRole(plan: DesignPlan): NarrativeRole {
@@ -103,7 +167,7 @@ function selectedDirection(plan: DesignPlan) {
   return portfolio?.candidates.find((candidate) => candidate.id === portfolio.selectedDirectionId) ?? portfolio?.candidates[0];
 }
 
-function primaryRoles(analysis: BriefAnalysis, plan: DesignPlan, profile: ComplexityProfile): NarrativeRole[] {
+function primaryRoles(analysis: BriefAnalysis, plan: DesignPlan, contract: BriefEvidenceContract): NarrativeRole[] {
   const signals = detectSignals(analysis);
   const model = selectedDirection(plan)?.descriptors.experienceModel;
   const roles: NarrativeRole[] = [openingRole(plan)];
@@ -119,17 +183,22 @@ function primaryRoles(analysis: BriefAnalysis, plan: DesignPlan, profile: Comple
             ? ["discovery", "choice", "proof", "tension"]
             : ["discovery", "choice", "tension", "proof"];
 
-  if (signals.comparison) roles.push("choice");
-  if (signals.evidence) roles.push("proof");
-  if (signals.collection || signals.workflow || signals.spatial) roles.push("discovery");
-  if (signals.expressive || analysis.constraints.length > 0) roles.push("tension");
-  for (const role of preferred) if (!roles.includes(role)) roles.push(role);
-  const desiredBeforePayoff = profile === "focused" ? 3 : profile === "balanced" ? 4 : 5;
-  return [...roles.filter((role, index) => roles.indexOf(role) === index).slice(0, desiredBeforePayoff), "payoff"];
+  const eligible = new Set<NarrativeRole>();
+  if (signals.comparison || signals.collection || signals.workflow || (signals.action && model === "guided-conversation")) eligible.add("choice");
+  if (signals.evidence || contract.records.length > 0 || contract.items.some((item) => item.kind === "quantified-fact")) eligible.add("proof");
+  if (signals.collection || signals.workflow || signals.spatial || model === "spatial-map" || model === "live-canvas") eligible.add("discovery");
+  if (signals.expressive) eligible.add("tension");
+  // The selected direction controls the ordering of supported scene roles.
+  // It must not fill every absent role just to create a five-section silhouette.
+  for (const role of preferred) if (eligible.has(role) && !roles.includes(role)) roles.push(role);
+  // Preserve the current three-scene contract: orientation, an actionable
+  // decision/exploration, and a truthful consequence. Do not invent evidence.
+  if (roles.length === 1) roles.push(roles[0] === "choice" ? "discovery" : "choice");
+  return [...roles, "payoff"];
 }
 
-function routeRoles(route: NarrativeRouteBlueprint, analysis: BriefAnalysis, plan: DesignPlan, profile: ComplexityProfile): NarrativeRole[] {
-  if (route.sceneKind === "primary") return primaryRoles(analysis, plan, profile);
+function routeRoles(route: NarrativeRouteBlueprint, analysis: BriefAnalysis, plan: DesignPlan, contract: BriefEvidenceContract): NarrativeRole[] {
+  if (route.sceneKind === "primary") return primaryRoles(analysis, plan, contract);
   const byKind: Record<NarrativeRouteBlueprint["sceneKind"], NarrativeRole[]> = {
     primary: [],
     comparison: ["choice", "proof", "payoff"],
@@ -286,7 +355,7 @@ export function buildVisualNarrativeContract(input: {
   const scenes: StoryScene[] = [];
 
   for (const route of routes) {
-    for (const [index, role] of routeRoles(route, analysis, plan, profile).entries()) {
+    for (const [index, role] of routeRoles(route, analysis, plan, briefEvidence).entries()) {
       const id = `scene-${route.id.replace(/^route-/, "")}-${role}-${index + 1}`;
       scenes.push({
         id,
@@ -305,6 +374,17 @@ export function buildVisualNarrativeContract(input: {
     routeScenes.forEach((scene, index) => {
       if (routeScenes[index + 1]) scene.nextSceneIds.push(routeScenes[index + 1].id);
     });
+    // Browsing, conversation, and canvas directions expose relevant local
+    // branches. Those branches are scene states, not compulsory extra pages.
+    if (["collection-browser", "guided-conversation", "spatial-map", "live-canvas"].includes(model)) {
+      const opening = routeScenes[0];
+      const destinations = routeScenes.slice(1).filter((scene) => ["choice", "discovery", "proof"].includes(scene.narrativeRole));
+      if (opening) {
+        for (const destination of destinations) {
+          if (!opening.nextSceneIds.includes(destination.id)) opening.nextSceneIds.push(destination.id);
+        }
+      }
+    }
   }
   if (routes.length > 1) {
     const primaryOpening = scenes.find((scene) => scene.routeId === routes[0].id);

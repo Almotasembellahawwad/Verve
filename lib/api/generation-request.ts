@@ -109,6 +109,7 @@ export const DirectionRequestSchema = z.object({
   provider: z.enum(["anthropic", "openai", "gemini", "openrouter"]).optional().default("anthropic"),
   model: z.string().max(100).optional(),
   brandProfile: BrandProfileSchema.optional(),
+  ownedAssets: z.array(OwnedAssetSchema).max(4).optional().default([]),
   mode: z.enum(GENERATION_MODES).optional().default(DEFAULT_GENERATION_MODE),
   recentDirectionFingerprints: z.array(DirectionFingerprintSchema).max(24).optional().default([]),
 });
@@ -133,6 +134,10 @@ export const GenerationRequestSchema = z.object({
   if (request.selectedDirectionId && request.directionCheckpoint
     && !request.directionCheckpoint.board.portfolio.candidates.some((candidate) => candidate.id === request.selectedDirectionId)) {
     context.addIssue({ code: "custom", path: ["selectedDirectionId"], message: "Selected direction is not present in the supplied Direction Board." });
+  }
+  if (request.selectedDirectionId && !request.directionCheckpoint
+    && !request.checkpoint?.designPlan?.directionPortfolio?.candidates.some((candidate) => candidate.id === request.selectedDirectionId)) {
+    context.addIssue({ code: "custom", path: ["selectedDirectionId"], message: "Selected direction requires a matching Direction Board or a saved plan containing that candidate." });
   }
 });
 

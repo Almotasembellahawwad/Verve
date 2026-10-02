@@ -186,6 +186,8 @@ test("security headers protect the public surface", async ({ request }) => {
   expect(response.headers()["x-content-type-options"]).toBe("nosniff");
   expect(response.headers()["x-frame-options"]).toBe("DENY");
   expect(response.headers()["content-security-policy"]).toContain("frame-ancestors 'none'");
+  expect(response.headers()["content-security-policy"]).toContain("script-src-elem 'self' 'unsafe-inline' data:");
+  expect(response.headers()["content-security-policy"]).toContain("worker-src 'self' blob:");
 });
 
 test("public discovery files expose the simplified information architecture", async ({ request }) => {

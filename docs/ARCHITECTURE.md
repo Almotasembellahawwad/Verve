@@ -118,9 +118,26 @@ ProjectSpec maps those evidence IDs into Story Graph scenes and information shap
 
 ## Project and preview boundary
 
-`buildGeneratedProject()` creates Next.js, React/Vite, or HTML scaffolds, runs deterministic validation, and computes three-axis readiness. Static HTML is delivered as `index.html`, `styles.css`, and optional `script.js`. Browser ZIP packaging consumes the current edited project, not the original response.
+`buildGeneratedProject()` creates Next.js, React/Vite, or HTML scaffolds, runs deterministic validation, and computes three-axis readiness. Static HTML preserves the authored safe source manifest: `index.html`, local CSS, optional `app.js`/`script.js`, nested scripts and `.mjs` modules. Browser ZIP packaging consumes the current edited project, not the original response. It neither adds a comparison page nor silently filters dependency files.
+
+Route and file budgets are ceilings, not quotas. Only explicit brief page intent produces additional routes; comparisons can be inline scenes. Code generation receives the exclusive route list, preflight rejects undeclared/missing filesystem-backed pages, and a complete Creative repair may remove an undeclared page only while preserving declared pages and support files. React client-router realization still requires runtime evidence.
+
+`resource-paths.ts` supplies browser-safe relative resolution for preview and validation. Source preflight checks literal static/dynamic imports (including comments between tokens), CSS imports, Next aliases and classic-versus-module loading. Computed imports and arbitrary runtime fetches are outside this static check. `code-quality-loop.ts` validates the complete manifest before and after one repair; partial repairs retain remaining blockers, and failed attempts still consume the optional-call allowance.
+
+Native HTML preview resolves CSS/media against their owning directories, retains deferred classic-script execution and stylesheet conditions, and maps delivered modules to canonical data-URL module identities. Modules initialize once even when the entry is referenced repeatedly or participates in a cycle. Classic exports may open directly from disk; module-based exports document the required local HTTP server. Probe v4 subscribes before authored head scripts and captures resource errors; old probe receipts cannot authorize the new revision.
+
+Because `srcDoc` inherits the parent CSP, production allows `data:` specifically in `script-src-elem` for these local script/module elements. It does not add remote script hosts, production eval or worker permissions. The native iframe remains `sandbox="allow-scripts"` without `allow-same-origin`; a browser regression verifies both real execution under the deployed policy and denied access to the parent document.
+
+Fast stage-04 checkpoints now retain the bounded complete direction portfolio and selected identity. Resume reuses or atomically changes that identity; an explicit unknown/stale selection is rejected before provider calls. Legacy v1 plans without portfolios remain readable but cannot claim preserved manual-selection identity.
 
 HTML and lightweight React run in isolated previews. Next.js output is inspected and exported rather than mounted into an incompatible browser runtime. Render probes are ephemeral and never enter history or ZIP files. When a ProjectSpec is present, the probe computes rendered Functional Visual Fulfillment from visible scene roots, actual DOM layers, purpose links, required asset placements, and orphan visual area. It also computes [Rendered Evidence Salience](RENDERED_EVIDENCE_SALIENCE.md) from opaque scene-bound evidence markers, weighted coverage, local prominence, and first-viewport placement, plus RCR from bounded scene geometry. These are readiness signals, not creativity scores.
+
+### Remaining verification and product gaps
+
+- The native workbench currently opens the primary HTML entry. Its document builder supports a requested nested entry, but route navigation/picking and complete multi-route state capture are still product work; a partial preview cannot prove all routes ready.
+- Literal dependency checks are not a complete JavaScript/CSS parser, type checker or package-install/build verifier. Dynamic computed imports, workers, arbitrary fetches and uncommon browser resource forms need runtime checks or a future isolated build service.
+- This repair batch proves controlled mocked artifacts, not new production-provider generations. Existing downloaded artifacts are not rewritten automatically, and their missing logic cannot be reconstructed from filenames alone.
+- Removing invented routes and unsupported scenes reduces convergence pressure; it does not prove aesthetic diversity. The current three-scene minimum, finite composition/type catalog and final direction-to-code fidelity still need paired real-output visual review. Public demo distance targets remain unmet until measured otherwise.
 
 ## Persistence
 

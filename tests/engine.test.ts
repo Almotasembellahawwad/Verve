@@ -835,7 +835,7 @@ test("Licensed Asset Delivery enforces the aggregate response budget without hid
 });
 
 test("systemic briefs can use five semantic routes without repeating one region sequence", () => {
-  const analysis = analyzeBriefLocally("An operations analytics workspace with a dashboard and supplier catalog. Teams compare suppliers, monitor a workflow, inspect evidence and provenance, then request a quote.");
+  const analysis = analyzeBriefLocally("A multi-page operations analytics workspace. Required routes: /compare, /collection, /evidence, /workflow. Teams compare suppliers, monitor a workflow, inspect evidence and provenance, then request a quote.");
   const plan = generateDesignPlanLocally(analysis);
   const spec = buildVerveProjectSpec({
     analysis,
@@ -1191,7 +1191,7 @@ test("code quality loop uses syntax diagnostics and accepts a valid repair", asy
   );
   assert.equal(result.wasRepaired, true);
   assert.match(result.code, /<main>Repaired<\/main>/);
-  assert.ok(result.issues.some((issue) => issue.includes("Syntax error") || issue.includes("Unclosed")));
+  assert.deepEqual(result.issues, [], "accepted repairs report remaining issues, not errors from the discarded source");
 });
 
 test("provider registry contains no retired model IDs", () => {
@@ -1480,7 +1480,7 @@ test("every public demo is a complete, runnable native project", () => {
     assert.equal(demo.receipt.tests.horizontalOverflow, 0, demo.id);
     assert.equal(demo.meetsMeasuredDiversityFloor, demo.receipt.nearestExampleDistance >= 0.5, demo.id);
     assert.equal(demo.receipt.nearestExampleDistance, demo.receipt.measurement.nearestMeasuredExampleDistance, demo.id);
-    assert.equal(demo.receipt.nearestExampleDistance, Math.min(...Object.values(demo.receipt.measurement.platformDistances)), demo.id);
+    assert.equal(demo.receipt.nearestExampleDistance, Math.min(...Object.values(demo.receipt.measurement.platformDistances).filter((distance): distance is number => typeof distance === "number")), demo.id);
     structuralCells.add(`${demo.receipt.direction.topology}/${demo.receipt.direction.opening}/${demo.receipt.direction.navigation}`);
     const validation = validateGeneratedProject(demo.result.project);
     assert.equal(validation.failed, 0, `${demo.id}: ${JSON.stringify(validation.checks)}`);
@@ -2119,7 +2119,10 @@ test("native HTML preview handles quoted brackets and escapes raw-text end tags"
   assert.match(preview, /data-verve-source="styles\.css"/);
   assert.match(preview, /data-verve-source="script\.js"/);
   assert.match(preview, /<\\\/STYLE >/);
-  assert.match(preview, /<\\\/ScRiPt >/);
+  // The module source now lives inside an encoded import-map data URL, not a
+  // second inline module identity. Its raw closing tag cannot terminate HTML.
+  assert.ok(preview.includes(encodeURIComponent('window.closingTag = "</ScRiPt >";')));
+  assert.doesNotMatch(preview, /window\.closingTag = "<\/ScRiPt >"/);
   assert.doesNotMatch(preview, /href="\.\/styles\.css"/);
   assert.doesNotMatch(preview, /src="script\.js"/);
 });
@@ -2488,7 +2491,7 @@ test("evaluation coherence gives release gates veto authority without inventing 
     directionFidelity: 0.88,
     directionStatus: "pass",
     visualArchiveDistance: 0.58,
-    binding: { version: 1, revision, probeVersion: 3, testedSurfaces: ([360, 768, 1440] as const).map((width) => ({ width, routeKey: "surface-root", stateKey: "surface-default" })) },
+    binding: { version: 1, revision, probeVersion: 4, testedSurfaces: ([360, 768, 1440] as const).map((width) => ({ width, routeKey: "surface-root", stateKey: "surface-default" })) },
     privacy: "numeric-and-hashed-render-summary-only",
   }, 0.45, revision);
   assert.equal(rendered.signals.find((signal) => signal.id === "render-evidence")?.status, "pass");
