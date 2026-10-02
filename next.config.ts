@@ -4,6 +4,10 @@ const isProduction = process.env.NODE_ENV === "production";
 const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isProduction ? "" : " 'unsafe-eval'"}`,
+  // Native srcDoc previews inherit this policy. Their bounded local scripts
+  // and module graph are data URLs inside allow-scripts-only opaque iframes.
+  // Keep this permission on script elements, not eval, workers or remote hosts.
+  "script-src-elem 'self' 'unsafe-inline' data:",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com",
   "font-src 'self' data: https://fonts.gstatic.com https://cdn.fontshare.com",
   "img-src 'self' data: blob: https:",

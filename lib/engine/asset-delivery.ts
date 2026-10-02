@@ -54,13 +54,35 @@ function sourceIncludesAsset(source: string, url: string): boolean {
   return sourceUrlVariants(url).some((variant) => source.includes(variant));
 }
 
-function replaceExactAssetUrl(generated: GeneratedCode, originalUrl: string, localUrl: string): GeneratedCode {
-  const replace = (content: string) => sourceUrlVariants(originalUrl)
-    .reduce((output, variant) => output.split(variant).join(localUrl), content);
+/** POSIX project paths, without importing Node's path module into shared code. */
+function relativeAssetReference(sourcePath: string, assetPath: string): string {
+  const sourceDirectory = sourcePath.replaceAll("\\", "/").split("/").filter((segment) => segment && segment !== ".").slice(0, -1);
+  const assetSegments = assetPath.split("/");
+  let commonLength = 0;
+  while (sourceDirectory[commonLength] && sourceDirectory[commonLength] === assetSegments[commonLength]) commonLength += 1;
+  const reference = [...Array(sourceDirectory.length - commonLength).fill(".."), ...assetSegments.slice(commonLength)].join("/");
+  return reference.startsWith("../") ? reference : `./${reference}`;
+}
+
+function replaceExactAssetUrl(generated: GeneratedCode, originalUrl: string, projectPath: string, publicPath: string): GeneratedCode {
+  const entryPath = generated.entryPath ?? (generated.framework === "html" ? "index.html" : generated.framework === "react" ? "src/App.tsx" : "app/page.tsx");
+  const sourceReference = (sourcePath: string) => {
+    if (generated.framework !== "html") return publicPath;
+    // HTML attributes and CSS url() resolve relative to their own source file.
+    // JS strings assigned to DOM attributes resolve against the document, not
+    // the script's directory, so retain the compatibility entry's base there.
+    const basePath = /\.(?:html|css)$/i.test(sourcePath) ? sourcePath : entryPath;
+    return relativeAssetReference(basePath, projectPath);
+  };
+  const replace = (content: string, sourcePath: string) => sourceUrlVariants(originalUrl)
+    .reduce((output, variant) => output.split(variant).join(sourceReference(sourcePath)), content);
+  const files = generated.files?.map((file) => ({ ...file, content: replace(file.content, file.path) }));
+  const entry = files?.find((file) => file.path.replaceAll("\\", "/") === entryPath.replaceAll("\\", "/"));
   return {
     ...generated,
-    code: replace(generated.code),
-    files: generated.files?.map((file) => ({ ...file, content: replace(file.content) })),
+    // Keep the legacy entry adapter and the delivered entry byte-identical.
+    code: entry?.content ?? replace(generated.code, entryPath),
+    files,
   };
 }
 
@@ -153,7 +175,7 @@ export async function deliverGeneratedAssets(input: {
     const publicPath = `/assets/${filename}`;
     const projectPath = generatedCode.framework === "html" ? `assets/${filename}` : `public/assets/${filename}`;
     const sourceReference = generatedCode.framework === "html" ? `./assets/${filename}` : publicPath;
-    generatedCode = replaceExactAssetUrl(generatedCode, asset.url, sourceReference);
+    generatedCode = replaceExactAssetUrl(generatedCode, asset.url, projectPath, publicPath);
     files.push({
       path: projectPath,
       content: delivered.content,
@@ -221,6 +243,7 @@ export function formatAssetDeliveryReceipt(receipt: AssetDeliveryReceipt): strin
 - Bundled: ${receipt.bundled}/${receipt.requested} requested assets
 - Total bundled bytes: ${receipt.totalBytes}
 - This status covers binary delivery for assets referenced by the generated source; the separate Media Usage Gate verifies the brief-level minimum and scene assignments.
+- A complete binary receipt does not prove that resource links resolve or images render. Source validation and browser checks must verify those separately.
 - A checksum proves delivered-byte identity; it does not replace the source license or attribution obligation.
 - Pexels API projects must retain a prominent Pexels link and should preserve the photographer/photo-page credit recorded above.
 - Do not redistribute a stock file on a standalone basis, imply endorsement, or treat this receipt as clearance of third-party people, property, logo, or trademark rights.

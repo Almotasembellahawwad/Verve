@@ -9,6 +9,7 @@ import type {
 } from "../domain/project-spec";
 import type { BriefEvidenceKind } from "../domain/brief-evidence";
 import { RENDER_RECEIPT_PROBE_VERSION } from "../domain/render-receipt";
+import { rewriteHtmlElements } from "../security/structural-html";
 
 export type SandboxFileMap = Record<string, { code: string }>;
 
@@ -382,10 +383,13 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
     schedule();
   };
   window.addEventListener("error", (event) => {
-    runtimeErrors.push(text(event.error || event.message).slice(0, 500));
+    const target = event.target;
+    runtimeErrors.push(target instanceof Element && target !== document.documentElement
+      ? "A rendered " + target.tagName.toLowerCase() + " resource failed to load."
+      : text(event.error || event.message).slice(0, 500));
     if (runtimeErrors.length > 5) runtimeErrors.shift();
     schedule();
-  });
+  }, true);
   window.addEventListener("unhandledrejection", (event) => {
     runtimeErrors.push(text(event.reason).slice(0, 500));
     if (runtimeErrors.length > 5) runtimeErrors.shift();
@@ -941,9 +945,9 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
 }
 
 function injectHtmlProbe(html: string): string {
-  const script = `<script src="${PROBE_FILE}" defer></script>`;
+  const script = `<script src="${PROBE_FILE}"></script>`;
   if (html.includes(PROBE_FILE)) return html;
-  return /<\/body\s*>/i.test(html) ? html.replace(/<\/body\s*>/i, `${script}</body>`) : `${html}\n${script}`;
+  return rewriteHtmlElements(html, "head", (element) => `${element.openingTag}${script}${element.content}${element.closingTag}`);
 }
 
 function injectReactProbe(main: string): string {
