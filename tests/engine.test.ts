@@ -2471,6 +2471,7 @@ test("evaluation coherence gives release gates veto authority without inventing 
   assert.equal(coherent.findings.some((finding) => finding.id === "media-quality-mismatch"), false);
   assert.equal(coherent.signals.find((signal) => signal.id === "render-evidence")?.status, "unavailable");
   assert.equal(Object.prototype.hasOwnProperty.call(coherent, "score"), false);
+  const revision = { version: 1 as const, algorithm: "sha256" as const, sourceDigest: "a".repeat(64), assetDigest: "b".repeat(64), designDigest: "c".repeat(64) };
   const rendered = applyRenderedEvaluationEvidence(coherent, {
     version: 1,
     capturedAt: 1,
@@ -2487,8 +2488,9 @@ test("evaluation coherence gives release gates veto authority without inventing 
     directionFidelity: 0.88,
     directionStatus: "pass",
     visualArchiveDistance: 0.58,
+    binding: { version: 1, revision, probeVersion: 3, testedSurfaces: ([360, 768, 1440] as const).map((width) => ({ width, routeKey: "surface-root", stateKey: "surface-default" })) },
     privacy: "numeric-and-hashed-render-summary-only",
-  }, 0.45);
+  }, 0.45, revision);
   assert.equal(rendered.signals.find((signal) => signal.id === "render-evidence")?.status, "pass");
   assert.equal(rendered.findings.some((finding) => finding.id === "render-evidence-pending"), false);
   assert.equal(rendered.creativeClaim, "withheld");

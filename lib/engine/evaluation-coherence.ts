@@ -10,6 +10,7 @@ import type { RestraintResult } from "./restraint-check";
 import type { DistinctivenessReport } from "./scorer";
 import type { VisualIntentSourceEvidence } from "./visual-intent";
 import type { TypographyDeliveryReceipt } from "../domain/typography";
+import { receiptMatchesRevision, type ProjectRevision, type RenderReceiptBinding } from "../domain/render-receipt";
 
 export type EvaluationAuthority = "release-gate" | "delivered-source" | "plan-diagnostic" | "provenance" | "render-evidence";
 export type EvaluationSignalStatus = "pass" | "review" | "fail" | "unavailable";
@@ -57,6 +58,8 @@ export type RenderedEvaluationEvidence = {
   directionFidelity: number | null;
   directionStatus: "pass" | "review" | "fail" | null;
   visualArchiveDistance: number | null;
+  /** Absent on old history: historical observations cannot authorize the current artifact. */
+  binding?: RenderReceiptBinding;
   privacy: "numeric-and-hashed-render-summary-only";
 };
 
@@ -71,7 +74,7 @@ export function prepareRestoredEvaluation(report: EvaluationCoherenceReport, ass
       && signal.status === "pass") return { ...signal, status: "review" as const, summary: `${signal.summary} The lightweight history omits binary assets.` };
     return signal;
   });
-  const findings = report.findings.filter((finding) => !["render-evidence-pending", "render-gate-review", "render-direction-review", "render-archive-review", "restored-assets-missing"].includes(finding.id));
+  const findings = report.findings.filter((finding) => !["render-evidence-pending", "render-gate-review", "render-direction-review", "render-archive-review", "render-revision-mismatch", "restored-assets-missing"].includes(finding.id));
   findings.push({
     id: "render-evidence-pending", severity: "explanation", signalIds: ["render-evidence"],
     message: "A saved render receipt is historical; verify the restored project again at all three viewport widths.",
@@ -339,12 +342,14 @@ export function buildEvaluationCoherence(input: {
 export function applyRenderedEvaluationEvidence(
   report: EvaluationCoherenceReport,
   evidence: RenderedEvaluationEvidence,
-  visualDiversityThreshold: number
+  visualDiversityThreshold: number,
+  currentRevision?: ProjectRevision | null
 ): EvaluationCoherenceReport {
   // A failure on one observed surface is actionable even before all widths
   // arrive. Missing measurements never count as passing measurements.
-  const complete = evidence.complete && evidence.covered === 3;
-  const renderStatus: EvaluationSignalStatus = evidence.status === "fail" || evidence.failures > 0
+  const bound = receiptMatchesRevision(evidence.binding, currentRevision, evidence.covered);
+  const complete = bound && evidence.complete && evidence.covered === 3;
+  const renderStatus: EvaluationSignalStatus = !bound ? "unavailable" : evidence.status === "fail" || evidence.failures > 0
     ? "fail"
     : !complete ? "unavailable"
       : evidence.status === "pass" && evidence.warnings === 0 ? "pass" : "review";
@@ -352,18 +357,23 @@ export function applyRenderedEvaluationEvidence(
     ? {
         ...signal,
         status: renderStatus,
-        score: evidence.score,
-        summary: `${evidence.covered}/3 viewports; FVE ${evidence.firstViewportScore ?? "pending"}, FVF ${evidence.functionalVisualScore ?? "pending"}, RES ${evidence.renderedEvidenceScore ?? "pending"}, RCR ${evidence.renderedCompositionScore ?? "pending"}, DF ${evidence.directionFidelity ?? "pending"}.`,
+        score: bound ? evidence.score : null,
+        summary: bound ? `${evidence.covered}/3 viewports; FVE ${evidence.firstViewportScore ?? "pending"}, FVF ${evidence.functionalVisualScore ?? "pending"}, RES ${evidence.renderedEvidenceScore ?? "pending"}, RCR ${evidence.renderedCompositionScore ?? "pending"}, DF ${evidence.directionFidelity ?? "pending"}.`
+          : "The browser receipt is unbound or belongs to different source, assets, design decisions, or probe version. Recheck this revision.",
       }
     : signal);
-  const renderFindingIds = new Set(["render-evidence-pending", "render-gate-review", "render-direction-review", "render-archive-review"]);
+  const renderFindingIds = new Set(["render-evidence-pending", "render-gate-review", "render-direction-review", "render-archive-review", "render-revision-mismatch"]);
   const findings = report.findings.filter((finding) => !renderFindingIds.has(finding.id));
+  if (!bound) findings.push({
+    id: "render-revision-mismatch", severity: "explanation", signalIds: ["render-evidence"],
+    message: "Browser evidence must match this exact source, asset manifest and design revision. Old or unbound receipts are historical only.",
+  });
   if (!complete) {
     findings.push({
       id: "render-evidence-pending",
       severity: "explanation",
       signalIds: ["render-evidence"],
-      message: `Browser evidence is persisted but incomplete (${evidence.covered}/3 viewports).`,
+      message: `Browser evidence for this revision is incomplete (${bound ? evidence.covered : 0}/3 viewports).`,
     });
   }
   if (renderStatus === "fail" || renderStatus === "review") {
@@ -374,10 +384,10 @@ export function applyRenderedEvaluationEvidence(
       message: "The delivered browser render did not fully pass; the initial server release decision cannot establish visual readiness by itself.",
     });
   }
-  const archiveMeasured = evidence.visualArchiveDistance !== null && Number.isFinite(evidence.visualArchiveDistance)
+  const archiveMeasured = bound && evidence.visualArchiveDistance !== null && Number.isFinite(evidence.visualArchiveDistance)
     && evidence.visualArchiveDistance >= 0 && evidence.visualArchiveDistance <= 1;
   const archivePass = archiveMeasured && evidence.visualArchiveDistance! >= visualDiversityThreshold;
-  const directionMeasured = evidence.directionFidelity !== null && Number.isFinite(evidence.directionFidelity)
+  const directionMeasured = bound && evidence.directionFidelity !== null && Number.isFinite(evidence.directionFidelity)
     && evidence.directionFidelity >= 0 && evidence.directionFidelity <= 1;
   const directionPass = directionMeasured && evidence.directionStatus === "pass";
   if (!directionPass) findings.push({
@@ -397,7 +407,7 @@ export function applyRenderedEvaluationEvidence(
     || report.signals.some((signal) => signal.id === "template-diversity" && signal.status === "fail");
   const degraded = report.findings.some((finding) => finding.id === "creative-degraded-evidence");
   const creativeClaim = hasPriorVeto || renderStatus === "fail"
-    || (archiveMeasured && !archivePass) || evidence.directionStatus === "fail"
+    || (archiveMeasured && !archivePass) || (bound && evidence.directionStatus === "fail")
     ? "withheld" as const
     : sourceRelease === "ready" && complete && renderStatus === "pass" && archivePass && directionPass && !degraded
       && !report.signals.some((signal) => signal.id === "critique-provenance" && signal.status !== "pass")
@@ -407,7 +417,7 @@ export function applyRenderedEvaluationEvidence(
   const warning = findings.some((finding) => finding.severity === "warning");
   return {
     ...report,
-    releaseDecision: sourceRelease === "blocked" || renderStatus === "fail" || evidence.directionStatus === "fail"
+    releaseDecision: sourceRelease === "blocked" || renderStatus === "fail" || (bound && evidence.directionStatus === "fail")
       ? "blocked"
       : sourceRelease !== "ready" || renderStatus !== "pass" || !directionPass || (archiveMeasured && !archivePass)
         ? "review-required" : "ready",

@@ -6,6 +6,9 @@ All notable changes to Verve are documented here.
 
 ### Added
 
+- Added Design Contract v1, compiled locally from the selected direction and existing typography contract: semantic color and spacing tokens, art-direction identity, scene IDs and refinement intent. HTML/React/Next.js exports include an inspectable `DESIGN-CONTRACT.json`, a reserved token stylesheet and a collapsed Design choices panel.
+- Added revision-bound browser receipts: SHA-256 source/configuration, asset/license and design digests, probe version, and hashed tested viewport/route/state identities. Stale or legacy unbound evidence cannot authorize or veto another revision.
+- Added offline regressions for cross-framework token wiring, Arabic/Latin identity preservation, unsafe token rejection, font/image/source changes, and the browser edit/receipt lifecycle; no model call or telemetry was added.
 - Added an executable Typography Contract selected after the final design direction: curated local OFL families, Latin/Arabic subset coverage, deterministic `@font-face` CSS, a 500 KB bundle limit, SHA-256 receipts, and complete `FONT-LICENSES.md` output.
 - Added result-surface typography evidence and project validation for missing font binaries, broken CSS URLs, unused contract families, missing licenses, and incomplete ARIA tab keyboard behavior.
 - Added Licensed Asset Delivery for used Pexels selections: exact-host allowlisting, redirect rejection, streamed size limits, JPEG/PNG/WebP signature verification, SHA-256 receipts, local project paths, and binary ZIP inclusion.
@@ -17,6 +20,7 @@ All notable changes to Verve are documented here.
 
 ### Changed
 
+- Updated the two development-only `brace-expansion` lockfile resolutions to patched 1.1.21 and 5.0.12 after CI identified nested-brace/parse-comma stack-exhaustion and quadratic-time expansion advisories. Direct dependencies and the high-severity audit gate remain unchanged.
 - Replaced ambiguous scene-level `avoid` values with `not-applicable` when a scene intentionally uses programmatic data, shape, interaction, or motion instead of external media; Pexels discovery now requests only the minimum scene demand.
 - Removed the dormant Google Fonts API/import experiment. Generated projects now use only locally bundled, licensed fonts and require no font-service API key or runtime CDN.
 - Replaced the blanket oversized-hero warning in direction, planning, and code prompts with a functional rule: cinematic openings are valid when they carry verified decision information and an immediate primary action.
