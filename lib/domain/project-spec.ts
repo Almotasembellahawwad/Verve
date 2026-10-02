@@ -257,6 +257,8 @@ export type VerveProjectSpec = {
   assetDirection: AssetDirectionContract;
   /** Added compatibly in ProjectSpec v2; older checkpoints may omit it. */
   typographyContract?: import("./typography").TypographyContract;
+  /** Unified identity/tokens. Optional for ProjectSpec v2 checkpoints predating this contract. */
+  designContract?: import("./design-contract").DesignContract;
   experience: {
     model: ExperienceModel;
     route: string;
@@ -411,6 +413,17 @@ export function validateVerveProjectSpec(spec: VerveProjectSpec): ProjectSpecVal
     for (const scene of spec.narrative.scenes) for (const evidenceId of scene.evidenceIds ?? []) if (!evidenceIds.has(evidenceId)) issues.push(`${scene.id} references unknown brief evidence ${evidenceId}.`);
   }
   if (spec.visualSystem.colors.length < 3) issues.push("The visual system requires at least three color tokens.");
+  if (spec.designContract) {
+    const contract = spec.designContract;
+    if (contract.version !== 1) issues.push("Invalid unified design contract version.");
+    else {
+      if (contract.identity.experienceModel !== spec.experience.model) issues.push("Design identity differs from the experience model.");
+      if (contract.palette.length !== spec.visualSystem.colors.length || contract.palette.some((color, index) => ["name", "hex", "role"].some((key) => color[key as keyof typeof color] !== spec.visualSystem.colors[index]?.[key as keyof typeof color]))) issues.push("Design identity differs from the selected palette.");
+      if (contract.typography.display !== (spec.typographyContract?.display.stack ?? spec.visualSystem.typography.display)
+        || contract.typography.body !== (spec.typographyContract?.body.stack ?? spec.visualSystem.typography.body)) issues.push("Design identity differs from the typography contract.");
+      if (JSON.stringify(contract.sceneIds) !== JSON.stringify(spec.narrative.scenes.map((scene) => scene.id))) issues.push("Design identity differs from the narrative scenes.");
+    }
+  }
   if (spec.typographyContract) {
     if (spec.typographyContract.version !== 1) issues.push("Unsupported typography contract version.");
     if (spec.typographyContract.files.length < 1) issues.push("The typography contract requires at least one bundled font file.");

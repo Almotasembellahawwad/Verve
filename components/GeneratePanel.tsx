@@ -25,6 +25,8 @@ import {
 import ResultShareKit from "./ResultShareKit";
 import BrandKitInput from "./BrandKitInput";
 import DirectionSketch from "./DirectionSketch";
+import { useProjectRevision } from "@/lib/client/use-project-revision";
+import { receiptMatchesRevision } from "@/lib/domain/render-receipt";
 import { launchProjectEditor } from "@/lib/client/editor-workspace";
 import {
   attachOwnedAssets,
@@ -800,20 +802,23 @@ export default function GeneratePanel() {
     void handleGenerate("creative", undefined, true);
   };
 
+  const auditedProject = result?.project;
+  const auditedSpec = result?.projectSpec;
+  const auditedRevision = useProjectRevision(auditedProject, auditedSpec);
   const handleRenderAudit = useCallback((audit: RenderedEvaluationEvidence) => {
     setResult((current) => {
-      if (!current) return current;
+      if (!current || current.project !== auditedProject || current.projectSpec !== auditedSpec) return current;
       const threshold = current.execution?.effectiveMode.startsWith("creative") ? 0.45 : 0.35;
       return {
         ...current,
-        renderAudit: audit,
+        renderAudit: receiptMatchesRevision(audit.binding, auditedRevision, audit.covered) ? audit : undefined,
         evaluationCoherence: current.evaluationCoherence
-          ? applyRenderedEvaluationEvidence(current.evaluationCoherence, audit, threshold)
+          ? applyRenderedEvaluationEvidence(current.evaluationCoherence, audit, threshold, auditedRevision)
           : current.evaluationCoherence,
       };
     });
-    if (activeHistoryIdRef.current) updateHistoryRenderAudit(activeHistoryIdRef.current, audit);
-  }, []);
+    if (activeHistoryIdRef.current && receiptMatchesRevision(audit.binding, auditedRevision, audit.covered)) updateHistoryRenderAudit(activeHistoryIdRef.current, audit);
+  }, [auditedProject, auditedRevision, auditedSpec]);
 
   const handleRestoreHistory = (entry: HistoryEntry) => {
     setHistoryOpen(false);

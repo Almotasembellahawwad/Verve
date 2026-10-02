@@ -6,6 +6,9 @@ All notable changes to Verve are documented here.
 
 ### Added
 
+- Added Design Contract v1, compiled locally from the selected direction and existing typography contract: semantic color and spacing tokens, art-direction identity, scene IDs and refinement intent. HTML/React/Next.js exports include an inspectable `DESIGN-CONTRACT.json`, a reserved token stylesheet and a collapsed Design choices panel.
+- Added revision-bound browser receipts: SHA-256 source/configuration, asset/license and design digests, probe version, and hashed tested viewport/route/state identities. Stale or legacy unbound evidence cannot authorize or veto another revision.
+- Added offline regressions for cross-framework token wiring, Arabic/Latin identity preservation, unsafe token rejection, font/image/source changes, and the browser edit/receipt lifecycle; no model call or telemetry was added.
 - Added an executable Typography Contract selected after the final design direction: curated local OFL families, Latin/Arabic subset coverage, deterministic `@font-face` CSS, a 500 KB bundle limit, SHA-256 receipts, and complete `FONT-LICENSES.md` output.
 - Added result-surface typography evidence and project validation for missing font binaries, broken CSS URLs, unused contract families, missing licenses, and incomplete ARIA tab keyboard behavior.
 - Added Licensed Asset Delivery for used Pexels selections: exact-host allowlisting, redirect rejection, streamed size limits, JPEG/PNG/WebP signature verification, SHA-256 receipts, local project paths, and binary ZIP inclusion.

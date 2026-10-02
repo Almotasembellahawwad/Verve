@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyRenderedEvaluationEvidence, prepareRestoredEvaluation, type EvaluationCoherenceReport, type RenderedEvaluationEvidence } from "../lib/engine/evaluation-coherence";
+import { applyRenderedEvaluationEvidence as applyToRevision, prepareRestoredEvaluation, type EvaluationCoherenceReport, type RenderedEvaluationEvidence } from "../lib/engine/evaluation-coherence";
+import { RENDER_RECEIPT_PROBE_VERSION, type ProjectRevision } from "../lib/domain/render-receipt";
 import { BrowserHistoryRepository } from "../lib/adapters/storage/browser-history-repository";
 import { assessMediaRequirement } from "../lib/engine/media-requirement";
 import { analyzeBriefLocally } from "../lib/engine/brief-analyzer";
@@ -9,6 +10,11 @@ import { StaticReferenceLibraryRepository } from "../lib/adapters/storage/static
 import { buildTypographyContract } from "../lib/engine/typography-contract";
 import { selectVisualArchive, updateVisualArchive } from "../lib/client/design-memory";
 import type { VisualFingerprint } from "../lib/project/render-gate";
+
+const revision: ProjectRevision = { version: 1, algorithm: "sha256", sourceDigest: "a".repeat(64), assetDigest: "b".repeat(64), designDigest: "c".repeat(64) };
+function applyRenderedEvaluationEvidence(report: EvaluationCoherenceReport, evidence: RenderedEvaluationEvidence, threshold: number) {
+  return applyToRevision(report, evidence, threshold, revision);
+}
 
 function report(): EvaluationCoherenceReport {
   return {
@@ -79,6 +85,8 @@ function evidence(overrides: Partial<RenderedEvaluationEvidence> = {}): Rendered
     version: 1, capturedAt: 1, status: "pass", covered: 3, complete: true, score: 100, failures: 0, warnings: 0,
     firstViewportScore: .9, functionalVisualScore: .9, renderedEvidenceScore: .9, renderedCompositionScore: .9,
     directionFidelity: .9, directionStatus: "pass", visualArchiveDistance: .6,
+    binding: { version: 1, revision, probeVersion: RENDER_RECEIPT_PROBE_VERSION,
+      testedSurfaces: ([360, 768, 1440] as const).slice(0, overrides.covered ?? 3).map((width) => ({ width, routeKey: "surface-root", stateKey: "surface-default" })) },
     privacy: "numeric-and-hashed-render-summary-only", ...overrides,
   };
 }

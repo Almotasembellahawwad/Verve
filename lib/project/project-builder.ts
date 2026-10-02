@@ -11,6 +11,8 @@ import { formatAssetDirectionManifest } from "../engine/asset-director";
 import { formatAssetDeliveryReceipt, type AssetDeliveryReceipt } from "../engine/asset-delivery";
 import type { TypographyContract, TypographyDeliveryReceipt } from "../domain/typography";
 import { formatTypographyReceipt } from "../engine/typography-contract";
+import type { DesignContract } from "../domain/design-contract";
+import { attachDesignContract } from "./design-contract";
 
 function slugify(value: string): string {
   const slug = value
@@ -395,7 +397,8 @@ export function buildGeneratedProject(
   typographyDelivery?: TypographyDeliveryReceipt,
   deliveredTypographyFiles: ProjectFile[] = [],
   typographyCss = "",
-  typographyLicenseFile?: ProjectFile
+  typographyLicenseFile?: ProjectFile,
+  designContract?: DesignContract
 ): GeneratedProject {
   const name = slugify(analysis.subject);
   const project = generated.framework === "html"
@@ -404,6 +407,7 @@ export function buildGeneratedProject(
       ? reactProject(name, generated, analysis, plan, assetDirection, assetDelivery, typographyContract, typographyDelivery)
       : nextProject(name, generated, analysis, plan, assetDirection, assetDelivery, typographyContract, typographyDelivery);
   if (typographyContract && typographyCss) applyTypographyCss(project.files, project.framework, typographyCss);
+  if (designContract) attachDesignContract(project, designContract);
   const existingPaths = new Set(project.files.map((item) => item.path));
   for (const item of [...deliveredAssetFiles, ...deliveredTypographyFiles, ...(typographyLicenseFile ? [typographyLicenseFile] : [])]) {
     if (!existingPaths.has(item.path)) {

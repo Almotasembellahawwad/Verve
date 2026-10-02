@@ -690,7 +690,8 @@ export async function runGenerationUseCase(
     typographyDelivery.receipt,
     typographyDelivery.files,
     typographyDelivery.css,
-    typographyDelivery.licenseFile
+    typographyDelivery.licenseFile,
+    projectSpec.designContract
   );
   emit("stage_done", {
     id: "07",
