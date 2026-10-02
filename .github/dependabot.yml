@@ -28,3 +28,7 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    groups:
+      # init and analyze exchange versioned configuration; upgrade atomically.
+      codeql-action:
+        patterns: ["github/codeql-action/*"]
