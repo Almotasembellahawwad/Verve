@@ -228,6 +228,19 @@ This milestone does not imply improved generated-site aesthetics by itself.
 - Move approved typography and asset feasibility into candidate selection.
 - Upgrade sketches to content-aware art-direction studies with actual available
   media and type; preserve the inexpensive six-direction/one-build budget.
+  [Implemented 2026-10-02, second slice] The board renders six local content-bound
+  studies with exact candidate fonts/shared delivery color roles, source records or
+  excerpts, and user-supplied raster bytes. Inspection uses native modal focus/Escape
+  behavior and local evidence selection/reveal; selection remains explicit. Missing
+  records are not padded, missing imagery is disclosed, and a supplied image is not
+  claimed to prove any record. Exploration now sees bounded brand/asset metadata;
+  changing that metadata invalidates its checkpoint while asset-free v1 hashes remain
+  readable. Provider failure is visibly identified as local fallback. Browser checks
+  cover 360/768/1440, RTL, actual loaded display/body faces, host-style isolation and
+  no remote image request. These are deterministic structural interpretations, not
+  provider-built prototypes, final screenshots, screenshot criticism, or verified
+  realization of a candidate's complete signature. A matched generation/human
+  preference study and the six public example rebuilds remain open.
 - Rebuild and freeze six examples: photo-led architectural atlas; Arabic restaurant
   reservation journey; carbon operations workbench; playful learning laboratory;
   nonlinear fashion collection; accessible civic guided flow.

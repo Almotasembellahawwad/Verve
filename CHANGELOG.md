@@ -6,6 +6,9 @@ All notable changes to Verve are documented here.
 
 ### Added
 
+- Added content-aware direction studies with verbatim brief specifications/excerpts, shared delivery color roles, locally bundled Latin/Arabic typography and user-supplied raster media. A keyboard-accessible inspection dialog separates trying a local interaction from selecting the direction; missing records/media and local provider fallbacks are disclosed.
+- Direction exploration now accepts bounded owned-asset metadata and passes brand/media constraints to the provider. Both exploration and generation bind checkpoints to the same manifest; asset-free v1 hashes remain compatible and no binary upload, telemetry or additional model call is introduced.
+- Added regression coverage for sparse/Arabic briefs, excluded content, exact specifications, color leakage from the host UI, real loaded font faces, media provenance disclosure, six study interactions, Escape/focus restoration and all three viewport widths.
 - Added Design Contract v1, compiled locally from the selected direction and existing typography contract: semantic color and spacing tokens, art-direction identity, scene IDs and refinement intent. HTML/React/Next.js exports include an inspectable `DESIGN-CONTRACT.json`, a reserved token stylesheet and a collapsed Design choices panel.
 - Added revision-bound browser receipts: SHA-256 source/configuration, asset/license and design digests, probe version, and hashed tested viewport/route/state identities. Stale or legacy unbound evidence cannot authorize or veto another revision.
 - Added offline regressions for cross-framework token wiring, Arabic/Latin identity preservation, unsafe token rejection, font/image/source changes, and the browser edit/receipt lifecycle; no model call or telemetry was added.

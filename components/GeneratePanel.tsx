@@ -24,7 +24,9 @@ import {
 } from "@/lib/engine/pipeline-checkpoint";
 import ResultShareKit from "./ResultShareKit";
 import BrandKitInput from "./BrandKitInput";
-import DirectionSketch from "./DirectionSketch";
+import DirectionStudyView from "./DirectionStudy";
+import DirectionStudyDialog from "./DirectionStudyDialog";
+import { buildDirectionStudy, buildDirectionStudyContext, directionStudyLabel } from "@/lib/engine/direction-study";
 import { useProjectRevision } from "@/lib/client/use-project-revision";
 import { receiptMatchesRevision } from "@/lib/domain/render-receipt";
 import { launchProjectEditor } from "@/lib/client/editor-workspace";
@@ -395,6 +397,7 @@ export default function GeneratePanel() {
   const [loading, setLoading] = useState(false);
   const [directionLoading, setDirectionLoading] = useState(false);
   const [directionBoard, setDirectionBoard] = useState<DirectionBoard | null>(null);
+  const [inspectedDirectionId, setInspectedDirectionId] = useState<string | null>(null);
   const [directionCheckpoint, setDirectionCheckpoint] = useState<DirectionCheckpoint | null>(null);
   const [selectedDirectionId, setSelectedDirectionId] = useState<string | null>(null);
   const [directionSnapshot, setDirectionSnapshot] = useState("");
@@ -422,9 +425,15 @@ export default function GeneratePanel() {
   const activeHistoryIdRef = useRef<string | null>(null);
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
 
-  const currentDirectionSnapshot = JSON.stringify({ brief: brief.trim(), framework, mode, provider, model, brandProfile });
+  const directionAssets = useMemo(() => ownedAssets.map((asset) => ownedAssetManifest(asset, framework)), [ownedAssets, framework]);
+  const currentDirectionSnapshot = JSON.stringify({ brief: brief.trim(), framework, mode, provider, model, brandProfile, ownedAssets: directionAssets });
   const activeDirectionBoard = directionSnapshot === currentDirectionSnapshot ? directionBoard : null;
   const activeDirectionCheckpoint = activeDirectionBoard ? directionCheckpoint : null;
+  const studyContext = useMemo(() => buildDirectionStudyContext(brief, brandProfile.name), [brief, brandProfile.name]);
+  const studies = useMemo(() => new Map(activeDirectionBoard?.portfolio.candidates.map((candidate) => [candidate.id,
+    buildDirectionStudy(candidate, studyContext, ownedAssets.filter((asset) => asset.kind === "image" && asset.mediaType !== "image/svg+xml").length),
+  ]) ?? []), [activeDirectionBoard, studyContext, ownedAssets]);
+  const inspectedDirection = activeDirectionBoard?.portfolio.candidates.find((candidate) => candidate.id === inspectedDirectionId);
   const busy = loading || directionLoading;
 
   useEffect(() => {
@@ -518,6 +527,7 @@ export default function GeneratePanel() {
     const requestController = new AbortController();
     abortRef.current = requestController;
     setDirectionLoading(true);
+    setInspectedDirectionId(null);
     setError(null);
     setMissingKey(false);
     activeHistoryIdRef.current = null;
@@ -536,6 +546,7 @@ export default function GeneratePanel() {
           model,
           mode,
           brandProfile,
+          ownedAssets: directionAssets,
           recentDirectionFingerprints: getRecentLocalDesignFingerprints(24),
         }),
       });
@@ -1159,25 +1170,30 @@ export default function GeneratePanel() {
         {activeDirectionBoard && (
           <section className={styles.directionBoard} aria-labelledby="direction-board-title">
             <div className={styles.directionBoardHeader}>
-              <div><span>DIRECTION BOARD / 6 STRUCTURAL OPTIONS</span><h3 id="direction-board-title">Choose the experience before Verve writes code.</h3></div>
+              <div><span>DIRECTION BOARD / 6 CONTENT-AWARE STUDIES</span><h3 id="direction-board-title">Choose the experience before Verve writes code.</h3></div>
               <button type="button" onClick={() => setSelectedDirectionId(activeDirectionBoard.diversity.recommendedDirectionId)} disabled={busy}>Use Verve&apos;s most novel</button>
             </div>
+            <p className={styles.directionDisclosure}>Studies use your brief, bundled typefaces and supplied images. They are structural interpretations, not final-site screenshots. Inspect one to try its local interaction; only the chosen direction becomes code.</p>
+            {activeDirectionBoard.portfolio.source === "local-fallback" && <p className={styles.directionDisclosure}>Provider exploration was unavailable or invalid. These are local starting points, not six freshly model-authored directions.</p>}
             <div className={styles.directionGrid}>
               {activeDirectionBoard.portfolio.candidates.map((candidate) => (
-                <label key={candidate.id} className={`${styles.directionCard} ${selectedDirectionId === candidate.id ? styles.directionCardActive : ""}`}>
-                  <input type="radio" name="selected-direction" value={candidate.id} checked={selectedDirectionId === candidate.id} onChange={() => setSelectedDirectionId(candidate.id)} disabled={busy} />
+                <article key={candidate.id} className={`${styles.directionCard} ${selectedDirectionId === candidate.id ? styles.directionCardActive : ""}`}>
                   <span className={styles.directionMeta}>{candidate.descriptors.creativityClass} / {candidate.descriptors.experienceModel}</span>
-                  <strong style={selectedDirectionId === candidate.id ? { fontFamily: candidate.identity.displayTypeface } : undefined}>{candidate.concept}</strong><p>{candidate.distinction}</p>
-                  <DirectionSketch candidate={candidate} />
+                  <label className={styles.directionChoice}><input type="radio" name="selected-direction" value={candidate.id} checked={selectedDirectionId === candidate.id} onChange={() => setSelectedDirectionId(candidate.id)} disabled={busy} /><strong style={{ fontFamily: candidate.identity.displayTypeface }} title={candidate.concept}>{directionStudyLabel(candidate)}</strong></label><p>{candidate.distinction}</p>
+                  <DirectionStudyView candidate={candidate} study={studies.get(candidate.id)!} assets={ownedAssets} />
+                  {studies.get(candidate.id)!.media === "not-supplied" && <span className={styles.studyAssetNote}>No approved images supplied for this study</span>}
+                  <button type="button" className={styles.inspectDirection} onClick={() => setInspectedDirectionId(candidate.id)} disabled={busy} aria-label={`Inspect study: ${candidate.concept}`}>Inspect study ↗</button>
                   <dl><div><dt>Opening</dt><dd>{candidate.descriptors.openingMode}</dd></div><div><dt>Navigation</dt><dd>{candidate.descriptors.navigationModel}</dd></div><div><dt>Media</dt><dd>{candidate.descriptors.mediaRole}</dd></div><div><dt>Typeface</dt><dd>{candidate.identity.displayTypeface.match(/^"([^"]+)"/)?.[1] ?? candidate.identity.displayTypeface}</dd></div></dl>
                   <div className={styles.directionPalette} aria-label="Direction palette">{candidate.identity.palette.map((color) => <i key={`${candidate.id}-${color.hex}`} style={{ background: color.hex }} title={`${color.name}: ${color.role}`} />)}</div>
-                  <small>{candidate.quality.passed ? "Quality floor passed" : "Needs review"}</small>
-                </label>
+                  <small>{candidate.quality.passed ? "Plan quality floor passed · delivery unverified" : "Plan needs review"}</small>
+                </article>
               ))}
             </div>
             <p className={styles.directionEvidence}>{activeDirectionBoard.diversity.distinctStructureCount}/6 structural cells · median distance {activeDirectionBoard.diversity.medianPairDistance.toFixed(2)} · minimum {activeDirectionBoard.diversity.minimumPairDistance.toFixed(2)}</p>
           </section>
         )}
+        {inspectedDirection && <DirectionStudyDialog key={`${currentDirectionSnapshot}:${inspectedDirection.id}`} candidate={inspectedDirection} study={studies.get(inspectedDirection.id)!} assets={ownedAssets} disabled={busy}
+          onClose={() => setInspectedDirectionId(null)} onChoose={() => { setSelectedDirectionId(inspectedDirection.id); setInspectedDirectionId(null); }} />}
 
         <button
           className={`${styles.generateBtn} ${busy ? styles.cancelBtn : ""}`}

@@ -25,6 +25,12 @@ export type LocalOwnedAsset = Omit<OwnedAssetManifest, "url"> & {
   byteSize: number;
 };
 
+/** Direction checkpoints bind to metadata, not binary bytes. Preserve asset-free v1 hashes. */
+export function directionBrandContext(profile?: BrandProfile, assets: OwnedAssetManifest[] = []): string | undefined {
+  if (!assets.length) return profile ? JSON.stringify(profile) : undefined;
+  return JSON.stringify({ brandProfile: profile, ownedAssets: [...assets].sort((left, right) => left.path.localeCompare(right.path)) });
+}
+
 const MEDIA_EXTENSIONS: Record<OwnedAssetManifest["mediaType"], string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
