@@ -33,7 +33,7 @@ Code, asset, configuration and ProjectSpec changes restart the preview evidence;
 legacy unbound history stays historical and must be checked again.
 
 The public examples still miss the recorded visual-distance target. Improving them,
-building faithful content-aware direction studies, and preserving identity during
+testing direction studies against delivered visual outcomes, and preserving identity during
 scene-level refinement are the next priorities. The contract records preservation
 intent; enforceable scene locks and theme editing are not implemented yet. Passing
 automated checks alone does not prove world-class design.
@@ -42,6 +42,18 @@ The Direction Board now resolves candidate typography through the same locally
 bundled OFL contract used for the generated project, and previews the selected
 family. This keeps the visible choice and delivered type system consistent without
 adding a model call.
+
+The board now shows **content-aware art-direction studies** rather than generic
+SVG blocks: real brief excerpts/specifications, the candidate's exact color roles
+and bundled fonts, and available user-supplied raster images. Inspect a study to
+try a local selection/reveal interaction, then explicitly choose the direction.
+Missing product records and media are disclosed, never invented; supplied images
+are not implicitly assigned to a factual record. Changed asset metadata invalidates
+the old board. The direction API accepts bounded asset manifests, never binaries.
+An asset-free v1 checkpoint remains compatible. These six deterministic studies
+are structural decision aids, **not six generated sites**, measured quality receipts,
+or proof of fidelity; a failed provider exploration is visibly marked as local fallback.
+Only one direction proceeds to code and the existing call budgets stay unchanged.
 
 The six public examples are hand-curated, runnable engine-contract references,
 not output samples from a live provider run. Their browser-measured fingerprints

@@ -109,6 +109,7 @@ export const DirectionRequestSchema = z.object({
   provider: z.enum(["anthropic", "openai", "gemini", "openrouter"]).optional().default("anthropic"),
   model: z.string().max(100).optional(),
   brandProfile: BrandProfileSchema.optional(),
+  ownedAssets: z.array(OwnedAssetSchema).max(4).optional().default([]),
   mode: z.enum(GENERATION_MODES).optional().default(DEFAULT_GENERATION_MODE),
   recentDirectionFingerprints: z.array(DirectionFingerprintSchema).max(24).optional().default([]),
 });

@@ -28,7 +28,7 @@ import { runRestraintCheck, type RestraintResult }                     from "../
 import { scoreEngineering, type EngineeringResult }                   from "../engine/engineering-score";
 import { inspectSupportingSource, runCodeQualityLoop, type CodeQualityResult } from "../engine/code-quality-loop";
 import { fixPaletteContrast, type ContrastFixReport }             from "../engine/contrast-fixer";
-import type { BrandProfile, OwnedAssetManifest } from "../project/brand-kit";
+import { directionBrandContext, type BrandProfile, type OwnedAssetManifest } from "../project/brand-kit";
 import { inspectDesignDiversity, type DesignDiversityResult } from "../engine/design-diversity";
 import { buildGeneratedProject }                                      from "../project/project-builder";
 import type { GeneratedProject }                                      from "../project/types";
@@ -170,7 +170,7 @@ export async function runGenerationUseCase(
   const llm = dependencies.llm;
   const progress = dependencies.progress ?? new NullProgressPublisher();
   const brandContext = JSON.stringify({ brandProfile, ownedAssets });
-  const directionBrandContext = brandProfile ? JSON.stringify(brandProfile) : undefined;
+  const directionContext = directionBrandContext(brandProfile, ownedAssets);
   const checkpointInput = { brief, existingCode, framework, mode, brandContext };
   const resumeCheckpoint = checkpointMatchesInput(checkpoint, checkpointInput)
     ? checkpoint
@@ -179,7 +179,7 @@ export async function runGenerationUseCase(
     brief,
     framework,
     mode,
-    brandContext: directionBrandContext,
+    brandContext: directionContext,
   }) ? directionCheckpoint : undefined;
   let activeDirectionCheckpoint = validDirectionCheckpoint;
 
@@ -243,7 +243,7 @@ export async function runGenerationUseCase(
       framework,
       referenceRepository: dependencies.referenceLibraryRepository,
       recentDirectionFingerprints,
-      brandContext: directionBrandContext,
+      brandContext: directionContext,
     });
     activeDirectionCheckpoint = createDirectionCheckpoint(board);
     emit("stage_done", {

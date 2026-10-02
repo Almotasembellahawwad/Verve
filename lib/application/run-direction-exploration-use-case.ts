@@ -1,5 +1,5 @@
 import type { GenerationMode } from "../domain/generation-mode";
-import type { BrandProfile } from "../project/brand-kit";
+import { directionBrandContext, type BrandProfile, type OwnedAssetManifest } from "../project/brand-kit";
 import type { DesignDirectionFingerprint, DirectionBoard, DirectionCheckpoint } from "../domain/design-direction";
 import type { LLMPort } from "../ports/llm";
 import type { ReferenceLibraryRepositoryPort } from "../ports/repositories";
@@ -11,6 +11,7 @@ export type DirectionExplorationInput = {
   framework: string;
   mode: GenerationMode;
   brandProfile?: BrandProfile;
+  ownedAssets?: OwnedAssetManifest[];
   recentDirectionFingerprints?: DesignDirectionFingerprint[];
 };
 
@@ -26,7 +27,7 @@ export async function runDirectionExplorationUseCase(
     framework: input.framework,
     referenceRepository: dependencies.referenceLibraryRepository,
     recentDirectionFingerprints: input.recentDirectionFingerprints,
-    brandContext: input.brandProfile ? JSON.stringify(input.brandProfile) : undefined,
+    brandContext: directionBrandContext(input.brandProfile, input.ownedAssets),
   });
   return { board, checkpoint: createDirectionCheckpoint(board) };
 }
