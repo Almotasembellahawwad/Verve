@@ -6,6 +6,8 @@ All notable changes to Verve are documented here.
 
 ### Added
 
+- Added bounded, dependency-checked multi-file delivery and whole-manifest Creative repair, with offline browser regressions for deferred/native-module JavaScript, nested asset paths, exported ZIP execution, early runtime errors and sandbox isolation.
+- Added atomic direction-checkpoint restoration and brief-owned route planning; route and source-file budgets remain ceilings rather than mandatory extra pages.
 - Added content-aware direction studies with verbatim brief specifications/excerpts, shared delivery color roles, locally bundled Latin/Arabic typography and user-supplied raster media. A keyboard-accessible inspection dialog separates trying a local interaction from selecting the direction; missing records/media and local provider fallbacks are disclosed.
 - Direction exploration now accepts bounded owned-asset metadata and passes brand/media constraints to the provider. Both exploration and generation bind checkpoints to the same manifest; asset-free v1 hashes remain compatible and no binary upload, telemetry or additional model call is introduced.
 - Added regression coverage for sparse/Arabic briefs, excluded content, exact specifications, color leakage from the host UI, real loaded font faces, media provenance disclosure, six study interactions, Escape/focus restoration and all three viewport widths.
@@ -23,6 +25,8 @@ All notable changes to Verve are documented here.
 
 ### Changed
 
+- Removed automatically invented comparison routes while preserving explicitly requested comparison pages. HTML source manifests now retain safe JavaScript/module files regardless of their names, and unresolved source dependencies or repair errors block readiness.
+- Made the stale-render-receipt replay regression snapshot history after edited-preview evidence arrives, preserving exact replay immutability without confusing a legitimate pre-edit capture refresh with stale evidence reuse.
 - Updated the two development-only `brace-expansion` lockfile resolutions to patched 1.1.21 and 5.0.12 after CI identified nested-brace/parse-comma stack-exhaustion and quadratic-time expansion advisories. Direct dependencies and the high-severity audit gate remain unchanged.
 - Replaced ambiguous scene-level `avoid` values with `not-applicable` when a scene intentionally uses programmatic data, shape, interaction, or motion instead of external media; Pexels discovery now requests only the minimum scene demand.
 - Removed the dormant Google Fonts API/import experiment. Generated projects now use only locally bundled, licensed fonts and require no font-service API key or runtime CDN.

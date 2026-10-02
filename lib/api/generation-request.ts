@@ -135,6 +135,10 @@ export const GenerationRequestSchema = z.object({
     && !request.directionCheckpoint.board.portfolio.candidates.some((candidate) => candidate.id === request.selectedDirectionId)) {
     context.addIssue({ code: "custom", path: ["selectedDirectionId"], message: "Selected direction is not present in the supplied Direction Board." });
   }
+  if (request.selectedDirectionId && !request.directionCheckpoint
+    && !request.checkpoint?.designPlan?.directionPortfolio?.candidates.some((candidate) => candidate.id === request.selectedDirectionId)) {
+    context.addIssue({ code: "custom", path: ["selectedDirectionId"], message: "Selected direction requires a matching Direction Board or a saved plan containing that candidate." });
+  }
 });
 
 export type GenerationRequest = z.infer<typeof GenerationRequestSchema>;

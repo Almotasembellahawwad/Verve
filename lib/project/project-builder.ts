@@ -5,7 +5,7 @@ import { findUnsupportedQuantifiedClaims } from "../engine/content-safety";
 import type { GeneratedProject, ProjectFile, ProjectFramework } from "./types";
 import { validateGeneratedProject } from "./project-validator";
 import { evaluateProjectReadiness } from "./readiness";
-import { hasHtmlEndTag, insertBeforeHtmlEndTag, rewriteHtmlElements } from "../security/structural-html";
+import { hasHtmlEndTag, hasHtmlStartTag, insertBeforeHtmlEndTag, rewriteHtmlElements } from "../security/structural-html";
 import type { AssetDirectionContract } from "../domain/project-spec";
 import { formatAssetDirectionManifest } from "../engine/asset-director";
 import { formatAssetDeliveryReceipt, type AssetDeliveryReceipt } from "../engine/asset-delivery";
@@ -13,6 +13,7 @@ import type { TypographyContract, TypographyDeliveryReceipt } from "../domain/ty
 import { formatTypographyReceipt } from "../engine/typography-contract";
 import type { DesignContract } from "../domain/design-contract";
 import { attachDesignContract } from "./design-contract";
+import { javaScriptImportReferences, relativeProjectResource, resolveProjectResource, rewriteCssResourceUrls } from "./resource-paths";
 
 function slugify(value: string): string {
   const slug = value
@@ -97,16 +98,17 @@ function projectReadme(
   framework: ProjectFramework,
   analysis: BriefAnalysis,
   plan: DesignPlan,
-  scripts: Record<string, string>
+  scripts: Record<string, string>,
+  htmlModules = false
 ): string {
   const isStaticHtml = framework === "html";
   const commands = isStaticHtml
-    ? "- Open `index.html` directly in a browser.\n- Optional local server: `npx --yes serve .`"
+    ? htmlModules ? "- Start a local HTTP server: `npx --yes serve .`.\n- Open the printed localhost URL. Browser modules cannot reliably run from `file://`." : "- Open `index.html` directly in a browser.\n- Optional local server: `npx --yes serve .`"
     : Object.entries(scripts)
         .map(([key, command]) => `- \`npm run ${key}\` — \`${command}\``)
         .join("\n");
   const runCommand = isStaticHtml
-    ? "# No install or build step is required.\n# Open index.html, or run:\nnpx --yes serve ."
+    ? htmlModules ? "# No project build step is required.\n# Browser modules require HTTP rather than file://.\nnpx --yes serve ." : "# No install or build step is required.\n# Open index.html, or run:\nnpx --yes serve ."
     : "npm install\nnpm run dev";
 
   return `# ${name}
@@ -160,10 +162,9 @@ function packageJson(
 
 function inferredDependencies(code: string): Record<string, string> {
   const dependencies: Record<string, string> = {};
-  const imports = code.matchAll(/(?:from\s+|import\s*["'])([A-Za-z0-9@][A-Za-z0-9@/._-]*)["']/g);
-  for (const match of imports) {
-    const source = match[1];
-    if (!source || source.startsWith(".") || source.startsWith("react") || source.startsWith("next")) continue;
+  for (const reference of javaScriptImportReferences(code)) {
+    const source = reference.source;
+    if (!source || /^(?:\.|\/|[a-z][a-z\d+.-]*:)/i.test(source) || /^(?:react|react-dom|next)(?:\/|$)/.test(source)) continue;
     const packageName = source.startsWith("@") ? source.split("/").slice(0, 2).join("/") : source.split("/")[0];
     if (/^(?:@?[a-z0-9][a-z0-9._-]*)(?:\/[a-z0-9][a-z0-9._-]*)?$/i.test(packageName)) {
       dependencies[packageName] = "latest";
@@ -244,7 +245,7 @@ img, svg { display: block; max-width: 100%; }
     file("next.config.ts", `import type { NextConfig } from "next";\n\nconst nextConfig: NextConfig = {};\nexport default nextConfig;`, "typescript", "config"),
     file(
       "tsconfig.json",
-      JSON.stringify({ compilerOptions: { target: "ES2017", lib: ["dom", "dom.iterable", "esnext"], allowJs: false, skipLibCheck: true, strict: true, noEmit: true, esModuleInterop: true, module: "esnext", moduleResolution: "bundler", resolveJsonModule: true, isolatedModules: true, jsx: "react-jsx", incremental: true, plugins: [{ name: "next" }], paths: { "@/*": ["./*"] } }, include: ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"], exclude: ["node_modules"] }, null, 2),
+      JSON.stringify({ compilerOptions: { target: "ES2017", lib: ["dom", "dom.iterable", "esnext"], allowJs: true, checkJs: false, skipLibCheck: true, strict: true, noEmit: true, esModuleInterop: true, module: "esnext", moduleResolution: "bundler", resolveJsonModule: true, isolatedModules: true, jsx: "react-jsx", incremental: true, plugins: [{ name: "next" }], paths: { "@/*": ["./*"] } }, include: ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"], exclude: ["node_modules"] }, null, 2),
       "json",
       "config"
     ),
@@ -278,7 +279,7 @@ function reactProject(
   addIfMissing(files, file("index.html", `<!doctype html>\n<html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>${analysis.subject}</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>`, "html"));
   files.push(
     file("vite.config.ts", `import { defineConfig } from "vite";\nimport react from "@vitejs/plugin-react";\n\nexport default defineConfig({ plugins: [react()] });`, "typescript", "config"),
-    file("tsconfig.json", JSON.stringify({ compilerOptions: { target: "ES2022", useDefineForClassFields: true, lib: ["ES2022", "DOM", "DOM.Iterable"], allowJs: false, skipLibCheck: true, esModuleInterop: true, allowSyntheticDefaultImports: true, strict: true, forceConsistentCasingInFileNames: true, module: "ESNext", moduleResolution: "Bundler", resolveJsonModule: true, isolatedModules: true, noEmit: true, jsx: "react-jsx" }, include: ["src"], references: [] }, null, 2), "json", "config"),
+    file("tsconfig.json", JSON.stringify({ compilerOptions: { target: "ES2022", useDefineForClassFields: true, lib: ["ES2022", "DOM", "DOM.Iterable"], allowJs: true, checkJs: false, skipLibCheck: true, esModuleInterop: true, allowSyntheticDefaultImports: true, strict: true, forceConsistentCasingInFileNames: true, module: "ESNext", moduleResolution: "Bundler", resolveJsonModule: true, isolatedModules: true, noEmit: true, jsx: "react-jsx" }, include: ["src"], references: [] }, null, 2), "json", "config"),
     file("package.json", packageJson(name, scripts, dependencies, { "@types/react": "^19", "@types/react-dom": "^19", "@vitejs/plugin-react": "latest", typescript: "^5", vite: "latest" }), "json", "config"),
     file(".gitignore", "node_modules\ndist\n.env*\n!.env.example", "text", "config"),
     file("README.md", projectReadme(name, "react", analysis, plan, scripts), "markdown", "documentation"),
@@ -308,7 +309,7 @@ function htmlProject(
     ...(split!.javascript ? [file("script.js", split!.javascript, "javascript")] : []),
   ];
   files.push(
-    file("README.md", projectReadme(name, "html", analysis, plan, scripts), "markdown", "documentation"),
+    file("README.md", projectReadme(name, "html", analysis, plan, scripts, files.some((item) => item.path.endsWith(".html") && hasHtmlStartTag(item.content, "script", (attributes) => attributes.get("type")?.toLowerCase() === "module"))), "markdown", "documentation"),
     file("ASSETS.md", assetManifest(plan, assetDirection, assetDelivery, typographyContract, typographyDelivery), "markdown", "documentation"),
   );
   const warnings = inspectProductionRisks(generatedSourceText(generated), analysis.rawBrief, generatedClaimSource(generated));
@@ -376,7 +377,13 @@ function applyTypographyCss(files: ProjectFile[], framework: ProjectFramework, c
   const preferredPath = framework === "html" ? "styles.css" : framework === "react" ? "src/index.css" : "app/globals.css";
   const target = files.find((item) => item.path === preferredPath)
     ?? files.find((item) => item.encoding !== "base64" && item.path.endsWith(".css"));
-  const block = `/* Verve Typography Contract — bundled OFL fonts */\n${css.trim()}\n`;
+  const localizedCss = framework === "html" && target && target.path !== preferredPath
+    ? rewriteCssResourceUrls(css, (reference) => {
+        const path = resolveProjectResource(preferredPath, reference);
+        return path ? relativeProjectResource(target.path, path) : reference;
+      })
+    : css;
+  const block = `/* Verve Typography Contract — bundled OFL fonts */\n${localizedCss.trim()}\n`;
   if (target) {
     if (!target.content.includes("Verve Typography Contract")) target.content = `${target.content.trim()}\n\n${block}`;
     return;
@@ -416,7 +423,7 @@ export function buildGeneratedProject(
     }
   }
   if (validationIssues.length > 0) {
-    project.warnings.push(...validationIssues.map((issue) => `Validation: ${issue}`));
+    project.warnings.push(...validationIssues.map((issue) => `BLOCKING: Source validation: ${issue}`));
   }
   project.warnings.push(...additionalWarnings);
   return finalizeProject(project);

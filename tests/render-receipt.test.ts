@@ -66,7 +66,7 @@ test("render summaries expose only hashes and tested viewport/route/state identi
   const legacy = browserReport(360);
   delete legacy.probeVersion;
   assert.equal(summarizeRenderAudit(recordRenderEvidence(createRenderEvidenceMatrix(), legacy), null, null, revision).binding, undefined);
-  assert.match(createRenderProbeSource("revision-123"), /probeVersion: 3/);
+  assert.match(createRenderProbeSource("revision-123"), new RegExp(`probeVersion: ${RENDER_RECEIPT_PROBE_VERSION}`));
 });
 
 test("a passing or failing receipt for another artifact cannot authorize or block this revision", async () => {

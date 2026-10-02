@@ -8,6 +8,16 @@ Verve is an open-source project intelligence engine for generating distinctive w
 
 ## Verve Creative Engine v3 (beta)
 
+### Delivery integrity: source files, routes and preview
+
+- Comparison tasks stay inside the requested experience. Verve no longer manufactures a `/compare` export or extra pages to fill a complexity budget. Additional pages require explicit brief intent; undeclared or missing pages fail source validation.
+- HTML manifests retain safe `app.js`, nested scripts, `.mjs` modules and stylesheets. Invalid, duplicated or over-budget source manifests fail explicitly instead of silently dropping dependencies. React/Next can include bounded typed helpers without replacing engine-owned scaffolding.
+- Whole-project preflight checks scripts, literal module imports, CSS imports and classic-versus-module loading. Creative repairs one complete source manifest; remaining errors still block readiness, and a failed repair consumes its call allowance.
+- Native preview preserves deferred script execution, module boundaries, stylesheet media conditions and nested asset paths. ZIP export keeps the authored source and binaries; preview instrumentation is never exported. HTML modules require a local HTTP server rather than `file://`.
+- Fast checkpoints preserve the complete selected direction. A changed selection replaces its identity atomically; unknown or stale selections are rejected before model calls rather than silently choosing a different direction.
+- Render probe v4 catches early head-script and resource failures. Older browser receipts must be rechecked. These are delivery guarantees, not a claim that generated designs or every interaction have been visually validated.
+- The corrected public-example harness verifies decoded local media on the app origin. Architecture now measures `0.326` on Windows; its older unverified-media distances are historical, and Linux is explicitly pending remeasurement. No public example meets the `0.50` diversity release target.
+
 ### Current engineering focus: trustworthy design decisions
 
 The [next-stage audit and delivery plan](docs/VERVE_NEXT_STAGE.md) separates verified
@@ -135,7 +145,7 @@ Direction Fidelity (DF) is also evidence, not a taste score. It is the weighted 
 - **Visual Fingerprint v2** — distance now sees rendered font families, area-weighted surface color, functional visual-layer balance, depth signals, alignment diversity, and stateful controls instead of relying mainly on DOM frequency.
 - **Multi-surface evidence contract** — route and state identities are hashed inside the isolated preview and combined with the three release viewports. Raw routes, labels, copy, and form values are excluded from visual memory.
 - **Direction realization report** — the workbench exposes `DF` beside FVE and FVF, and moves a result to review when its three visible widths pass but declared routes, states, layers, scenes, or fonts remain unverified.
-- **Measured public-example receipts** — Playwright generates evidence for all 18 example/viewport renders and checks Windows/Linux baselines separately. The public distance is the smaller of the two measurements. The initial measured range was 0.212–0.285, not the former hand-authored 0.66–0.81 claim. After the first Carbon workbench rebuild, the conservative range is 0.224–0.296; all six still miss the 0.50 release target.
+- **Measured public-example receipts** — Playwright generates evidence for all 18 example/viewport renders and checks available Windows/Linux baselines separately. The public distance is the minimum of verified platform values; missing calibration withholds a diversity pass. The initial measured range was 0.212–0.285, not the former hand-authored 0.66–0.81 claim. After the first Carbon workbench rebuild, the conservative range was 0.224–0.296. The corrected local-media harness records Windows architecture at 0.326 with Linux pending; all six still miss the 0.50 release target.
 
 ## What changed in 0.11 Licensed Asset Delivery
 
