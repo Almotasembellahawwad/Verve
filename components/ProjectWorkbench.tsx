@@ -429,8 +429,9 @@ function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, 
 }
 
 export default function ProjectWorkbench({ project, projectSpec, onProjectChange, readOnly = false, focusMode = "split", showDiagnostics = true, visualDiversityThreshold = 0.35, memoryProjectId, onVisualDiversity, onRenderAudit }: ProjectWorkbenchProps) {
-  const probeId = useId();
+  const baseProbeId = useId();
   const previewKey = useMemo(() => projectPreviewKey(project, projectSpec), [project, projectSpec]);
+  const probeId = `${baseProbeId}-${previewKey}`;
   const files = useMemo(
     () => instrumentSandboxFiles(project, probeId, projectSpec),
     [project, probeId, projectSpec]
