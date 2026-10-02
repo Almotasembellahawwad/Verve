@@ -20,6 +20,15 @@ CI now audits the full dependency tree at the high-severity threshold; a registr
 failure is visible rather than silently ignored. Zero registry advisories at a point
 in time is not proof that the application has no security vulnerabilities.
 
+The 2026-10-02 delivery slice hit new CI audit findings in development-only
+ESLint dependency paths. The two `brace-expansion` resolutions move from 1.1.18
+and 5.0.9 to patched 1.1.21 and 5.0.12 without changing direct dependency ranges
+or weakening the audit gate. Maintainer advisories cover
+[nested-brace stack exhaustion](https://github.com/juliangruber/brace-expansion/security/advisories/GHSA-qhr7-859c-m2p7),
+[parse-comma stack exhaustion](https://github.com/juliangruber/brace-expansion/security/advisories/GHSA-6j4f-fj2g-mc7p),
+and [quadratic expansion](https://github.com/juliangruber/brace-expansion/security/advisories/GHSA-q2hr-2g5m-vwhr).
+Affected packages in the development tree are not evidence of production exploitability.
+
 ## The decision
 
 Build a **design-directed creation workflow**, not another general-purpose IDE.
@@ -117,13 +126,23 @@ benchmark against Lovable or v0. Claims of superior quality must wait for it.
   the current project's prior revisions using a hashed local ID. Unowned legacy
   entries cannot be attributed safely and are excluded from owned comparisons;
   identical results from *different* identified projects remain detectable.
-  This does not yet bind persisted render evidence to source and asset revisions.
-- **Persisted evidence needs revision binding.** A history render summary should
-  name a content digest, asset-manifest digest, probe version and tested surfaces.
-  Local editor matrices invalidate on edit. Restored history now discards its old
-  browser verdict and reruns the three viewport checks; omitted binaries hold the
-  creative claim provisional. History still needs a reliable link to complete
-  editor storage and an explicit content-bound receipt for provenance.
+  Archive entries are still not bound to source and asset revisions.
+- **Persisted evidence now has revision binding (2026-10-02 slice).** A history
+  render summary names SHA-256 source/configuration, asset/license and design
+  digests, probe version and hashed tested surfaces. Applying evidence requires
+  the current revision; a stale pass or fail has no authority over edited output.
+  Preview matrices reset on code, asset, configuration and ProjectSpec changes.
+  Restored history reruns the browser checks; omitted binaries keep claims
+  provisional. Linking history to complete editor storage and revision-binding
+  archive entries remain open.
+- **Unified identity now reaches delivery (2026-10-02 slice).** ProjectSpec's
+  optional Design Contract v1 records the chosen direction, exact typography
+  assignment, palette roles, spatial rhythm, material/image/motion language,
+  signature purpose and scene IDs. Framework-correct exports add a reserved token
+  stylesheet and JSON receipt; validation catches disconnected or drifted tokens
+  and warns when authored styling does not consume the shared color/spacing roles.
+  Design choices is collapsed in the workbench. This is not editable Theme,
+  enforced Scene Lock, a rendered candidate prototype, or proof of visual fidelity.
 - **Heuristics are not expert judgment.** Restraint scans keywords and purpose
   phrases; repeated scores can be deterministic behavior, not a meaningful
   perceptual diagnosis. Source markers and DOM geometry have similar limits.
@@ -187,9 +206,13 @@ Land the corrections above with deterministic regressions, production typography
 verification and desktop/mobile browser coverage. No new model calls in Fast.
 This milestone does not imply improved generated-site aesthetics by itself.
 
-### 1. Make observations trustworthy — next engineering slice
+### 1. Make observations trustworthy — partially implemented
 
-- Bind render receipts and archive entries to exact project/source/asset revisions.
+- [Implemented 2026-10-02] Bind render receipts to exact source/configuration,
+  asset/license and design revisions. Legacy unbound receipts remain historical.
+- [Implemented 2026-10-02] Compile and export the shared Design Contract without
+  another model call; validate executable token agreement and expose Design choices.
+- Bind archive entries to project/source/asset revisions (still open).
 - [Implemented in the first slice] Exclude the current project from archive
   comparisons without excluding genuinely duplicated work from other projects.
   Unowned legacy records are retained but not used for owned comparisons.
@@ -205,6 +228,19 @@ This milestone does not imply improved generated-site aesthetics by itself.
 - Move approved typography and asset feasibility into candidate selection.
 - Upgrade sketches to content-aware art-direction studies with actual available
   media and type; preserve the inexpensive six-direction/one-build budget.
+  [Implemented 2026-10-02, second slice] The board renders six local content-bound
+  studies with exact candidate fonts/shared delivery color roles, source records or
+  excerpts, and user-supplied raster bytes. Inspection uses native modal focus/Escape
+  behavior and local evidence selection/reveal; selection remains explicit. Missing
+  records are not padded, missing imagery is disclosed, and a supplied image is not
+  claimed to prove any record. Exploration now sees bounded brand/asset metadata;
+  changing that metadata invalidates its checkpoint while asset-free v1 hashes remain
+  readable. Provider failure is visibly identified as local fallback. Browser checks
+  cover 360/768/1440, RTL, actual loaded display/body faces, host-style isolation and
+  no remote image request. These are deterministic structural interpretations, not
+  provider-built prototypes, final screenshots, screenshot criticism, or verified
+  realization of a candidate's complete signature. A matched generation/human
+  preference study and the six public example rebuilds remain open.
 - Rebuild and freeze six examples: photo-led architectural atlas; Arabic restaurant
   reservation journey; carbon operations workbench; playful learning laboratory;
   nonlinear fashion collection; accessible civic guided flow.

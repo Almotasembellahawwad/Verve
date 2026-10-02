@@ -8,6 +8,7 @@ import type {
   VisualLayer,
 } from "../domain/project-spec";
 import type { BriefEvidenceKind } from "../domain/brief-evidence";
+import { RENDER_RECEIPT_PROBE_VERSION } from "../domain/render-receipt";
 
 export type SandboxFileMap = Record<string, { code: string }>;
 
@@ -119,6 +120,8 @@ export type RenderSurfaceIdentity = {
 
 export type RenderGateReport = {
   source: "verve-render-gate";
+  /** Legacy reports remain inspectable, but cannot create a current bound receipt. */
+  probeVersion?: number;
   probeId: string;
   sequence: number;
   viewport: { width: number; height: number; documentWidth: number };
@@ -921,7 +924,7 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
       ...(renderedEvidence ? [{ id: "rendered-evidence-salience", title: "Rendered evidence salience", status: renderedEvidence.missingCriticalKeys.length ? "fail" : renderedEvidence.score < 0.65 || renderedEvidence.firstViewportCoverage < 1 ? "warning" : "pass", message: "RES " + renderedEvidence.score.toFixed(2) + ": " + renderedEvidence.observed + "/" + renderedEvidence.expected + " scene-bound evidence items rendered, prominence " + renderedEvidence.prominence.toFixed(2) + ", first-viewport evidence " + renderedEvidence.firstViewportCoverage.toFixed(2) + ". The report contains hashes and numeric measurements only." }] : []),
       ...(renderedComposition ? [{ id: "rendered-composition-realization", title: "Rendered composition realization", status: renderedComposition.missingSceneKeys.length || renderedComposition.scenes.some((scene) => !scene.markerMatch) ? "fail" : renderedComposition.score < 0.6 || renderedComposition.repeatedAdjacentPairs > 0 ? "warning" : "pass", message: "RCR " + renderedComposition.score.toFixed(2) + ": " + renderedComposition.realizedScenes + "/" + renderedComposition.expectedScenes + " scene geometries realized, minimum adjacent geometry distance " + renderedComposition.minimumAdjacentDistance.toFixed(2) + ", repeated adjacent pairs " + renderedComposition.repeatedAdjacentPairs + ". This measures DOM geometry, not beauty." }] : [])
     ];
-    parent.postMessage({ source: "verve-render-gate", probeId: PROBE_ID, sequence: ++sequence, viewport: { width, height: window.innerHeight, documentWidth }, surface, checks, fingerprint, firstViewport, functionalVisual, renderedEvidence, renderedComposition }, "*");
+    parent.postMessage({ source: "verve-render-gate", probeVersion: ${RENDER_RECEIPT_PROBE_VERSION}, probeId: PROBE_ID, sequence: ++sequence, viewport: { width, height: window.innerHeight, documentWidth }, surface, checks, fingerprint, firstViewport, functionalVisual, renderedEvidence, renderedComposition }, "*");
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", schedule, { once: true });
   else schedule();

@@ -41,9 +41,35 @@ The API cannot know the final browser geometry when it returns the generated pro
 - counts, statuses, and normalized metric values;
 - the Direction Fidelity status and value;
 - the distance from the local visual archive;
-- one capture timestamp.
+- one capture timestamp;
+- SHA-256 digests for delivered source and runtime configuration, asset bytes and
+  license manifests, and ProjectSpec/design-contract decisions;
+- the receipt/probe versions and hashed route/state identities at each tested width.
 
 It does not add the brief, source code, screenshots, copy, images, form values, or raw route/state names to telemetry. The summary stays with the browser-local history entry.
+
+### Revision authority
+
+`applyRenderedEvaluationEvidence` requires the current project's revision and a
+matching receipt before it uses browser measurements. Missing hashes, a previous
+probe version, an incomplete viewport binding, or any changed code/font/image/
+license/configuration/design input makes that observation historical. A stale pass
+cannot bless the new output, and a stale failure cannot block an unrelated revision.
+Independent current source blockers still veto readiness.
+
+Preview matrices reset on source, asset, runtime configuration and ProjectSpec
+changes. React probe identities also change on local source edits so queued reports
+from an old iframe cannot repopulate the new matrix. Async hashing failure leaves
+the receipt unbound rather than silently granting readiness. These are content
+bindings, **not cryptographic attestations**: they do not authenticate generated
+code, prove that all user journeys were exercised, or certify visual beauty.
+
+Restored lightweight history reruns the browser check. If it omitted binaries, its
+asset digest differs from the complete exported project. Edits inside the creation
+page do not overwrite the initial generated history result; their receipts cannot
+authorize that initial artifact. The full editor remains the canonical place to
+save changed files. Binding archive entries and persisting complete editor evidence
+are separate follow-up work.
 
 ## Why this is not a new quality formula
 

@@ -1,0 +1,25 @@
+.dialog { width: min(1180px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 0; border: 1px solid var(--border-subtle); background: var(--bg-surface); color: var(--text-primary); overflow: auto; }
+.dialog::backdrop { background: rgb(0 0 0 / .72); }
+.shell { padding: clamp(16px, 3vw, 30px); }
+.header { display: flex; gap: 24px; align-items: start; justify-content: space-between; }
+.header span { font: 500 10px var(--font-plex-mono), monospace; color: var(--text-muted); }
+.header h3 { margin: 12px 0 0; font-size: clamp(20px, 2.6vw, 30px); line-height: 1.2; max-width: 40ch; overflow-wrap: anywhere; }
+.header > button, .footer > button { min-height: 44px; padding: 10px 16px; border: 1px solid var(--border-subtle); background: var(--bg-raised); color: var(--text-primary); cursor: pointer; font: inherit; flex-shrink: 0; }
+.header > button:focus-visible, .footer > button:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+.disclosure { max-width: 88ch; font-size: 13px; line-height: 1.6; margin: 20px 0 28px; color: var(--text-muted); }
+.body { display: grid; grid-template-columns: minmax(0, 2.3fr) minmax(0, 1fr); gap: 26px; align-items: start; }
+.thesis { min-width: 0; font-size: 13px; line-height: 1.65; }
+.thesis h4 { margin: 0 0 18px; font-size: 16px; }
+.thesis dl { display: grid; gap: 18px; margin: 0; }
+.thesis dt { font-size: 11px; color: var(--text-muted); }
+.thesis dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.thesis p { margin: 22px 0; }
+.thesis details { margin-bottom: 22px; } .thesis summary { cursor: pointer; } .thesis summary:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+.warnings { border-top: 1px solid var(--border-subtle); padding-top: 20px; }
+.warnings ul { padding-inline-start: 20px; }
+.warnings li + li { margin-top: 12px; }
+.limit { color: var(--text-muted); font-size: 12px; }
+.footer { display: flex; gap: 20px; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); margin-top: 28px; padding-top: 20px; }
+.footer span { color: var(--text-muted); font-size: 12px; }
+.footer > button { background: var(--brand); color: var(--text-inverse); font-weight: 600; }
+@media (max-width: 780px) { .body { grid-template-columns: 1fr; } .header { gap: 12px; } .footer { align-items: start; flex-direction: column; } }

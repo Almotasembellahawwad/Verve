@@ -20,11 +20,13 @@ import {
   recordVisualTruth,
 } from "@/lib/project/visual-truth";
 import styles from "./ProjectWorkbench.module.css";
+import DesignChoices from "./DesignChoices";
 import { projectFileDataUrl } from "@/lib/project/brand-kit";
 import type { WorkbenchFocusMode } from "./ProjectWorkbench";
 import { getRecentVisualFingerprints, rememberVisualFingerprint } from "@/lib/client/design-memory";
 import { summarizeRenderAudit } from "@/lib/client/render-audit";
 import type { RenderedEvaluationEvidence } from "@/lib/engine/evaluation-coherence";
+import { useProjectRevision } from "@/lib/client/use-project-revision";
 
 type Viewport = "mobile" | "tablet" | "desktop";
 
@@ -68,6 +70,7 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
 
   const selectedFile = files.find((item) => item.path === selectedPath) ?? files[0]!;
   const editedProject = useMemo<GeneratedProject>(() => ({ ...project, files }), [project, files]);
+  const revision = useProjectRevision(editedProject, projectSpec);
   const validation = useMemo(() => validateGeneratedProject(editedProject), [editedProject]);
   const srcDoc = useMemo(() => buildHtmlPreviewDocument(editedProject, activeProbeId, projectSpec), [activeProbeId, editedProject, projectSpec]);
   const selectedViewport = VIEWPORTS.find((item) => item.id === viewport)!;
@@ -92,7 +95,7 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
   const readinessScore = Math.min(validation.score, riskScore, renderScore);
   const readinessStatus = validation.status === "blocked" || renderFailures > 0 || riskBlocked
     ? "blocked"
-    : !renderEvidence.complete
+    : !renderEvidence.complete || !revision
       ? "verifying"
       : validation.status === "review-required" || project.warnings.length > 0 || renderWarnings > 0 || visualReviewRequired || directionReviewRequired
         ? "review-required"
@@ -126,8 +129,8 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
   }, [editedProject, onProjectChange]);
 
   useEffect(() => {
-    if (!readOnly) onRenderAudit?.(summarizeRenderAudit(renderEvidence, directionRealization, visualArchiveDistance));
-  }, [directionRealization, onRenderAudit, readOnly, renderEvidence, visualArchiveDistance]);
+    if (!readOnly) onRenderAudit?.(summarizeRenderAudit(renderEvidence, directionRealization, visualArchiveDistance, revision, visualTruth));
+  }, [directionRealization, onRenderAudit, readOnly, renderEvidence, revision, visualArchiveDistance, visualTruth]);
 
   const updateSelectedFile = (content: string) => {
     setVisualArchiveDistance(null);
@@ -184,6 +187,7 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
           </button>
         </div>
       </header>
+      <DesignChoices project={editedProject} />
 
       <div className={styles.sandboxPolicy} role="status">
         <strong>Native HTML preview · zero package downloads</strong>

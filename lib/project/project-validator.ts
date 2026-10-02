@@ -1,4 +1,7 @@
 import type { GeneratedProject, ProjectCheck, ProjectFile, ProjectValidation } from "./types";
+import { DESIGN_CONTRACT_PATH, designContractTokens } from "../domain/design-contract";
+import { readProjectDesignContract } from "./design-contract";
+import { hasHtmlStartTag } from "../security/structural-html";
 
 const SOURCE_EXTENSIONS = ["", ".ts", ".tsx", ".js", ".jsx", ".css", ".json"];
 const INDEX_EXTENSIONS = ["/index.ts", "/index.tsx", "/index.js", "/index.jsx"];
@@ -54,6 +57,29 @@ export function validateGeneratedProject(project: GeneratedProject): ProjectVali
   const files = new Map(project.files.map((file) => [normalized(file.path), file]));
   const paths = new Set(files.keys());
   const entry = files.get(normalized(project.entryFile));
+  if (files.has(DESIGN_CONTRACT_PATH)) {
+    const contract = readProjectDesignContract(project);
+    const cssPath = project.framework === "html" ? "verve-design.css" : project.framework === "react" ? "src/verve-design.css" : "app/verve-design.css";
+    const css = files.get(cssPath)?.content ?? "";
+    const declarations = Object.fromEntries([...css.matchAll(/(--verve-[\w-]+)\s*:\s*([^;{}]+);/g)].map((match) => [match[1], match[2].trim()]));
+    const tokenMatch = contract && Object.entries(designContractTokens(contract)).every(([key, value]) => declarations[key]?.toLowerCase() === value.toLowerCase());
+    const wiringPath = project.framework === "react" ? "src/main.tsx" : "app/layout.tsx";
+    const htmlRoutes = project.files.filter((file) => /\.html?$/i.test(file.path) && file.encoding !== "base64");
+    const wired = project.framework === "html"
+      ? htmlRoutes.length > 0 && htmlRoutes.every((file) => hasHtmlStartTag(file.content, "link", (attributes) =>
+          attributes.get("rel")?.toLowerCase().split(/\s+/).includes("stylesheet") === true
+          && localResourcePath(file.path, attributes.get("href") ?? "") === cssPath))
+      : /import\s*["']\.\/verve-design\.css["']/.test(files.get(wiringPath)?.content ?? "");
+    checks.push(tokenMatch && wired
+      ? check("design-contract", "Design identity", "pass", "The design receipt, reserved tokens and stylesheet links agree; wiring alone does not prove rendered identity.")
+      : check("design-contract", "Design identity", "fail", "The design receipt is invalid, differs from its executable tokens, or its stylesheet is disconnected.", DESIGN_CONTRACT_PATH));
+    const authoredStyles = inspectableFiles(project).filter((file) => file.path !== cssPath).map((file) => file.content).join("\n");
+    const usesColors = /var\(\s*--verve-color-(?:surface(?:-raised)?|text-(?:primary|muted)|accent)\s*[,)]/.test(authoredStyles);
+    const usesSpacing = /var\(\s*--verve-space-[1-6]\s*[,)]/.test(authoredStyles);
+    checks.push(usesColors && usesSpacing
+      ? check("design-token-use", "Shared design tokens", "pass", "Authored styles consume shared color and spacing tokens; browser identity still needs review.")
+      : check("design-token-use", "Shared design tokens", "warning", "The reserved stylesheet is present, but authored styles do not consume both shared color and spacing tokens. Review identity realization rather than treating file delivery as visual fidelity."));
+  }
 
   checks.push(entry
     ? check("entry", "Entry file", "pass", `${project.entryFile} exists.`)

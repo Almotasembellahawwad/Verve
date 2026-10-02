@@ -17,15 +17,43 @@ missing render evidence from counting as a creative pass, preserves history on
 storage failure, and respects explicit photography exclusions. CI browser tests
 now exercise the production build. Sketches are decision aids, not final screenshots.
 
+The first implementation slice now compiles a **Design Contract v1** from the
+selected direction: semantic palette roles, the existing typography assignment,
+spacing rhythm, image/material/motion language, signature purpose and scene IDs.
+HTML, React and Next.js exports include `DESIGN-CONTRACT.json` and a reserved
+`verve-design.css` token sheet. A collapsed **Design choices** panel makes the
+delivered identity inspectable without imposing one composition on every scene.
+Unused shared color/spacing tokens produce a review warning; shipping a stylesheet
+alone is not treated as proof that the generated design uses it.
+
+Browser receipts now carry SHA-256 digests of source/configuration, asset bytes
+and licenses, and design decisions, plus probe version and hashed tested surfaces.
+An old passing **or failing** receipt cannot decide readiness for edited output.
+Code, asset, configuration and ProjectSpec changes restart the preview evidence;
+legacy unbound history stays historical and must be checked again.
+
 The public examples still miss the recorded visual-distance target. Improving them,
-binding evidence to exact revisions, and preserving identity during scene-level
-refinement are the next priorities; passing automated checks alone does not prove
-world-class design.
+testing direction studies against delivered visual outcomes, and preserving identity during
+scene-level refinement are the next priorities. The contract records preservation
+intent; enforceable scene locks and theme editing are not implemented yet. Passing
+automated checks alone does not prove world-class design.
 
 The Direction Board now resolves candidate typography through the same locally
 bundled OFL contract used for the generated project, and previews the selected
 family. This keeps the visible choice and delivered type system consistent without
 adding a model call.
+
+The board now shows **content-aware art-direction studies** rather than generic
+SVG blocks: real brief excerpts/specifications, the candidate's exact color roles
+and bundled fonts, and available user-supplied raster images. Inspect a study to
+try a local selection/reveal interaction, then explicitly choose the direction.
+Missing product records and media are disclosed, never invented; supplied images
+are not implicitly assigned to a factual record. Changed asset metadata invalidates
+the old board. The direction API accepts bounded asset manifests, never binaries.
+An asset-free v1 checkpoint remains compatible. These six deterministic studies
+are structural decision aids, **not six generated sites**, measured quality receipts,
+or proof of fidelity; a failed provider exploration is visibly marked as local fallback.
+Only one direction proceeds to code and the existing call budgets stay unchanged.
 
 The six public examples are hand-curated, runnable engine-contract references,
 not output samples from a live provider run. Their browser-measured fingerprints

@@ -1829,22 +1829,28 @@
 .directionBoardHeader h3 { max-width: 680px; margin: 8px 0 0; font-size: clamp(1.45rem, 3vw, 2.5rem); line-height: 1; letter-spacing: -.045em; }
 .directionBoardHeader button { min-height: 40px; border: 1px solid var(--accent); background: transparent; color: var(--accent); padding: 0 13px; cursor: pointer; font: 700 .64rem var(--font-plex-mono), monospace; }
 .directionGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.directionCard { position: relative; min-width: 0; display: grid; align-content: start; gap: 12px; padding: 18px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; transition: border-color .16s, transform .16s, background .16s; }
+.directionCard { position: relative; min-width: 0; display: grid; align-content: start; gap: 12px; padding: 18px; border: 1px solid var(--line); background: var(--surface); transition: border-color .16s, transform .16s, background .16s; }
 .directionCard:hover { transform: translateY(-2px); border-color: var(--text-muted); }
 .directionCard:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
 .directionCardActive { border-color: var(--accent); background: color-mix(in srgb, var(--surface) 90%, var(--accent) 10%); }
-.directionCard input { position: absolute; inset: 14px 14px auto auto; accent-color: var(--accent); }
-.directionCard strong { max-width: 90%; font-size: 1rem; line-height: 1.2; }
-.directionCard p { min-height: 4.5em; margin: 0; color: var(--text-muted); font-size: .76rem; line-height: 1.5; }
-.directionCard dl { display: grid; gap: 5px; margin: 0; }
-.directionCard dl div { display: grid; grid-template-columns: 10ch minmax(0, 1fr); gap: 8px; font: .6rem var(--font-plex-mono), monospace; }
-.directionCard dd { overflow-wrap: anywhere; }
+.directionChoice { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; cursor: pointer; }
+.directionChoice input { margin: 3px 0 0; accent-color: var(--accent); }
+.directionChoice strong { font-size: 1.1rem; line-height: 1.4; overflow-wrap: anywhere; }
+.directionCard > p { min-height: 4.5em; margin: 0; color: var(--text-muted); font-size: .76rem; line-height: 1.5; }
+.directionDisclosure { margin: 0; max-width: 90ch; color: var(--text-muted); font-size: .85rem; line-height: 1.6; }
+.inspectDirection { border: 1px solid var(--line); min-height: 44px; background: var(--surface-raised); color: var(--text); padding: 10px 14px; cursor: pointer; font: 600 .75rem var(--font-manrope), sans-serif; text-align: start; }
+.inspectDirection:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.directionCard > dl { display: grid; gap: 5px; margin: 0; }
+.directionCard > dl div { display: grid; grid-template-columns: 10ch minmax(0, 1fr); gap: 8px; font: .6rem var(--font-plex-mono), monospace; }
+.directionCard > dl dd { overflow-wrap: anywhere; }
 .directionBoard { --accent: var(--brand); --line: var(--border-subtle); --surface: var(--bg-surface); --surface-raised: var(--bg-raised); --text: var(--text-primary); }
-.directionCard dt { color: var(--text-muted); }.directionCard dd { margin: 0; color: var(--text); }
+.directionCard > dl dt { color: var(--text-muted); }.directionCard > dl dd { margin: 0; color: var(--text); }
+.studyAssetNote { color: var(--text-muted); font-size: .72rem; line-height: 1.5; }
 .directionPalette { height: 22px; display: flex; overflow: clip; border: 1px solid var(--line); }
 .directionPalette i { flex: 1; display: block; }
 .directionCard small { color: var(--status-success); font: .58rem var(--font-plex-mono), monospace; text-transform: uppercase; letter-spacing: .08em; }
 .directionEvidence { margin: 0; color: var(--text-muted); font: .64rem var(--font-plex-mono), monospace; }
+@media (min-width: 701px) and (max-width: 1100px) { .directionGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 @media (max-width: 700px) {
   .projectView { padding: 8px; }

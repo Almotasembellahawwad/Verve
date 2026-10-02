@@ -8,6 +8,8 @@ import "@fontsource-variable/fraunces/wght.css";
 import "@fontsource-variable/newsreader/wght.css";
 import "@fontsource-variable/bricolage-grotesque/wght.css";
 import "@fontsource-variable/noto-kufi-arabic/wght.css";
+import "@fontsource-variable/noto-sans-arabic/wght.css";
+import "@fontsource-variable/readex-pro/wght.css";
 import "./globals.css";
 import { REPOSITORY_URL, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 
