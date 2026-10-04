@@ -1,4 +1,4 @@
-export const RENDER_RECEIPT_PROBE_VERSION = 4 as const;
+export const RENDER_RECEIPT_PROBE_VERSION = 5 as const;
 
 export type ProjectRevision = {
   version: 1;

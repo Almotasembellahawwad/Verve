@@ -2,6 +2,7 @@ import type { GeneratedProject } from "./types";
 import type { VerveProjectSpec } from "../domain/project-spec";
 import { createRenderProbeSource, type RenderProbeContext } from "./render-gate";
 import { projectFileDataUrl } from "./brand-kit";
+import { nativeNavigationBridge } from "./html-preview-navigation";
 import { cssWithoutComments, normalizeProjectPath, resolveProjectResource, rewriteCssResourceUrls, rewriteJavaScriptImports } from "./resource-paths";
 import {
   escapeHtmlAttribute,
@@ -16,7 +17,7 @@ import {
  * JavaScript files are inlined for preview only; the editable project and ZIP
  * keep their original multi-file structure.
  */
-export type HtmlPreviewOptions = RenderProbeContext & { entryFile?: string };
+export type HtmlPreviewOptions = RenderProbeContext & { entryFile?: string; navigation?: { fragment?: string } };
 
 export function buildHtmlPreviewDocument(
   project: GeneratedProject,
@@ -32,7 +33,8 @@ export function buildHtmlPreviewDocument(
     .filter((item) => item.encoding !== "base64")
     .map((item) => [normalizeProjectPath(item.path), item.content]));
   const entryPath = normalizeProjectPath(options?.entryFile || project.entryFile || "index.html") ?? "index.html";
-  let html = files.get(entryPath) ?? files.get("index.html") ?? "";
+  let html = files.get(entryPath);
+  if (html === undefined) throw new Error(`Preview page is not delivered: ${entryPath}`);
 
   const inlineAssets = (content: string, from: string) => {
     return content.replace(/(["'])([^"'\r\n]+)\1/g, (original, quote: string, reference: string) => {
@@ -139,8 +141,10 @@ export function buildHtmlPreviewDocument(
   }
 
   const probe = `<script data-verve-render-probe>${escapeRawTextEndTags(createRenderProbeSource(probeId, projectSpec, options), "script")}</script>`;
+  const navigation = options?.navigation
+    ? `<script data-verve-native-navigation>${escapeRawTextEndTags(nativeNavigationBridge(probeId, options.navigation.fragment), "script")}</script>` : "";
   // Subscribe before authored head scripts/resources, not after they failed.
   return hasHtmlStartTag(html, "head")
-    ? rewriteHtmlElements(html, "head", (element) => `${element.openingTag}${probe}${element.content}${element.closingTag}`)
-    : `${probe}\n${html}`;
+    ? rewriteHtmlElements(html, "head", (element) => `${element.openingTag}${probe}${navigation}${element.content}${element.closingTag}`)
+    : `${probe}${navigation}\n${html}`;
 }

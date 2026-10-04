@@ -17,12 +17,9 @@ import { validateGeneratedProject } from "@/lib/project/project-validator";
 import { mergeEditorFiles } from "@/lib/project/editor-project";
 import { liveSandboxTemplate, supportsLiveSandbox } from "@/lib/project/live-sandbox";
 import {
-  createRenderEvidenceMatrix,
   createRenderProbeSource,
   instrumentSandboxFiles,
   isRenderGateReport,
-  recordRenderEvidence,
-  RENDER_EVIDENCE_WIDTHS,
   visualFingerprintDistance,
   type RenderEvidenceWidth,
 } from "@/lib/project/render-gate";
@@ -30,6 +27,7 @@ import {
   buildDirectionRealizationReport,
   createVisualTruthMatrix,
   recordVisualTruth,
+  renderEvidenceFromVisualTruth,
 } from "@/lib/project/visual-truth";
 import NativeHtmlWorkbench from "./NativeHtmlWorkbench";
 import styles from "./ProjectWorkbench.module.css";
@@ -206,20 +204,14 @@ function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, 
   const filesRevision = useMemo(() => sandboxFilesRevision(sandpack.files), [sandpack.files]);
   const activeProbeId = `${probeId}-${filesRevision}`;
   const measuredDistance = visualArchiveMeasurement.revision === filesRevision ? visualArchiveMeasurement.distance : null;
-  const [renderEvidenceState, setRenderEvidenceState] = useState(() => ({
-    revision: filesRevision,
-    evidence: createRenderEvidenceMatrix(),
-  }));
   const [visualTruthState, setVisualTruthState] = useState(() => ({
     revision: filesRevision,
     evidence: createVisualTruthMatrix(projectSpec),
   }));
-  const renderEvidence = renderEvidenceState.revision === filesRevision
-    ? renderEvidenceState.evidence
-    : createRenderEvidenceMatrix();
   const visualTruth = visualTruthState.revision === filesRevision
     ? visualTruthState.evidence
     : createVisualTruthMatrix(projectSpec);
+  const renderEvidence = useMemo(() => renderEvidenceFromVisualTruth(visualTruth), [visualTruth]);
   const selectedViewport = VIEWPORT_LABELS.find((item) => item.id === viewport)!;
 
   const editedProject = useMemo<GeneratedProject>(
@@ -230,10 +222,10 @@ function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, 
   const validation = useMemo(() => validateGeneratedProject(editedProject), [editedProject]);
   const problemChecks = validation.checks.filter((item) => item.status !== "pass");
   const runtimeError = sandpack.error?.message ?? null;
-  const renderProblems = RENDER_EVIDENCE_WIDTHS.flatMap((width) =>
-    (renderEvidence.reports[width]?.checks ?? [])
+  const renderProblems = Object.entries(visualTruth.reports).flatMap(([surface, report]) =>
+    report.checks
       .filter((item) => item.status !== "pass")
-      .map((item) => ({ ...item, viewportWidth: width }))
+      .map((item) => ({ ...item, surface, viewportWidth: report.viewport.width }))
   );
   const renderFailures = renderEvidence.failures;
   const renderWarnings = renderEvidence.warnings;
@@ -275,13 +267,6 @@ function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, 
           onVisualDiversity?.(distance);
           rememberVisualFingerprint(report.fingerprint, memoryProjectId);
         }
-        setRenderEvidenceState((current) => ({
-          revision: filesRevision,
-          evidence: recordRenderEvidence(
-            current.revision === filesRevision ? current.evidence : createRenderEvidenceMatrix(),
-            report
-          ),
-        }));
         setVisualTruthState((current) => ({
           revision: filesRevision,
           evidence: recordVisualTruth(
@@ -410,13 +395,13 @@ function ProjectWorkspaceBody({ project, projectSpec, probeId, onProjectChange, 
               </div>
             ))}
             {renderProblems.map((item) => (
-              <div key={`render-${item.viewportWidth}-${item.id}`} className={item.status === "fail" ? styles.problemFail : styles.problemWarning}>
+              <div key={`render-${item.surface}-${item.id}`} className={item.status === "fail" ? styles.problemFail : styles.problemWarning}>
                 <b>Render · {item.title}</b>
                 <span>{item.message}</span>
               </div>
             ))}
-            {totalProblems === 0 && renderEvidence.complete && <p className={styles.noProblems}>Static validation and all three rendered viewports passed.</p>}
-            {totalProblems === 0 && !renderEvidence.complete && <p className={styles.renderPending}>Viewport evidence {renderEvidence.covered}/3. Open each width to complete the render audit.</p>}
+            {totalProblems === 0 && renderEvidence.complete && <p className={styles.noProblems}>Static validation and the expected route/state/width coverage passed. State hashes are observations, not a functional test suite.</p>}
+            {totalProblems === 0 && !renderEvidence.complete && <p className={styles.renderPending}>Viewport evidence {renderEvidence.covered}/3 · routes {visualTruth.coveredRoutes}/{visualTruth.expectedRoutes} · state/width observations {visualTruth.coveredStateViewports}/{visualTruth.expectedStateViewports}. Open each route at each width and exercise its states to complete the render audit.</p>}
           </div>
         ) : (
           <div role="tabpanel" className={styles.consolePanel}>

@@ -11,6 +11,8 @@ import { buildGeneratedProject } from "../../lib/project/project-builder";
 import { buildHtmlPreviewDocument } from "../../lib/project/html-preview";
 import type { RenderGateReport } from "../../lib/project/render-gate";
 import type { GeneratedProject, ProjectFile } from "../../lib/project/types";
+import type { VerveProjectSpec } from "../../lib/domain/project-spec";
+import { privacySafeSurfaceKey } from "../../lib/project/visual-truth";
 
 const WIDTHS = [360, 768, 1440] as const;
 const PIXEL_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/Z4sAAAAASUVORK5CYII=";
@@ -218,4 +220,22 @@ test("the downloaded vanilla ZIP keeps app.js executable and contains no synthet
   await page.getByRole("button", { name: "Inspect product" }).click();
   await expect(page.locator("#selection")).toHaveText("Riso Notebook selected");
   expect(errors).toEqual([]);
+});
+
+test("an explicit unplanned HTML context never borrows the root page's visual or state contract", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome", "One browser verifies srcDoc route identity.");
+  const project = await generatedHtml([source("index.html", "<html><head><title>Root</title></head><body><h1>Root</h1></body></html>"), source("extra.html", "<html><head><title>Extra</title></head><body><h1>Extra page</h1></body></html>")]);
+  const spec = {
+    experience: { routes: [{ id: "root", path: "/", regionIds: [] }] },
+    components: [{ id: "tabs", routeId: "root" }],
+    interactions: [{ componentId: "tabs", states: [{ id: "first" }, { id: "second" }] }],
+  } as unknown as VerveProjectSpec;
+  await page.goto("about:blank");
+  const capture = '<script>window.__deliveryReport=null;window.addEventListener("message",function(event){if(event.data&&event.data.source==="verve-render-gate")window.__deliveryReport=event.data});</script>';
+  await page.setContent(buildHtmlPreviewDocument(project, "unplanned-context", spec, { entryFile: "extra.html", routeId: "html:extra.html", routeCount: 2 }).replace(/<head([^>]*)>/i, `<head$1>${capture}`), { waitUntil: "load" });
+  const report = await renderReport(page, "unplanned-context");
+  expect(report.surface?.routeKey).toBe(privacySafeSurfaceKey("html:extra.html"));
+  expect(report.surface?.expectedStateCount).toBe(1);
+  expect(report.functionalVisual).toBeNull();
+  expect(report.fingerprint.routeCount).toBe(2);
 });
