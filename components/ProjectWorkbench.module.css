@@ -177,6 +177,9 @@
 .preview { height: 100% !important; border: 1px solid #2c2e33; border-radius: 0 !important; }
 .nativePreview { display: block; width: 100%; height: 100%; border: 1px solid #2c2e33; background: #fff; }
 .nativePreviewViewport { transition: none; }
+/* The host must not keep animating its ancestor scroll while an opaque frame
+   navigates/focuses a local control. Generated-page motion remains isolated. */
+:global(html):has(.nativeLayout) { scroll-behavior: auto; }
 .nativeRouteBar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-block: 10px; color: #e8e4db; font: .72rem var(--font-plex-mono), monospace; }
 .nativeRouteBar button, .nativeRouteBar select { min-height: 44px; border: 1px solid #34363b; border-radius: 4px; padding: 8px; background: #17191d; color: #e8e4db; font: inherit; }
 .nativeRouteBar button:disabled { color: #868890; cursor: not-allowed; }

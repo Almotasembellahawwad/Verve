@@ -24,6 +24,10 @@ provider generations or engine-produced showcase examples are part of this chang
 - Probe v5 invalidates older receipts. Source, binary assets and design decisions
   still use the existing SHA-256 revision binding. Saved coverage contains counts and
   hashed identities only, never page copy, form values or raw URLs.
+- While a native workbench is mounted, host-page ancestor scrolling is immediate.
+  This prevents the host's global smooth scroll from moving an opaque frame during
+  focus/navigation and pointer dispatch. Generated-page motion remains isolated.
+  The native browser suite explicitly disables retries to expose unstable clicks.
 
 ## What this does not prove
 

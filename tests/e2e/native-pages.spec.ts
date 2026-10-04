@@ -11,6 +11,9 @@ import type { RenderGateReport } from "../../lib/project/render-gate";
 
 type FixtureOptions = { failingPage?: boolean; withSpec?: boolean; rtl?: boolean };
 
+// Native pointer/navigation regressions must not be hidden by CI retries.
+test.describe.configure({ retries: 0 });
+
 async function openFixture(page: Page, { failingPage = false, withSpec = false, rtl = false }: FixtureOptions = {}) {
   const brief = "An architecture practice. Include a home page, a separate work page and a separate contact page. Let visitors inspect the practice and begin an enquiry. No photography.";
   const analysis = analyzeBriefLocally(brief);
@@ -63,6 +66,7 @@ async function openFixture(page: Page, { failingPage = false, withSpec = false, 
   const workspace = page.getByRole("region", { name: "Generated HTML project workspace" });
   const frame = page.frameLocator('iframe[title$="live preview"]');
   await expect(frame.getByRole("heading", { name: "Practice home" })).toBeVisible();
+  await expect.poll(() => page.locator("html").evaluate((element) => getComputedStyle(element).scrollBehavior)).toBe("auto");
   const audit = () => page.evaluate(() => (JSON.parse(localStorage.getItem("verve_design_history") ?? "[]") as Array<{ renderAudit?: RenderedEvaluationEvidence }>)[0]?.renderAudit);
   return { workspace, frame, audit, revision, spec };
 }
