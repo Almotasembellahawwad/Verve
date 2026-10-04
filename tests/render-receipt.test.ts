@@ -6,6 +6,7 @@ import { summarizeRenderAudit } from "../lib/client/render-audit";
 import { createRenderEvidenceMatrix, recordRenderEvidence, createRenderProbeSource, type RenderGateReport } from "../lib/project/render-gate";
 import { applyRenderedEvaluationEvidence, type EvaluationCoherenceReport } from "../lib/engine/evaluation-coherence";
 import type { GeneratedProject } from "../lib/project/types";
+import { createVisualTruthMatrix, privacySafeSurfaceKey, recordVisualTruth } from "../lib/project/visual-truth";
 
 function project(): GeneratedProject {
   return {
@@ -91,4 +92,30 @@ test("a passing or failing receipt for another artifact cannot authorize or bloc
   assert.equal(applyRenderedEvaluationEvidence(evaluation(), audit, .45).creativeClaim, "provisional");
   const missingWidth = { ...audit, binding: { ...audit.binding!, testedSurfaces: audit.binding!.testedSurfaces.slice(0, 2) } };
   assert.equal(applyRenderedEvaluationEvidence(evaluation(), missingWidth, .45, revision).releaseDecision, "review-required");
+});
+
+test("saved audits cannot authorize unvisited pages or hide a non-entry failure behind three clean widths", async () => {
+  let widths = createRenderEvidenceMatrix();
+  let truth = createVisualTruthMatrix(undefined, ["home", "private-client-projects"]);
+  for (const width of [360, 768, 1440]) {
+    const report = browserReport(width);
+    report.surface!.routeKey = privacySafeSurfaceKey("home");
+    widths = recordRenderEvidence(widths, report);
+    truth = recordVisualTruth(truth, report);
+  }
+  assert.equal(widths.complete, true);
+  const revision = await projectRevision(project());
+  const incomplete = summarizeRenderAudit(widths, null, null, revision, truth);
+  assert.equal(incomplete.covered, 3);
+  assert.equal(incomplete.complete, false);
+  assert.notEqual(incomplete.status, "pass");
+  const failure = browserReport(1440);
+  failure.surface!.routeKey = privacySafeSurfaceKey("private-client-projects");
+  failure.checks = [{ id: "runtime-errors", title: "Runtime", status: "fail", message: "Private source detail" }];
+  truth = recordVisualTruth(truth, failure);
+  const audit = summarizeRenderAudit(widths, null, null, revision, truth);
+  assert.equal(audit.failures, 1);
+  assert.equal(audit.status, "fail");
+  assert.equal(applyRenderedEvaluationEvidence(evaluation(), audit, .45, revision).releaseDecision, "blocked");
+  assert.doesNotMatch(JSON.stringify(audit), /private-client-projects|Private source detail/);
 });

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { RENDER_RECEIPT_PROBE_VERSION } from "../lib/domain/render-receipt";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { NextRequest } from "next/server";
@@ -2491,7 +2492,7 @@ test("evaluation coherence gives release gates veto authority without inventing 
     directionFidelity: 0.88,
     directionStatus: "pass",
     visualArchiveDistance: 0.58,
-    binding: { version: 1, revision, probeVersion: 4, testedSurfaces: ([360, 768, 1440] as const).map((width) => ({ width, routeKey: "surface-root", stateKey: "surface-default" })) },
+    binding: { version: 1, revision, probeVersion: RENDER_RECEIPT_PROBE_VERSION, testedSurfaces: ([360, 768, 1440] as const).map((width) => ({ width, routeKey: "surface-root", stateKey: "surface-default" })) },
     privacy: "numeric-and-hashed-render-summary-only",
   }, 0.45, revision);
   assert.equal(rendered.signals.find((signal) => signal.id === "render-evidence")?.status, "pass");

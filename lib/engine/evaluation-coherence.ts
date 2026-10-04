@@ -58,6 +58,13 @@ export type RenderedEvaluationEvidence = {
   directionFidelity: number | null;
   directionStatus: "pass" | "review" | "fail" | null;
   visualArchiveDistance: number | null;
+  /** Bounded counts only; URLs, copy and form values are never persisted here. */
+  surfaceCoverage?: {
+    version: 3;
+    routes: { covered: number; expected: number };
+    routeViewports: { covered: number; expected: number };
+    stateViewports: { covered: number; expected: number };
+  };
   /** Absent on old history: historical observations cannot authorize the current artifact. */
   binding?: RenderReceiptBinding;
   privacy: "numeric-and-hashed-render-summary-only";
@@ -349,6 +356,8 @@ export function applyRenderedEvaluationEvidence(
   // arrive. Missing measurements never count as passing measurements.
   const bound = receiptMatchesRevision(evidence.binding, currentRevision, evidence.covered);
   const complete = bound && evidence.complete && evidence.covered === 3;
+  const coverage = evidence.surfaceCoverage;
+  const coverageSummary = coverage ? `${coverage.routes.covered}/${coverage.routes.expected} pages, ${coverage.routeViewports.covered}/${coverage.routeViewports.expected} page/width checks, ${coverage.stateViewports.covered}/${coverage.stateViewports.expected} state/width observations` : `${evidence.covered}/3 viewports`;
   const renderStatus: EvaluationSignalStatus = !bound ? "unavailable" : evidence.status === "fail" || evidence.failures > 0
     ? "fail"
     : !complete ? "unavailable"
@@ -358,7 +367,7 @@ export function applyRenderedEvaluationEvidence(
         ...signal,
         status: renderStatus,
         score: bound ? evidence.score : null,
-        summary: bound ? `${evidence.covered}/3 viewports; FVE ${evidence.firstViewportScore ?? "pending"}, FVF ${evidence.functionalVisualScore ?? "pending"}, RES ${evidence.renderedEvidenceScore ?? "pending"}, RCR ${evidence.renderedCompositionScore ?? "pending"}, DF ${evidence.directionFidelity ?? "pending"}.`
+        summary: bound ? `${coverageSummary}; FVE ${evidence.firstViewportScore ?? "pending"}, FVF ${evidence.functionalVisualScore ?? "pending"}, RES ${evidence.renderedEvidenceScore ?? "pending"}, RCR ${evidence.renderedCompositionScore ?? "pending"}, DF ${evidence.directionFidelity ?? "pending"}.`
           : "The browser receipt is unbound or belongs to different source, assets, design decisions, or probe version. Recheck this revision.",
       }
     : signal);
@@ -373,7 +382,7 @@ export function applyRenderedEvaluationEvidence(
       id: "render-evidence-pending",
       severity: "explanation",
       signalIds: ["render-evidence"],
-      message: `Browser evidence for this revision is incomplete (${bound ? evidence.covered : 0}/3 viewports).`,
+      message: `Browser evidence for this revision is incomplete (${bound ? coverageSummary : "0/3 viewports"}).`,
     });
   }
   if (renderStatus === "fail" || renderStatus === "review") {

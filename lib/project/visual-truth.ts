@@ -1,12 +1,14 @@
 import type { VerveProjectSpec, VisualLayer } from "../domain/project-spec";
 import {
   RENDER_EVIDENCE_WIDTHS,
+  createRenderEvidenceMatrix,
+  type RenderEvidenceMatrix,
   type RenderedCompositionScene,
   type RenderEvidenceWidth,
   type RenderGateReport,
 } from "./render-gate";
 
-export const VISUAL_TRUTH_VERSION = 2 as const;
+export const VISUAL_TRUTH_VERSION = 3 as const;
 
 export type VisualTruthRouteExpectation = {
   routeKey: string;
@@ -26,9 +28,11 @@ export type VisualTruthMatrix = {
   coveredRoutes: number;
   coveredRouteViewports: number;
   coveredStates: number;
+  coveredStateViewports: number;
   expectedRoutes: number;
   expectedRouteViewports: number;
   expectedStates: number;
+  expectedStateViewports: number;
   failures: number;
   warnings: number;
   complete: boolean;
@@ -78,11 +82,12 @@ function normalizeFontFamily(value: string): string {
     .trim();
 }
 
-export function createVisualTruthContract(spec?: VerveProjectSpec): VisualTruthContract {
+export function createVisualTruthContract(spec?: VerveProjectSpec, deliveredRouteIds?: string[]): VisualTruthContract {
   if (!spec) {
     return {
       version: VISUAL_TRUTH_VERSION,
-      routes: [{ routeKey: privacySafeSurfaceKey("root"), expectedStateCount: 1 }],
+      routes: (deliveredRouteIds?.length ? [...new Set(deliveredRouteIds)] : ["root"])
+        .map((id) => ({ routeKey: privacySafeSurfaceKey(id), expectedStateCount: 1 })),
       requiredLayers: ["type", "interaction"],
       expectedFontFamilies: [],
     };
@@ -103,14 +108,16 @@ export function createVisualTruthContract(spec?: VerveProjectSpec): VisualTruthC
 
   return {
     version: VISUAL_TRUTH_VERSION,
-    routes,
+    routes: [...routes, ...[...new Set(deliveredRouteIds ?? [])]
+      .filter((id) => !routes.some((route) => route.routeKey === privacySafeSurfaceKey(id)))
+      .map((id) => ({ routeKey: privacySafeSurfaceKey(id), expectedStateCount: 1 }))],
     requiredLayers: [...new Set(spec.narrative.richness.requiredLayers)],
     expectedFontFamilies: [...new Set(assignments.map((assignment) => normalizeFontFamily(assignment!.family)))],
   };
 }
 
-export function createVisualTruthMatrix(spec?: VerveProjectSpec): VisualTruthMatrix {
-  return summarizeMatrix(createVisualTruthContract(spec), {});
+export function createVisualTruthMatrix(spec?: VerveProjectSpec, deliveredRouteIds?: string[]): VisualTruthMatrix {
+  return summarizeMatrix(createVisualTruthContract(spec, deliveredRouteIds), {});
 }
 
 function evidenceWidth(width: number): RenderEvidenceWidth | undefined {
@@ -131,24 +138,31 @@ function summarizeMatrix(
     const width = evidenceWidth(report.viewport.width);
     return routeKey && width && expectedRouteKeys.has(routeKey) ? [`${routeKey}:${width}`] : [];
   }));
-  const stateKeys = new Set(captured.flatMap((report) => {
-    const routeKey = report.surface?.routeKey;
-    const stateKey = report.surface?.stateKey;
-    return routeKey && stateKey && expectedRouteKeys.has(routeKey) ? [`${routeKey}:${stateKey}`] : [];
-  }));
+  // Extra states on one route/width cannot stand in for another route/width.
+  let coveredStates = 0;
+  let coveredStateViewports = 0;
+  for (const route of contract.routes) {
+    const routeReports = captured.filter((report) => report.surface?.routeKey === route.routeKey);
+    coveredStates += Math.min(route.expectedStateCount, new Set(routeReports.map((report) => report.surface?.stateKey)).size);
+    for (const width of RENDER_EVIDENCE_WIDTHS) {
+      const states = new Set(routeReports.filter((report) => evidenceWidth(report.viewport.width) === width).map((report) => report.surface?.stateKey));
+      coveredStateViewports += Math.min(route.expectedStateCount, states.size);
+    }
+  }
   const checks = captured.flatMap((report) => report.checks);
   const failures = checks.filter((check) => check.status === "fail").length;
   const warnings = checks.filter((check) => check.status === "warning").length;
   const expectedRoutes = contract.routes.length;
   const expectedRouteViewports = expectedRoutes * RENDER_EVIDENCE_WIDTHS.length;
   const expectedStates = contract.routes.reduce((total, route) => total + route.expectedStateCount, 0);
+  const expectedStateViewports = expectedStates * RENDER_EVIDENCE_WIDTHS.length;
   const complete = coveredRouteKeys.size === expectedRoutes
     && routeViewportKeys.size === expectedRouteViewports
-    && stateKeys.size >= expectedStates;
+    && coveredStateViewports === expectedStateViewports;
   const coverageScore = (
     coveredRouteKeys.size / Math.max(1, expectedRoutes) * 0.35
     + routeViewportKeys.size / Math.max(1, expectedRouteViewports) * 0.4
-    + Math.min(1, stateKeys.size / Math.max(1, expectedStates)) * 0.25
+    + coveredStateViewports / Math.max(1, expectedStateViewports) * 0.25
   );
   const status = failures > 0
     ? "fail"
@@ -165,10 +179,12 @@ function summarizeMatrix(
     reports,
     coveredRoutes: coveredRouteKeys.size,
     coveredRouteViewports: routeViewportKeys.size,
-    coveredStates: stateKeys.size,
+    coveredStates,
+    coveredStateViewports,
     expectedRoutes,
     expectedRouteViewports,
     expectedStates,
+    expectedStateViewports,
     failures,
     warnings,
     complete,
@@ -182,11 +198,37 @@ export function recordVisualTruth(matrix: VisualTruthMatrix, report: RenderGateR
   if (!width) return matrix;
   const fallbackRoute = matrix.contract.routes[0]?.routeKey ?? privacySafeSurfaceKey("root");
   const routeKey = report.surface?.routeKey ?? fallbackRoute;
+  if (!matrix.contract.routes.some((route) => route.routeKey === routeKey)) return matrix;
   const stateKey = report.surface?.stateKey ?? privacySafeSurfaceKey("default");
   const key = `${routeKey}:${stateKey}:${width}`;
   const previous = matrix.reports[key];
-  if (previous && previous.sequence > report.sequence) return matrix;
+  if (previous?.probeId === report.probeId && previous.sequence > report.sequence) return matrix;
   return summarizeMatrix(matrix.contract, { ...matrix.reports, [key]: report });
+}
+
+/** Project-wide authority: returning to a clean entry page never hides another surface's failure. */
+export function renderEvidenceFromVisualTruth(matrix: VisualTruthMatrix): RenderEvidenceMatrix {
+  const captured = Object.values(matrix.reports);
+  const reports: RenderEvidenceMatrix["reports"] = {};
+  for (const report of captured) {
+    const width = evidenceWidth(report.viewport.width);
+    if (width) reports[width] = report;
+  }
+  const minimum = (values: number[]) => values.length ? Math.min(...values) : null;
+  return {
+    ...createRenderEvidenceMatrix(),
+    reports,
+    covered: Object.keys(reports).length,
+    complete: matrix.complete,
+    status: matrix.status,
+    score: matrix.score,
+    failures: matrix.failures,
+    warnings: matrix.warnings,
+    firstViewportScore: minimum(captured.flatMap((report) => report.firstViewport ? [report.firstViewport.score] : [])),
+    functionalVisualScore: minimum(captured.flatMap((report) => report.functionalVisual ? [report.functionalVisual.score] : [])),
+    renderedEvidenceScore: minimum(captured.flatMap((report) => report.renderedEvidence ? [report.renderedEvidence.score] : [])),
+    renderedCompositionScore: minimum(captured.flatMap((report) => report.renderedComposition ? [report.renderedComposition.score] : [])),
+  };
 }
 
 function axis(score: number, weight: number, observed: number, expected: number): DirectionFidelityAxis {
@@ -291,7 +333,7 @@ export function buildDirectionRealizationReport(
   const axes = {
     routes: axis(matrix.coveredRoutes / Math.max(1, matrix.expectedRoutes), 0.14, matrix.coveredRoutes, matrix.expectedRoutes),
     responsive: axis(matrix.coveredRouteViewports / Math.max(1, matrix.expectedRouteViewports), 0.12, matrix.coveredRouteViewports, matrix.expectedRouteViewports),
-    states: axis(matrix.coveredStates / Math.max(1, matrix.expectedStates), 0.1, matrix.coveredStates, matrix.expectedStates),
+    states: axis(matrix.coveredStateViewports / Math.max(1, matrix.expectedStateViewports), 0.1, matrix.coveredStateViewports, matrix.expectedStateViewports),
     scenes: axis(sceneScore, 0.16, sceneObserved, sceneExpected),
     composition: axis(compositionScore, 0.2, realizedSceneKeys.size, compositionAssignments.length),
     layers: axis(requiredLayers.filter((layer) => observedLayers.has(layer)).length / Math.max(1, requiredLayers.length), 0.14, requiredLayers.filter((layer) => observedLayers.has(layer)).length, requiredLayers.length),
@@ -303,7 +345,7 @@ export function buildDirectionRealizationReport(
   const unverified: string[] = [];
   if (axes.routes.score < 1) unverified.push(`${matrix.expectedRoutes - matrix.coveredRoutes} route(s) have no render evidence.`);
   if (axes.responsive.score < 1) unverified.push(`${matrix.expectedRouteViewports - matrix.coveredRouteViewports} route/viewport surface(s) are missing.`);
-  if (axes.states.score < 1) unverified.push(`${Math.max(0, matrix.expectedStates - matrix.coveredStates)} declared state(s) were not exercised.`);
+  if (axes.states.score < 1) unverified.push(`${Math.max(0, matrix.expectedStateViewports - matrix.coveredStateViewports)} state/viewport observation(s) are missing. State hashes measure coverage, not proof of functional correctness.`);
   if (axes.scenes.score < 0.72) unverified.push("Functional scene fulfillment is below the release threshold.");
   if (axes.composition.score < 0.6) unverified.push("Rendered scene geometry or its responsive transformation does not realize the Composition Genome.");
   if (axes.layers.score < 1) unverified.push("One or more required visual layers were not observed.");

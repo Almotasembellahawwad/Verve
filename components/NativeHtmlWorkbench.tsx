@@ -6,11 +6,9 @@ import type { VerveProjectSpec } from "@/lib/domain/project-spec";
 import { downloadProjectArchive } from "@/lib/client/project-archive";
 import { validateGeneratedProject } from "@/lib/project/project-validator";
 import { buildHtmlPreviewDocument } from "@/lib/project/html-preview";
+import { isNativeNavigationMessage, nativePreviewPages, resolveNativePreviewLink, type NativePreviewLocation } from "@/lib/project/html-preview-navigation";
 import {
-  createRenderEvidenceMatrix,
   isRenderGateReport,
-  recordRenderEvidence,
-  RENDER_EVIDENCE_WIDTHS,
   visualFingerprintDistance,
   type RenderEvidenceWidth,
 } from "@/lib/project/render-gate";
@@ -18,6 +16,8 @@ import {
   buildDirectionRealizationReport,
   createVisualTruthMatrix,
   recordVisualTruth,
+  privacySafeSurfaceKey,
+  renderEvidenceFromVisualTruth,
 } from "@/lib/project/visual-truth";
 import styles from "./ProjectWorkbench.module.css";
 import DesignChoices from "./DesignChoices";
@@ -59,8 +59,9 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
   const [files, setFiles] = useState(project.files);
   const [selectedPath, setSelectedPath] = useState(project.entryFile);
   const [viewport, setViewport] = useState<Viewport>("desktop");
-  const [renderEvidence, setRenderEvidence] = useState(createRenderEvidenceMatrix);
-  const [visualTruth, setVisualTruth] = useState(() => createVisualTruthMatrix(projectSpec));
+  const [visualTruth, setVisualTruth] = useState(() => createVisualTruthMatrix(projectSpec, nativePreviewPages(project, projectSpec).map((page) => page.routeId)));
+  const [navigation, setNavigation] = useState<{ entries: NativePreviewLocation[]; index: number }>(() => ({ entries: [{ file: project.entryFile, query: "", fragment: "" }], index: 0 }));
+  const [navigationWarning, setNavigationWarning] = useState<string | null>(null);
   const [previewRevision, setPreviewRevision] = useState(0);
   const [downloading, setDownloading] = useState(false);
   const [visualArchiveDistance, setVisualArchiveDistance] = useState<number | null>(null);
@@ -70,15 +71,22 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
 
   const selectedFile = files.find((item) => item.path === selectedPath) ?? files[0]!;
   const editedProject = useMemo<GeneratedProject>(() => ({ ...project, files }), [project, files]);
+  const pages = useMemo(() => nativePreviewPages(editedProject, projectSpec), [editedProject, projectSpec]);
+  const location = navigation.entries[navigation.index];
+  const activePage = pages.find((page) => page.file === location.file) ?? pages[0];
+  const renderEvidence = useMemo(() => renderEvidenceFromVisualTruth(visualTruth), [visualTruth]);
   const revision = useProjectRevision(editedProject, projectSpec);
   const validation = useMemo(() => validateGeneratedProject(editedProject), [editedProject]);
-  const srcDoc = useMemo(() => buildHtmlPreviewDocument(editedProject, activeProbeId, projectSpec), [activeProbeId, editedProject, projectSpec]);
+  const srcDoc = useMemo(() => activePage ? buildHtmlPreviewDocument(editedProject, activeProbeId, projectSpec, {
+    entryFile: activePage.file, routeId: activePage.routeId, routePath: activePage.routePath,
+    routeCount: pages.length, navigation: { fragment: location.fragment },
+  }) : "<h1>No delivered HTML page</h1>", [activePage, activeProbeId, editedProject, location.fragment, pages.length, projectSpec]);
   const selectedViewport = VIEWPORTS.find((item) => item.id === viewport)!;
   const staticProblems = validation.checks.filter((item) => item.status !== "pass");
-  const renderProblems = RENDER_EVIDENCE_WIDTHS.flatMap((width) =>
-    (renderEvidence.reports[width]?.checks ?? [])
+  const renderProblems = Object.entries(visualTruth.reports).flatMap(([surface, report]) =>
+    report.checks
       .filter((item) => item.status !== "pass")
-      .map((item) => ({ ...item, viewportWidth: width }))
+      .map((item) => ({ ...item, surface, viewportWidth: report.viewport.width, page: pages.find((page) => privacySafeSurfaceKey(page.routeId) === report.surface?.routeKey)?.file ?? "Planned route" }))
   );
   const renderFailures = renderEvidence.failures;
   const renderWarnings = renderEvidence.warnings;
@@ -104,9 +112,17 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
 
   const receiveReport = useEffectEvent((message: MessageEvent<unknown>) => {
     if (message.source !== iframeRef.current?.contentWindow) return;
+    if (isNativeNavigationMessage(message.data, activeProbeId) && activePage) {
+      const target = resolveNativePreviewLink(pages, activePage.file, message.data.href);
+      if (target) navigate(target);
+      else setNavigationWarning("This link is not a delivered HTML page. External links and missing routes are not opened inside the preview; use the exported project to check them.");
+      return;
+    }
     if (isRenderGateReport(message.data, activeProbeId)) {
       const report = message.data;
-      if (!readOnly && memoryProjectId && Math.abs(report.viewport.width - 1440) <= 2 && visualMeasuredProbeRef.current !== activeProbeId) {
+      if (!activePage || report.surface?.routeKey !== privacySafeSurfaceKey(activePage.routeId)) return;
+      // Archive comparison remains entry-page evidence, not an average of unrelated pages.
+      if (activePage.file === project.entryFile && !readOnly && memoryProjectId && Math.abs(report.viewport.width - 1440) <= 2 && visualMeasuredProbeRef.current !== activeProbeId) {
         visualMeasuredProbeRef.current = activeProbeId;
         const archive = getRecentVisualFingerprints(24, memoryProjectId);
         const distance = archive.length ? Math.min(...archive.map((fingerprint) => visualFingerprintDistance(report.fingerprint, fingerprint))) : null;
@@ -114,7 +130,6 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
         onVisualDiversity?.(distance);
         rememberVisualFingerprint(report.fingerprint, memoryProjectId);
       }
-      setRenderEvidence((current) => recordRenderEvidence(current, report));
       setVisualTruth((current) => recordVisualTruth(current, report));
     }
   });
@@ -134,8 +149,7 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
 
   const updateSelectedFile = (content: string) => {
     setVisualArchiveDistance(null);
-    setRenderEvidence(createRenderEvidenceMatrix());
-    setVisualTruth(createVisualTruthMatrix(projectSpec));
+    setVisualTruth(createVisualTruthMatrix(projectSpec, pages.map((page) => page.routeId)));
     setPreviewRevision((revision) => revision + 1);
     setFiles((current) => current.map((item) => item.path === selectedFile.path ? { ...item, content } : item));
   };
@@ -144,8 +158,9 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
     setVisualArchiveDistance(null);
     setFiles(project.files);
     setSelectedPath(project.entryFile);
-    setRenderEvidence(createRenderEvidenceMatrix());
-    setVisualTruth(createVisualTruthMatrix(projectSpec));
+    setVisualTruth(createVisualTruthMatrix(projectSpec, nativePreviewPages(project, projectSpec).map((page) => page.routeId)));
+    setNavigation({ entries: [{ file: project.entryFile, query: "", fragment: "" }], index: 0 });
+    setNavigationWarning(null);
     setPreviewRevision((revision) => revision + 1);
   };
 
@@ -159,6 +174,21 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
   };
 
   const edited = files.some((item, index) => item.content !== project.files[index]?.content);
+
+  function navigate(target: NativePreviewLocation) {
+    setNavigation((current) => {
+      const entries = [...current.entries.slice(0, current.index + 1), target].slice(-50);
+      return { entries, index: entries.length - 1 };
+    });
+    setNavigationWarning(null);
+    setPreviewRevision((value) => value + 1);
+  }
+
+  function stepNavigation(delta: -1 | 1) {
+    setNavigation((current) => ({ ...current, index: Math.max(0, Math.min(current.entries.length - 1, current.index + delta)) }));
+    setNavigationWarning(null);
+    setPreviewRevision((value) => value + 1);
+  }
 
   return (
     <section className={styles.workbench} aria-label="Generated HTML project workspace">
@@ -250,12 +280,26 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
         </section>
 
         <div className={styles.previewRail}>
+          <nav className={styles.nativeRouteBar} aria-label="Preview pages">
+            <button type="button" aria-label="Previous preview page" disabled={navigation.index === 0} onClick={() => stepNavigation(-1)}>Back</button>
+            <button type="button" aria-label="Next preview page" disabled={navigation.index >= navigation.entries.length - 1} onClick={() => stepNavigation(1)}>Forward</button>
+            <label>Page
+              <select aria-label="Preview page" value={activePage?.file ?? ""} onChange={(event) => navigate({ file: event.target.value, query: "", fragment: "" })}>
+                {pages.map((page) => <option key={page.file} value={page.file}>{page.routePath} — {page.file}</option>)}
+              </select>
+            </label>
+          </nav>
+          <p className={styles.nativeCoverage} aria-live="polite">
+            Pages {visualTruth.coveredRoutes}/{visualTruth.expectedRoutes} · page/width checks {visualTruth.coveredRouteViewports}/{visualTruth.expectedRouteViewports} · state/width observations {visualTruth.coveredStateViewports}/{visualTruth.expectedStateViewports}
+          </p>
+          {navigationWarning && <p className={styles.renderPending} role="status">{navigationWarning}</p>}
           <div className={styles.previewMeta}>
             <span>NATIVE HTML · RUNNING / RENDER GATE · {renderGateStatus}</span>
             <span>{selectedViewport.width}</span>
           </div>
-          <div className={styles.previewViewport} style={{ width: selectedViewport.width }}>
+          <div className={`${styles.previewViewport} ${styles.nativePreviewViewport}`} style={{ width: selectedViewport.width }}>
             <iframe
+              key={activeProbeId}
               ref={iframeRef}
               className={styles.nativePreview}
               title={`${project.name} live preview`}
@@ -278,12 +322,12 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
             </div>
           ))}
           {renderProblems.map((item) => (
-            <div key={`render-${item.viewportWidth}-${item.id}`} className={item.status === "fail" ? styles.problemFail : styles.problemWarning}>
-              <b>Render · {item.title}</b><span>{item.message}</span>
+            <div key={`render-${item.surface}-${item.id}`} className={item.status === "fail" ? styles.problemFail : styles.problemWarning}>
+              <b>Render · {item.title}</b><span>{item.page} · {item.viewportWidth}px · {item.message}</span>
             </div>
           ))}
-          {totalProblems === 0 && renderEvidence.complete && <p className={styles.noProblems}>Static validation and all three rendered viewports passed.</p>}
-          {totalProblems === 0 && !renderEvidence.complete && <p className={styles.renderPending}>Viewport evidence {renderEvidence.covered}/3. Open each width to complete the render audit.</p>}
+          {totalProblems === 0 && renderEvidence.complete && <p className={styles.noProblems}>Static validation and the expected page/state/width coverage passed. Observed state hashes do not prove every interaction is correct.</p>}
+          {totalProblems === 0 && !renderEvidence.complete && <p className={styles.renderPending}>Viewport evidence {renderEvidence.covered}/3. Visit every page at each width and exercise its states to complete the render audit. State counts are coverage evidence, not a functional test suite.</p>}
         </div>
       </div>}
     </section>

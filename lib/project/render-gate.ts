@@ -236,7 +236,7 @@ export function recordRenderEvidence(
   const width = evidenceWidth(report.viewport.width);
   if (!width) return matrix;
   const previous = matrix.reports[width];
-  if (previous && previous.sequence > report.sequence) return matrix;
+  if (previous?.probeId === report.probeId && previous.sequence > report.sequence) return matrix;
 
   const reports = { ...matrix.reports, [width]: report };
   const captured = RENDER_EVIDENCE_WIDTHS.flatMap((candidate) => reports[candidate] ? [reports[candidate]!] : []);
@@ -275,7 +275,7 @@ export function recordRenderEvidence(
 const PROBE_FILE = "/__verve_render_probe.js";
 const REACT_PROBE_FILE = "/src/__verve_render_probe.js";
 
-export type RenderProbeContext = { routeId?: string; routePath?: string };
+export type RenderProbeContext = { routeId?: string; routePath?: string; routeCount?: number };
 
 function visualIntentExpectation(spec?: VerveProjectSpec, context?: RenderProbeContext) {
   if (!spec) return null;
@@ -328,6 +328,7 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
   return `(() => {
   const PROBE_ID = ${JSON.stringify(probeId)};
   const VISUAL_INTENT = ${JSON.stringify(visualIntentExpectation(projectSpec, context))};
+  const ROUTE_CONTEXT = ${JSON.stringify(context ?? {})};
   if (window.__verveRenderProbe === PROBE_ID) return;
   window.__verveRenderProbe = PROBE_ID;
   let sequence = 0;
@@ -401,9 +402,11 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
     const documentWidth = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
     const normalizedLocationPath = (location.pathname || "/").replace(/\\/+$/, "") || "/";
     const activeVisualIntent = VISUAL_INTENT && Array.isArray(VISUAL_INTENT.routes)
-      ? VISUAL_INTENT.routes.find((route) => ((route.path || "/").replace(/\\/+$/, "") || "/") === normalizedLocationPath)
-        || VISUAL_INTENT.routes.find((route) => route.routeIdentity === VISUAL_INTENT.defaultRouteIdentity)
-        || VISUAL_INTENT.routes[0]
+      ? ROUTE_CONTEXT.routeId
+        ? VISUAL_INTENT.routes.find((route) => route.routeIdentity === ROUTE_CONTEXT.routeId) || null
+        : VISUAL_INTENT.routes.find((route) => ((route.path || "/").replace(/\\/+$/, "") || "/") === normalizedLocationPath)
+          || VISUAL_INTENT.routes.find((route) => route.routeIdentity === VISUAL_INTENT.defaultRouteIdentity)
+          || VISUAL_INTENT.routes[0]
       : null;
     const viewportArea = Math.max(1, width * window.innerHeight);
     const clippedArea = (element) => {
@@ -629,10 +632,10 @@ export function createRenderProbeSource(probeId: string, projectSpec?: VerveProj
       depthDensity: Number(Math.min(1, depthCount / Math.max(1, visibleElements.length)).toFixed(3)),
       alignmentDiversity: Number(Math.min(1, Math.max(0, alignmentBuckets.size - 1) / 17).toFixed(3)),
       sectionRhythm,
-      routeCount
+      routeCount: ROUTE_CONTEXT.routeCount || routeCount
     };
     const surface = {
-      routeKey: privacyKey(activeVisualIntent?.routeIdentity || location.pathname || "root"),
+      routeKey: privacyKey(ROUTE_CONTEXT.routeId || activeVisualIntent?.routeIdentity || "root"),
       stateKey: privacyKey(stateTokens.length ? stateTokens.join("|") : "default"),
       activeStateCount: stateTokens.length,
       expectedStateCount: Math.max(1, Number(activeVisualIntent?.expectedStateCount || 1))

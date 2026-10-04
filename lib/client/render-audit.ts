@@ -1,7 +1,7 @@
 import type { RenderedEvaluationEvidence } from "../engine/evaluation-coherence";
 import type { RenderEvidenceMatrix } from "../project/render-gate";
 import type { DirectionRealizationReport } from "../project/visual-truth";
-import type { VisualTruthMatrix } from "../project/visual-truth";
+import { renderEvidenceFromVisualTruth, type VisualTruthMatrix } from "../project/visual-truth";
 import { RENDER_RECEIPT_PROBE_VERSION, type ProjectRevision, type RenderReceiptBinding } from "../domain/render-receipt";
 
 export function summarizeRenderAudit(
@@ -11,6 +11,7 @@ export function summarizeRenderAudit(
   revision?: ProjectRevision | null,
   truth?: VisualTruthMatrix
 ): RenderedEvaluationEvidence {
+  if (truth) render = renderEvidenceFromVisualTruth(truth);
   const reports = Object.values(truth?.reports ?? render.reports).filter((report) => Boolean(report));
   const surfaces = reports.flatMap((report) => {
     const width = ([360, 768, 1440] as const).find((value) => Math.abs(value - report.viewport.width) <= 2);
@@ -36,6 +37,12 @@ export function summarizeRenderAudit(
     directionFidelity: direction?.fidelity ?? null,
     directionStatus: direction?.status ?? null,
     visualArchiveDistance,
+    ...(truth ? { surfaceCoverage: {
+      version: 3 as const,
+      routes: { covered: truth.coveredRoutes, expected: truth.expectedRoutes },
+      routeViewports: { covered: truth.coveredRouteViewports, expected: truth.expectedRouteViewports },
+      stateViewports: { covered: truth.coveredStateViewports, expected: truth.expectedStateViewports },
+    } } : {}),
     ...(binding ? { binding } : {}),
     privacy: "numeric-and-hashed-render-summary-only",
   };

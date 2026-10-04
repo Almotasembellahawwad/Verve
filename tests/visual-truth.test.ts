@@ -12,6 +12,7 @@ import {
   createVisualTruthMatrix,
   privacySafeSurfaceKey,
   recordVisualTruth,
+  renderEvidenceFromVisualTruth,
 } from "../lib/project/visual-truth";
 
 const layers: VisualLayer[] = ["type", "shape", "interaction"];
@@ -108,6 +109,11 @@ test("Visual Truth stays incomplete until every route, viewport, and declared st
   assert.equal(matrix.coveredRoutes, 2);
   assert.equal(matrix.coveredRouteViewports, 6);
   assert.equal(matrix.coveredStates, 3);
+  assert.equal(matrix.complete, false, "State coverage must exist at each width, not only somewhere on the route");
+  matrix = recordVisualTruth(matrix, report("catalog", "paper", 360, 7));
+  matrix = recordVisualTruth(matrix, report("catalog", "all", 768, 8));
+  matrix = recordVisualTruth(matrix, report("catalog", "paper", 1440, 9));
+  assert.equal(matrix.coveredStateViewports, 9);
   assert.equal(matrix.complete, true);
   assert.equal(matrix.status, "pass");
 
@@ -173,6 +179,9 @@ test("Direction Fidelity requires measured desktop-to-mobile Composition Genome 
     matrix = recordVisualTruth(matrix, withComposition(report("order", "default", 360, 4), true, weak));
     matrix = recordVisualTruth(matrix, withComposition(report("order", "default", 768, 5), false, weak));
     matrix = recordVisualTruth(matrix, withComposition(report("order", "default", 1440, 6), false, weak));
+    matrix = recordVisualTruth(matrix, withComposition(report("catalog", "paper", 360, 7), true, weak));
+    matrix = recordVisualTruth(matrix, withComposition(report("catalog", "all", 768, 8), false, weak));
+    matrix = recordVisualTruth(matrix, withComposition(report("catalog", "paper", 1440, 9), false, weak));
     return matrix;
   };
 
@@ -183,6 +192,50 @@ test("Direction Fidelity requires measured desktop-to-mobile Composition Genome 
   assert.ok(unchanged.axes.composition.score < 0.6);
   assert.equal(unchanged.status, "review");
   assert.ok(unchanged.unverified.some((message) => message.includes("Composition Genome")));
+});
+
+test("excess states cannot borrow coverage from another route, and unknown routes cannot contribute", () => {
+  let matrix = createVisualTruthMatrix(spec);
+  for (const width of [360, 768, 1440] as const) {
+    for (const state of ["default", "unrelated", "more"]) matrix = recordVisualTruth(matrix, report("order", state, width, 1));
+    matrix = recordVisualTruth(matrix, report("catalog", "all", width, 1));
+  }
+  assert.equal(matrix.coveredStates, 2);
+  assert.equal(matrix.coveredStateViewports, 6);
+  assert.equal(matrix.complete, false);
+  assert.equal(recordVisualTruth(matrix, report("unknown", "extra", 360, 10)), matrix);
+});
+
+test("project-wide evidence retains non-entry failures and accepts a new probe's sequence reset", () => {
+  let matrix = createVisualTruthMatrix(spec);
+  const failed = report("order", "default", 1440, 100);
+  failed.checks = [{ id: "runtime-errors", title: "JavaScript", status: "fail", message: "Controlled failure" }];
+  matrix = recordVisualTruth(matrix, failed);
+  for (const width of [360, 768, 1440] as const) matrix = recordVisualTruth(matrix, report("catalog", "all", width, 101));
+  const aggregate = renderEvidenceFromVisualTruth(matrix);
+  assert.equal(aggregate.covered, 3);
+  assert.equal(aggregate.complete, false);
+  assert.equal(aggregate.status, "fail");
+  assert.equal(aggregate.failures, 1);
+  const reload = { ...report("order", "default", 1440, 1), probeId: "new-active-frame" };
+  matrix = recordVisualTruth(matrix, reload);
+  assert.equal(matrix.failures, 0);
+  assert.equal(matrix.reports[`${reload.surface!.routeKey}:${reload.surface!.stateKey}:1440`].probeId, "new-active-frame");
+  assert.equal(recordVisualTruth(matrix, { ...reload, sequence: 0 }), matrix, "Out-of-order messages from this probe stay rejected");
+});
+
+test("direction diagnostics expose missing typography and layers rather than a new creativity grade", () => {
+  let matrix = createVisualTruthMatrix(spec);
+  const rendered = report("catalog", "all", 1440, 1);
+  rendered.fingerprint.fontHistogram = [{ family: "Georgia", weight: 1 }];
+  rendered.fingerprint.visualLayerHistogram = [{ layer: "type", weight: 1 }];
+  rendered.functionalVisual!.observedLayers = ["type"];
+  matrix = recordVisualTruth(matrix, rendered);
+  const realization = buildDirectionRealizationReport(spec, matrix);
+  assert.equal(realization.axes.typography.observed, 0);
+  assert.equal(realization.axes.layers.observed, 1);
+  assert.notEqual(realization.status, "pass");
+  assert.ok(realization.unverified.some((message) => message.includes("typography")));
 });
 
 test("Visual Fingerprint v2 detects font, area-color, and functional-layer differences", () => {
