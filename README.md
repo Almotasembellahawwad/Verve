@@ -480,6 +480,7 @@ Other public routes are documented in the in-app `/docs` page.
 
 ## Security model
 
+- CI audits all dependencies, including lint tooling. The scoped Next lint glob replacement preserves rule coverage and bounds pattern processing; see [remediation and maintenance](docs/SECURE_LINT_DEPENDENCY.md).
 - API keys remain in browser storage and are sent only to Verve’s same-origin API route for the selected request.
 - Keys are never included in results, history entries, logs, generated files, or recovery projects.
 - Logs redact common Anthropic, OpenAI, OpenRouter, Gemini, and bearer-token patterns.
