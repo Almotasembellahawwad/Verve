@@ -421,6 +421,7 @@ export function buildVisualNarrativeContract(input: {
     scenes,
     model,
     density: compositionDensity,
+    openingMode: direction?.descriptors.openingMode,
     seed: `${analysis.subject}:${direction?.id ?? model}:${direction?.descriptors.openingMode ?? "task-first"}`,
   });
 
