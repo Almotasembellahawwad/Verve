@@ -28,6 +28,16 @@ provider generations or engine-produced showcase examples are part of this chang
   This prevents the host's global smooth scroll from moving an opaque frame during
   focus/navigation and pointer dispatch. Generated-page motion remains isolated.
   The native browser suite explicitly disables retries to expose unstable clicks.
+- The native canvas scrolls independently of its navigation controls. Changing
+  coverage, link warnings and live direction/diversity diagnostics appear below
+  the canvas, so they cannot insert a new row above a pressed iframe control.
+  A deterministic RTL pointer regression reproduced an approximately 88px shift
+  before this correction. This establishes a real host-layout bug; it does not
+  establish that every previously intermittent CI click had the same cause.
+- Result-envelope entrance motion is disabled while it contains an interactive
+  iframe. A second measured residual shift came from that ancestor transform,
+  not the child document. Generated-page motion and static-result entrances
+  remain unchanged. CI repeats all native cases five times without retries.
 
 ## What this does not prove
 

@@ -1489,6 +1489,9 @@
 .results {
   animation: resultsIn 0.4s 0.05s ease both;
 }
+/* Animate static results, not the host coordinates of an interactive iframe.
+   Child-page motion stays inside the generated document. */
+.results:has(iframe) { animation: none; }
 @keyframes resultsIn {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }

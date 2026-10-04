@@ -177,6 +177,12 @@
 .preview { height: 100% !important; border: 1px solid #2c2e33; border-radius: 0 !important; }
 .nativePreview { display: block; width: 100%; height: 100%; border: 1px solid #2c2e33; background: #fff; }
 .nativePreviewViewport { transition: none; }
+/* Native controls and live diagnostics must not share a two-axis scroller with
+   the opaque document. Only the fixed-width canvas scrolls horizontally. */
+.previewRail.nativePreviewRail { overflow: visible; height: auto; }
+.nativePreviewCanvas { min-width: 0; overflow-x: auto; overflow-y: hidden; }
+.nativePreviewRail .previewMeta > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nativePreviewRail .previewMeta > span:last-child { flex-shrink: 0; }
 /* The host must not keep animating its ancestor scroll while an opaque frame
    navigates/focuses a local control. Generated-page motion remains isolated. */
 :global(html):has(.nativeLayout) { scroll-behavior: auto; }

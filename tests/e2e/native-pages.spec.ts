@@ -163,3 +163,32 @@ test("RTL keyboard navigation stays bounded; stale route/probe messages cannot n
   }
   expect(page.url()).toMatch(/\/create$/);
 });
+
+test("native diagnostic updates cannot move a pressed RTL control", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome", "Pointer geometry is measured in the explicit desktop canvas.");
+  const { workspace, frame } = await openFixture(page, { rtl: true });
+  await expect.poll(() => frame.locator("html").evaluate(() => document.readyState)).toBe("complete");
+  const link = frame.getByRole("link", { name: "Custom interaction link" });
+  await link.hover();
+  const before = await link.boundingBox();
+  expect(before).not.toBeNull();
+  await page.mouse.move(before!.x + before!.width / 2, before!.y + before!.height / 2);
+  await page.mouse.down();
+  try {
+    // A real preview message arrives between pointer down and up. The host must
+    // show its warning without moving the document or replacing its runtime.
+    await frame.locator("html").evaluate(() => {
+      const probeId = (window as typeof window & { __verveRenderProbe: string }).__verveRenderProbe;
+      parent.postMessage({ source: "verve-native-navigation", version: 1, probeId, href: "/missing" }, "*");
+    });
+    await expect(workspace.getByText(/This link is not a delivered HTML page/)).toBeVisible();
+    const after = await link.boundingBox();
+    expect(after).not.toBeNull();
+    expect(Math.abs(after!.y - before!.y)).toBeLessThan(1);
+    expect(Math.abs(after!.x - before!.x)).toBeLessThan(1);
+  } finally {
+    await page.mouse.up();
+  }
+  await expect(frame.locator("#delegated-state")).toHaveText("Custom interaction handled");
+  await expect(workspace.getByLabel("Preview page", { exact: true })).toHaveValue("index.html");
+});
