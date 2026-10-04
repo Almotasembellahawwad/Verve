@@ -230,19 +230,6 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
           <ul>{project.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
         </div>
       )}
-      {visualReviewRequired && (
-        <div className={styles.warning} role="status">
-          <strong>Visual diversity review</strong>
-          <p>This render is close to a recent local result ({visualArchiveDistance.toFixed(2)} distance). Fast results should be reviewed; Creative results should be regenerated from another direction.</p>
-        </div>
-      )}
-      {directionReviewRequired && directionRealization && (
-        <div className={styles.warning} role="status">
-          <strong>Direction realization needs evidence · DF {directionRealization.fidelity.toFixed(2)}</strong>
-          <p>{directionRealization.unverified.slice(0, 3).join(" ")}</p>
-        </div>
-      )}
-
       <div className={styles.nativeLayout} data-mode={focusMode}>
         <nav className={styles.fileList} aria-label="Project files">
           {files.map((item) => (
@@ -279,7 +266,7 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
           )}
         </section>
 
-        <div className={styles.previewRail}>
+        <div className={`${styles.previewRail} ${styles.nativePreviewRail}`}>
           <nav className={styles.nativeRouteBar} aria-label="Preview pages">
             <button type="button" aria-label="Previous preview page" disabled={navigation.index === 0} onClick={() => stepNavigation(-1)}>Back</button>
             <button type="button" aria-label="Next preview page" disabled={navigation.index >= navigation.entries.length - 1} onClick={() => stepNavigation(1)}>Forward</button>
@@ -289,26 +276,41 @@ export default function NativeHtmlWorkbench({ project, projectSpec, onProjectCha
               </select>
             </label>
           </nav>
-          <p className={styles.nativeCoverage} aria-live="polite">
-            Pages {visualTruth.coveredRoutes}/{visualTruth.expectedRoutes} · page/width checks {visualTruth.coveredRouteViewports}/{visualTruth.expectedRouteViewports} · state/width observations {visualTruth.coveredStateViewports}/{visualTruth.expectedStateViewports}
-          </p>
-          {navigationWarning && <p className={styles.renderPending} role="status">{navigationWarning}</p>}
           <div className={styles.previewMeta}>
             <span>NATIVE HTML · RUNNING / RENDER GATE · {renderGateStatus}</span>
             <span>{selectedViewport.width}</span>
           </div>
-          <div className={`${styles.previewViewport} ${styles.nativePreviewViewport}`} style={{ width: selectedViewport.width }}>
-            <iframe
-              key={activeProbeId}
-              ref={iframeRef}
-              className={styles.nativePreview}
-              title={`${project.name} live preview`}
-              sandbox="allow-scripts"
-              srcDoc={previewReady ? srcDoc : undefined}
-            />
+          <div className={styles.nativePreviewCanvas}>
+            <div className={`${styles.previewViewport} ${styles.nativePreviewViewport}`} style={{ width: selectedViewport.width }}>
+              <iframe
+                key={activeProbeId}
+                ref={iframeRef}
+                className={styles.nativePreview}
+                title={`${project.name} live preview`}
+                sandbox="allow-scripts"
+                srcDoc={previewReady ? srcDoc : undefined}
+              />
+            </div>
           </div>
+          <p className={styles.nativeCoverage} aria-live="polite">
+            Pages {visualTruth.coveredRoutes}/{visualTruth.expectedRoutes} · page/width checks {visualTruth.coveredRouteViewports}/{visualTruth.expectedRouteViewports} · state/width observations {visualTruth.coveredStateViewports}/{visualTruth.expectedStateViewports}
+          </p>
+          {navigationWarning && <p className={styles.renderPending} role="status">{navigationWarning}</p>}
         </div>
       </div>
+
+      {visualReviewRequired && (
+        <div className={styles.warning} role="status">
+          <strong>Visual diversity review</strong>
+          <p>This render is close to a recent local result ({visualArchiveDistance.toFixed(2)} distance). Fast results should be reviewed; Creative results should be regenerated from another direction.</p>
+        </div>
+      )}
+      {directionReviewRequired && directionRealization && (
+        <div className={styles.warning} role="status">
+          <strong>Direction realization needs evidence · DF {directionRealization.fidelity.toFixed(2)}</strong>
+          <p>{directionRealization.unverified.slice(0, 3).join(" ")}</p>
+        </div>
+      )}
 
       {showDiagnostics && <div className={styles.bottomPanel}>
         <div className={styles.bottomTabs}>
