@@ -1,6 +1,11 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import { createRequire } from "node:module";
+import installNextLintGlobGuard from "./tools/next-lint-glob.mjs";
+
+// Scoped compatibility/bounds for the pinned Next plugin's substituted glob.
+installNextLintGlobGuard(createRequire(import.meta.url));
 
 const eslintConfig = defineConfig([
   ...nextVitals,
