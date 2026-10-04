@@ -5,6 +5,7 @@ import { generateDesignPlanLocally } from "../lib/engine/fast-path";
 import { applySelectedDirection } from "../lib/engine/direction-portfolio";
 import { buildVerveProjectSpec } from "../lib/engine/project-spec-builder";
 import { validateVerveProjectSpec } from "../lib/domain/project-spec";
+import { buildCompositionGenome } from "../lib/engine/composition-genome";
 import type { DirectionOpeningMode, ExperienceModel } from "../lib/domain/design-direction";
 import type { AssetBundle } from "../lib/engine/asset-sourcer";
 
@@ -82,3 +83,42 @@ for (const fixture of pairedBriefs) {
     assert.deepEqual(compilePair(fixture), [left, right], "Compiler decisions remain reproducible");
   });
 }
+
+test("opening preference changes an ambiguous composition with identical scenes and seed", () => {
+  const [spec] = compilePair(pairedBriefs[0]);
+  // A neutral orientation scene isolates the selector. It would be incorrect to
+  // demand different structures for every content shape: strong data/task fit
+  // may legitimately outweigh the soft preference.
+  const scenes = spec.narrative.scenes.map((scene, index) => index === 0
+    ? { ...scene, informationShape: "orientation-signal" as const, medium: "typography" as const }
+    : scene);
+  const input = { scenes, model: "narrative-scroll" as const, density: "balanced" as const, seed: "identical-opening-regression-seed" };
+  for (const openings of [["task-first", "canvas-first"], ["question-first", "story-first"]] as const) {
+    const [left, right] = openings.map((openingMode) => buildCompositionGenome({ ...input, openingMode }));
+    assert.notDeepEqual(left.assignments[0].genes, right.assignments[0].genes);
+    assert.deepEqual(buildCompositionGenome({ ...input, openingMode: openings[0] }), left);
+    assert.ok(left.assignments[0].rationale.includes(openings[0]));
+    assert.ok(right.assignments[0].rationale.includes(openings[1]));
+    assert.ok([...left.assignments.slice(1), ...right.assignments.slice(1)].every((assignment) => !assignment.rationale.includes("selected")));
+  }
+});
+
+test("opening preference does not freeze all content to one structural template", () => {
+  const [spec] = compilePair(pairedBriefs[2]);
+  const input = { scenes: spec.narrative.scenes, model: "task-workbench" as const, density: "dense" as const, seed: "identical-opening-regression-seed", openingMode: "canvas-first" as const };
+  const data = buildCompositionGenome(input);
+  const orientation = buildCompositionGenome({ ...input, scenes: input.scenes.map((scene, index) => index === 0
+    ? { ...scene, informationShape: "orientation-signal" as const, medium: "spatial" as const }
+    : scene) });
+  assert.notEqual(data.assignments[0].genes.structure, orientation.assignments[0].genes.structure);
+});
+
+test("optional opening mode preserves legacy callers without an opening claim", () => {
+  const [spec] = compilePair(pairedBriefs[0]);
+  const input = { scenes: spec.narrative.scenes, model: pairedBriefs[0].model, density: "balanced" as const, seed: "legacy-opening-regression" };
+  const legacy = buildCompositionGenome(input);
+  assert.deepEqual(buildCompositionGenome({ ...input, openingMode: undefined }), legacy);
+  assert.equal(legacy.assignments.some((assignment) => assignment.rationale.includes("selected")), false);
+  assert.ok(legacy.distinctStructures >= 3);
+  assert.ok(legacy.minimumAdjacentDistance >= 0.3);
+});

@@ -19,6 +19,8 @@ The compiler now passes the selected opening mode to composition selection. For 
 
 Run `npx tsx --test tests/direction-opening-realization.test.ts`, or the full `npm test` suite. The test compiles eight contracts, checks valid schemas, non-identical opening genes within each pair, identical source facts/evidence, single-page intent, Fast's eight-file ceiling, reproducibility and existing local composition diversity requirements.
 
+An additional selector-level check holds a neutral orientation scene and seed identical while changing only opening intent, so a different seed cannot account for the result. A separate check allows different content shapes to choose different structures for the same opening mode: content fit can still outweigh the soft preference. Not every pair of opening modes is guaranteed to produce different genes on every scene. Optional legacy callers remain reproducible without inventing an opening-intent claim; later scenes do not receive that claim.
+
 The architecture fixture deliberately supplies no images and makes **no asset-delivery or launch-readiness claim**. Arabic compiler coverage does not substitute for RTL browser checks.
 
 ## What remains unproved
