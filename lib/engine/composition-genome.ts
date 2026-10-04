@@ -11,6 +11,7 @@ import {
   type StoryScene,
   type VisualMedium,
 } from "../domain/project-spec";
+import type { DirectionOpeningMode } from "../domain/design-direction";
 
 export const COMPOSITION_AXIS_WEIGHTS: CompositionGenomeContract["axisWeights"] = {
   structure: 0.28,
@@ -63,6 +64,18 @@ const MEDIUM_AFFINITY: Record<VisualMedium, CompositionStructure[]> = {
 };
 
 const STRUCTURES = Object.keys(BASE_GENES) as CompositionStructure[];
+
+// Opening intent is an executable preference, not just prose or a seed. Keep
+// several viable structures per intent so content/medium can still influence
+// the result; these are not complete-page templates or hard exclusions.
+const OPENING_AFFINITY: Record<DirectionOpeningMode, CompositionStructure[]> = {
+  "task-first": ["rail-canvas", "modular-matrix", "split-stage"],
+  "media-first": ["layered-field", "split-stage", "mosaic-browser"],
+  "index-first": ["mosaic-browser", "modular-matrix", "rail-canvas"],
+  "question-first": ["single-object-stage", "split-stage", "radial-map"],
+  "canvas-first": ["layered-field", "radial-map", "rail-canvas"],
+  "story-first": ["editorial-spine", "layered-field", "split-stage"],
+};
 
 function stableHash(value: string): number {
   let hash = 2166136261;
@@ -160,6 +173,7 @@ export function buildCompositionGenome(input: {
   model: ExperienceModel;
   density: CompositionDensity;
   seed: string;
+  openingMode?: DirectionOpeningMode;
 }): CompositionGenomeContract {
   const assignments: CompositionGenomeContract["assignments"] = [];
   const previousByRoute = new Map<string, CompositionGenomeContract["assignments"][number]>();
@@ -172,7 +186,12 @@ export function buildCompositionGenome(input: {
       const diversity = priorDistances.length ? Math.min(...priorDistances) : 1;
       const adjacentDistance = routePrevious ? compositionGenomeDistance(genes, routePrevious.genes) : 1;
       const stableJitter = (stableHash(`${input.seed}:${scene.id}:${structure}`) % 1000) / 1000;
-      const score = fitScore(structure, scene, input.model) * 0.6 + Math.min(diversity, adjacentDistance) * 0.37 + stableJitter * 0.03;
+      const openingPreferences = index === 0 && input.openingMode ? OPENING_AFFINITY[input.openingMode] : undefined;
+      const score = openingPreferences
+        ? fitScore(structure, scene, input.model) * 0.35
+          + rankScore(structure, openingPreferences) * 0.5
+          + Math.min(diversity, adjacentDistance) * 0.12 + stableJitter * 0.03
+        : fitScore(structure, scene, input.model) * 0.6 + Math.min(diversity, adjacentDistance) * 0.37 + stableJitter * 0.03;
       return { structure, genes, score, adjacentDistance };
     });
     const diverseCandidates = candidates.filter((candidate) => candidate.adjacentDistance >= 0.3);
@@ -190,7 +209,7 @@ export function buildCompositionGenome(input: {
       continuity: continuityFor(scene),
       mobileTransform: mobileTransformFor(selected.structure),
       distanceFromPrevious: previous ? compositionGenomeDistance(previous.genes, selected.genes) : null,
-      rationale: `${scene.informationShape ?? "orientation-signal"} in a ${input.model} experience uses ${selected.structure}; ${continuityFor(scene)} continuity preserves the story while changing spatial expression.`,
+      rationale: `${scene.informationShape ?? "orientation-signal"} in a ${input.model} experience uses ${selected.structure}${index === 0 && input.openingMode ? ` to realize the selected ${input.openingMode} opening` : ""}; ${continuityFor(scene)} continuity preserves the story while changing spatial expression.`,
     } as const;
     assignments.push(assignment);
     previousByRoute.set(scene.routeId, assignment);

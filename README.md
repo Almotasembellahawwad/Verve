@@ -13,6 +13,7 @@ Verve is an open-source project intelligence engine for generating distinctive w
 - Comparison tasks stay inside the requested experience. Verve no longer manufactures a `/compare` export or extra pages to fill a complexity budget. Additional pages require explicit brief intent; undeclared or missing pages fail source validation.
 - HTML manifests retain safe `app.js`, nested scripts, `.mjs` modules and stylesheets. Invalid, duplicated or over-budget source manifests fail explicitly instead of silently dropping dependencies. React/Next can include bounded typed helpers without replacing engine-owned scaffolding.
 - Whole-project preflight checks scripts, literal module imports, CSS imports and classic-versus-module loading. Creative repairs one complete source manifest; remaining errors still block readiness, and a failed repair consumes its call allowance.
+- Selected opening intent now influences the primary composition, rather than only a scene label/seed. A [four-brief paired regression](docs/DIRECTION_REALIZATION_REGRESSION.md) protects this compiler behavior; it is not a claim of measured provider output quality.
 - Native preview preserves deferred script execution, module boundaries, stylesheet media conditions and nested asset paths. ZIP export keeps the authored source and binaries; preview instrumentation is never exported. HTML modules require a local HTTP server rather than `file://`.
 - Fast checkpoints preserve the complete selected direction. A changed selection replaces its identity atomically; unknown or stale selections are rejected before model calls rather than silently choosing a different direction.
 - Native HTML preview exposes all delivered pages, resolves local page links and provides Back/Forward without relaxing its opaque-origin sandbox. The bridge is preview-only: it is not exported and does not emulate a server, `location.search`, scripted `location` navigation or form endpoints. See the [page-evidence contract and limitations](docs/NATIVE_PREVIEW_EVIDENCE.md).
@@ -485,7 +486,7 @@ Other public routes are documented in the in-app `/docs` page.
 - API keys remain in browser storage and are sent only to Verve’s same-origin API route for the selected request.
 - Keys are never included in results, history entries, logs, generated files, or recovery projects.
 - Logs redact common Anthropic, OpenAI, OpenRouter, Gemini, and bearer-token patterns.
-- HTML and React previews run inside a Sandpack iframe rather than Verve’s own React tree. Next.js output is inspected and exported without starting a browser shell.
+- HTML previews run in an opaque native `allow-scripts` iframe; React uses Sandpack. Neither runs in Verve’s own React tree. Next.js output is inspected and exported without starting a generated application shell.
 - Project edits are revalidated in the browser and the exact edited files are used for ZIP export.
 - Remote critique URLs must be public HTTPS targets; private-network and loopback addresses are rejected.
 - Voice input requires an explicit browser microphone permission and remains editable before submission.
