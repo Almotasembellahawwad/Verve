@@ -21,7 +21,7 @@
     "test:load": "node scripts/load-smoke.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.129.0",
+    "@anthropic-ai/sdk": "^0.135.0",
     "@codesandbox/sandpack-react": "^2.20.0",
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "@fontsource-variable/fraunces": "^5.3.0",
@@ -37,14 +37,14 @@
     "colorthief": "^3.5.0",
     "html2canvas": "^1.4.1",
     "jszip": "^3.10.2",
-    "lucide-react": "^1.48.0",
-    "next": "^16.3.7",
-    "openai": "^7.24.0",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
+    "lucide-react": "^1.58.0",
+    "next": "^16.4.2",
+    "openai": "^7.34.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "typescript": "^5",
-    "uuid": "^14.0.2",
-    "zod": "^4.6.5"
+    "uuid": "^14.0.3",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
